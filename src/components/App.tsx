@@ -15,7 +15,8 @@ import {
   type SketchFeature,
   type SketchKind,
 } from '@/lib/cad/sketch';
-import { buildVn2000, checkLocation, getProvince, suggestCrs } from '@/lib/geo';
+import { buildVn2000, checkLocation, getProvince, PROVINCES, suggestCrs } from '@/lib/geo';
+import { decodeSharedMap, sharePayloadOf, type SharedMap } from '@/lib/cad/share';
 import {
   createFileLayerCache,
   DEFAULT_BASEMAP_ID,
@@ -43,6 +44,7 @@ import LayerPanel from './LayerPanel';
 import MapPanel, { type PanelTab } from './MapPanel';
 import type { MapPick } from './MapView';
 import { createOpenFile, drawingCrsLabel, type OpenFile } from './openFile';
+import ShareDialog from './ShareDialog';
 import SketchPanel from './SketchPanel';
 import { IconAlert, IconSpinner, IconUpload, Logo } from './icons';
 
@@ -90,6 +92,33 @@ async function loadTextFont(): Promise<string> {
 /** Pseudo file id of the sketch layer (deck layer-id prefix, pick routing). */
 const SKETCH_ID = 'sketch';
 const SKETCH_STORAGE_KEY = 'ledat-gis:sketches:v1';
+
+const META_STORAGE_KEY = 'ledat-gis:map-meta:v1';
+const DEFAULT_MAP_TITLE = 'Bản đồ chưa đặt tên';
+
+function loadMeta(): { title: string; description: string } {
+  try {
+    const m = JSON.parse(window.localStorage.getItem(META_STORAGE_KEY) ?? 'null') as { title?: unknown; description?: unknown } | null;
+    return {
+      title: typeof m?.title === 'string' && m.title.trim() ? m.title : DEFAULT_MAP_TITLE,
+      description: typeof m?.description === 'string' ? m.description : '',
+    };
+  } catch {
+    return { title: DEFAULT_MAP_TITLE, description: '' };
+  }
+}
+
+/** The page was opened from a shared link (`#m=…`). */
+const openedFromShare = () => typeof window !== 'undefined' && sharePayloadOf(window.location.hash) !== null;
+
+/** File-system friendly name from a map title. */
+const fileSafe = (t: string) => t.replace(/[\\/:*?"<>|]+/g, '-').trim() || 'ban-do';
+
+/** VN-2000 (3° zone) of the province containing a point, for DXF export of sketches when no drawing is open. */
+function vn2000Around(lng: number, lat: number): CrsOptions {
+  const p = PROVINCES.find((x) => lng >= x.bbox[0] && lat >= x.bbox[1] && lng <= x.bbox[2] && lat <= x.bbox[3]);
+  return { proj4: buildVn2000(p?.lon0 ?? 105, 3), swapXY: false, unitScale: 1 };
+}
 
 function loadSketches(): SketchFeature[] {
   try {
@@ -139,19 +168,31 @@ export default function App() {
   const [layerCache] = useState(() => createFileLayerCache());
   // ---- sketches (user drawings) ----
   // Restored from this browser; sketches only render on the map page, so the server's empty list never mismatches.
-  const [sketches, setSketches] = useState<SketchFeature[]>(() => (typeof window === 'undefined' ? [] : loadSketches()));
+  // A shared link starts empty and is filled by the decoder below (local sketches stay untouched in storage).
+  const [sharedView, setSharedView] = useState(openedFromShare);
+  const [sketches, setSketches] = useState<SketchFeature[]>(() => (typeof window === 'undefined' || openedFromShare() ? [] : loadSketches()));
+  const [mapMeta, setMapMeta] = useState(() =>
+    typeof window === 'undefined' || openedFromShare() ? { title: DEFAULT_MAP_TITLE, description: '' } : loadMeta(),
+  );
+  const [shareMap, setShareMap] = useState<SharedMap | null>(null);
+  const sketchesRef = useRef(sketches);
+  useEffect(() => {
+    sketchesRef.current = sketches;
+  }, [sketches]);
   const [sketchShown, setSketchShown] = useState(true);
   const [sketchOpacity, setSketchOpacity] = useState(1);
   const [sketchSel, setSketchSel] = useState<string | null>(null);
   const [drawTool, setDrawTool] = useState<SketchKind | null>(null);
   const [nextColor, setNextColor] = useState(SKETCH_DEFAULT_COLOR);
   useEffect(() => {
+    if (sharedView) return; // viewing someone's link: never overwrite this device's own map
     try {
       window.localStorage.setItem(SKETCH_STORAGE_KEY, JSON.stringify(sketches));
+      window.localStorage.setItem(META_STORAGE_KEY, JSON.stringify(mapMeta));
     } catch {
       /* storage full / disabled: sketches still live for this session */
     }
-  }, [sketches]);
+  }, [sketches, mapMeta, sharedView]);
   const [styledCache] = useState(() => new Map<string, { doc: CadDocument; styles: LayerStyles; out: CadDocument }>());
 
   const commitFiles = useCallback((next: OpenFile[]) => {
@@ -331,6 +372,8 @@ export default function App() {
       commitFiles(replace ? [entry] : [entry, ...prev]);
       setActive(id);
       setPick(null);
+      // A freshly opened drawing starts on its layers (not on a tab left over from an earlier map).
+      if (replace) setFocusTab((t) => ({ tab: 'layers', seq: (t?.seq ?? 0) + 1 }));
       const t0 = performance.now();
       try {
         const raw = await pipeline().parse(file, (stage, percent) => patch(id, { progress: { stage, percent } }), id);
@@ -386,7 +429,7 @@ export default function App() {
       dropFileResources(id);
       if (activeIdRef.current === id) setActive(rest[0]?.id ?? null);
       setPick((p) => (p?.fileId === id ? null : p));
-      if (rest.length === 0) go('landing');
+      if (rest.length === 0 && sketchesRef.current.length === 0) go('landing');
     },
     [commitFiles, dropFileResources, setActive, go],
   );
@@ -419,6 +462,62 @@ export default function App() {
       }
     })();
   }, [handleFile, go]);
+
+  // Shared map links: #m=… holds the whole map (decoded locally, nothing fetched).
+  useEffect(() => {
+    const openShared = async () => {
+      const payload = sharePayloadOf(window.location.hash);
+      if (payload === null) return;
+      const m = await decodeSharedMap(payload);
+      if (!m) {
+        setGlobalError('Link chia sẻ bị hỏng hoặc không đầy đủ (có thể đã bị cắt khi gửi). Hãy nhờ người gửi chép lại link.');
+        // Opened straight from a broken link: fall back to this device's own map. While another shared map is
+        // on screen, keep the shared (non-persisting) mode so it never overwrites the local one.
+        if (sketchesRef.current.length === 0) {
+          const own = loadSketches();
+          sketchesRef.current = own;
+          setSketches(own);
+          setMapMeta(loadMeta());
+          setSharedView(false);
+        }
+        return;
+      }
+      setSharedView(true);
+      sketchesRef.current = m.features;
+      setSketches(m.features);
+      setMapMeta({ title: m.title, description: m.description ?? '' });
+      if (m.basemap) setBasemapId(m.basemap);
+      setSketchShown(true);
+      setSketchSel(null);
+      go('map');
+      requestFit(sketchToDocument(m.features).bbox);
+      setFocusTab((t) => ({ tab: 'draw', seq: (t?.seq ?? 0) + 1 }));
+    };
+    void openShared();
+    window.addEventListener('hashchange', openShared);
+    return () => window.removeEventListener('hashchange', openShared);
+  }, [go, requestFit]);
+
+  // Tab title follows the map name on the map page.
+  useEffect(() => {
+    const named = stage === 'map' && (sketches.length > 0 || sharedView || files.length === 0);
+    document.title = named ? `${mapMeta.title} · LEDAT-GIS` : 'LEDAT-GIS';
+  }, [stage, sketches.length, sharedView, files.length, mapMeta.title]);
+
+  const openBlankMap = () => {
+    go('map');
+    setFocusTab((t) => ({ tab: 'draw', seq: (t?.seq ?? 0) + 1 }));
+  };
+
+  const keepSharedMap = () => {
+    // Becomes this device's own map: persisted from now on, and the link is dropped from the address bar.
+    setSharedView(false);
+    try {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    } catch {
+      /* ignore */
+    }
+  };
 
   // ---- active-file actions ------------------------------------------------------------------------
 
@@ -490,10 +589,6 @@ export default function App() {
 
   // ---- sketch actions -----------------------------------------------------------------------------
 
-  const sketchesRef = useRef(sketches);
-  useEffect(() => {
-    sketchesRef.current = sketches;
-  }, [sketches]);
   const commitSketch = useCallback(
     (kind: SketchKind, points: Vec2[]) => {
       const list = sketchesRef.current;
@@ -658,7 +753,16 @@ export default function App() {
   const progress = busyFile?.progress ?? null;
   /** Source already in WGS84 (KML/KMZ): step 2 picks the DXF target CRS instead of the drawing CRS. */
   const isGeoSource = !!rawDoc?.crs;
-  const dxfCrs = isGeoSource ? (crsFromForm(form).proj4 ? crsFromForm(form) : null) : activeCrs;
+  const sketchCenter: Vec2 = [(sketchDoc.bbox[0][0] + sketchDoc.bbox[1][0]) / 2, (sketchDoc.bbox[0][1] + sketchDoc.bbox[1][1]) / 2];
+  const dxfCrs = !af
+    ? sketchDoc.layers.length
+      ? vn2000Around(sketchCenter[0], sketchCenter[1])
+      : null
+    : isGeoSource
+      ? crsFromForm(form).proj4
+        ? crsFromForm(form)
+        : null
+      : activeCrs;
   const warnings = doc?.warnings ?? rawDoc?.warnings ?? [];
   const stats = rawDoc
     ? [
@@ -737,7 +841,8 @@ export default function App() {
           progress={af?.progress ?? null}
           error={stage === 'landing' ? (globalError ?? af?.error ?? null) : null}
           resumeName={rawDoc ? af?.fileName : undefined}
-          onResume={rawDoc ? () => go(files.length > 1 || isGeoSource ? 'map' : 'crs') : undefined}
+          onResume={rawDoc ? () => go(files.length > 1 || isGeoSource ? 'map' : 'crs') : sketches.length ? () => go('map') : undefined}
+          onBlankMap={openBlankMap}
           panel={
             stage === 'crs' ? (
               <CrsStep
@@ -784,6 +889,18 @@ export default function App() {
           ? `${f.rawDoc.entities.length.toLocaleString('vi-VN')} đối tượng · ${f.rawDoc.layers.length} layer`
           : undefined,
   }));
+
+  const noFileHint = (text: string) => (
+    <div className="flex flex-col items-center gap-3 px-4 py-10 text-center text-xs leading-relaxed text-zinc-400">
+      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 text-zinc-500">
+        <IconUpload width={18} height={18} />
+      </span>
+      <p className="max-w-[16rem]">{text}</p>
+      <p>
+        Bấm <b className="font-medium text-zinc-600">+ Thêm file</b> ở trên hoặc kéo thả file vào bản đồ.
+      </p>
+    </div>
+  );
 
   const filesSection = (
     <FileList
@@ -846,6 +963,8 @@ export default function App() {
               styles={af.styles}
               onStyle={onStyle}
             />
+          ) : !af ? (
+            noFileHint('Chưa mở bản vẽ nào — các layer của file DWG/DXF/KMZ sẽ hiện ở đây.')
           ) : (
             <div className="space-y-2 pt-1" aria-busy>
               {Array.from({ length: 7 }, (_, i) => (
@@ -874,9 +993,26 @@ export default function App() {
             opacity={sketchOpacity}
             onOpacity={setSketchOpacity}
             onZoom={zoomToSketch}
+            title={mapMeta.title}
+            description={mapMeta.description}
+            onTitle={(title) => setMapMeta((m) => ({ ...m, title }))}
+            onDescription={(description) => setMapMeta((m) => ({ ...m, description }))}
+            onShare={() =>
+              setShareMap({
+                title: mapMeta.title.trim() || DEFAULT_MAP_TITLE,
+                description: mapMeta.description.trim() || undefined,
+                basemap: basemapId,
+                features: sketches,
+              })
+            }
+            sharedView={sharedView}
+            onKeepShared={keepSharedMap}
           />
         }
         crsTab={
+          !af ? (
+            noFileHint('Hệ tọa độ chỉ cần khi mở bản vẽ DWG/DXF. Nét vẽ trên bản đồ dùng tọa độ WGS84; khi xuất DXF sẽ tự đổi sang VN-2000 theo tỉnh.')
+          ) : (
           <>
             {af?.needsConfirm && (
               <div className="ui-pop-in mb-3 flex items-start gap-2.5 rounded-xl bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-800">
@@ -893,6 +1029,7 @@ export default function App() {
             {isGeoSource && <p className="mb-3 text-xs text-zinc-500">Hệ tọa độ đích khi xuất DXF.</p>}
             {crsPanel(false)}
           </>
+          )
         }
         exportTab={
           <>
@@ -907,7 +1044,8 @@ export default function App() {
             <ExportPanel
               key={`${af?.id}-${isGeoSource ? 'geo' : 'cad'}`}
               doc={styledActive}
-              sourceFileName={af?.fileName}
+              sourceFileName={af?.fileName ?? fileSafe(mapMeta.title)}
+              mergedName={sketches.length ? fileSafe(mapMeta.title) : undefined}
               visible={af?.visible ?? new Set()}
               dxfCrs={dxfCrs}
               defaultFormat={isGeoSource ? 'dxf' : 'kmz'}
@@ -928,6 +1066,8 @@ export default function App() {
       )}
 
       {dragOverlay}
+
+      {shareMap && <ShareDialog map={shareMap} onClose={() => setShareMap(null)} />}
 
       {/* Status pill */}
       {busyFile && (

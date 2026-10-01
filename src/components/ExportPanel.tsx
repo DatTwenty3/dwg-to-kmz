@@ -80,6 +80,7 @@ export default function ExportPanel({
   dxfCrs,
   defaultFormat = 'kmz',
   merged,
+  mergedName,
 }: {
   /** Document with layer styles applied (`applyLayerStyles`) so exports honour colour / width / dash. */
   doc: CadDocument | null;
@@ -90,13 +91,17 @@ export default function ExportPanel({
   defaultFormat?: ExportFormat;
   /** Everything shown on the map merged (visible layers of shown files + sketches), for "Gộp tất cả". */
   merged?: { doc: CadDocument | null; files: number; sketches: number };
+  /** File name for merged exports that include sketches (the map's title). */
+  mergedName?: string;
 }) {
   const [format, setFormat] = useState<ExportFormat>(defaultFormat);
   const canMerge = !!merged && merged.files + merged.sketches > 1;
+  /** No drawing open (blank map): the sketches are the only thing to export. */
+  const sketchOnly = !doc && !!merged && merged.sketches > 0;
   // Until the user picks, merge as soon as there are sketches (they only leave the map through a merged export).
   const [sourceChoice, setSource] = useState<'active' | 'merged' | null>(null);
   const source = sourceChoice ?? (merged && merged.sketches > 0 ? 'merged' : 'active');
-  const isMerged = canMerge && source === 'merged';
+  const isMerged = sketchOnly || (canMerge && source === 'merged');
   const docOut = isMerged ? (merged?.doc ?? null) : doc;
   const [scope, setScope] = useState<'visible' | 'all'>('visible');
   const [textAsLabels, setTextAsLabels] = useState(true);
@@ -105,7 +110,7 @@ export default function ExportPanel({
   const [result, setResult] = useState<{ ok: boolean; text: string; seq: number } | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const fileBase = name ?? (isMerged ? `${baseName(sourceFileName)}-gop` : baseName(sourceFileName));
+  const fileBase = name ?? (isMerged ? (mergedName ?? `${baseName(sourceFileName)}-gop`) : baseName(sourceFileName));
   const visibleCount = doc ? doc.layers.filter((l) => visible.has(l.name)).length : 0;
   // Merged documents already contain only what is shown on the map.
   const exported = docOut ? docOut.layers.filter((l) => isMerged || scope === 'all' || visible.has(l.name)) : [];
@@ -144,7 +149,7 @@ export default function ExportPanel({
 
   return (
     <div className="flex flex-col gap-5">
-      {canMerge && merged && (
+      {canMerge && merged && !sketchOnly && (
         <div>
           <span className="ui-label">Nguồn</span>
           <div className="ui-segment" role="group" aria-label="Nguồn xuất">

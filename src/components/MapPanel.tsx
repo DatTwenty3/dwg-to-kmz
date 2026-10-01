@@ -48,7 +48,8 @@ export default function MapPanel({
   crsTab: ReactNode;
   exportTab: ReactNode;
 }) {
-  const [tab, setTab] = useState<PanelTab>('layers');
+  // A request made before the panel mounted (e.g. "Tạo bản đồ mới" → Vẽ) picks the first tab.
+  const [tab, setTab] = useState<PanelTab>(focusTab?.tab ?? 'layers');
   const [warnOpen, setWarnOpen] = useState(false);
   // External tab requests (adjust state during render instead of in an effect).
   const [seenFocus, setSeenFocus] = useState(focusTab?.seq);

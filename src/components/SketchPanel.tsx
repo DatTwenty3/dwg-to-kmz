@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import type { LayerStyle } from '@/lib/cad/types';
 import { SKETCH_DEFAULT_COLOR, SKETCH_DEFAULT_FILL, SKETCH_DEFAULT_LABEL_SIZE, type SketchFeature, type SketchKind } from '@/lib/cad/sketch';
-import { IconArea, IconBrush, IconEye, IconEyeOff, IconPin, IconPolyline, IconTarget, IconTrash } from './icons';
+import { IconAlert, IconArea, IconBrush, IconEye, IconEyeOff, IconPin, IconPolyline, IconShare, IconTarget, IconTrash } from './icons';
 import LayerStyleEditor from './LayerStyleEditor';
 
 const TOOLS: { id: SketchKind; label: string; hint: string; icon: typeof IconPolyline }[] = [
@@ -31,6 +31,15 @@ export interface SketchPanelProps {
   opacity: number;
   onOpacity: (v: number) => void;
   onZoom: (id: string) => void;
+  /** Map name / description (shared with the link and used as export file name). */
+  title: string;
+  description: string;
+  onTitle: (v: string) => void;
+  onDescription: (v: string) => void;
+  onShare: () => void;
+  /** Viewing a map opened from a shared link: edits are not saved on this device. */
+  sharedView: boolean;
+  onKeepShared: () => void;
 }
 
 export default function SketchPanel(p: SketchPanelProps) {
@@ -39,8 +48,61 @@ export default function SketchPanel(p: SketchPanelProps) {
   const index = TOOLS.findIndex((t) => t.id === p.tool);
   const editing = styleOpen ? p.features.find((f) => f.id === styleOpen.id) : undefined;
 
+  const [descOpen, setDescOpen] = useState(!!p.description);
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-3">
+      {p.sharedView && (
+        <div className="ui-pop-in flex items-start gap-2.5 rounded-xl bg-blue-50 px-3 py-2.5 text-xs leading-relaxed text-blue-900">
+          <IconAlert className="mt-0.5 shrink-0 text-blue-600" width={14} height={14} />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">Bản đồ được chia sẻ</p>
+            <p className="text-blue-800/80">Thay đổi không được lưu trên máy này. Sửa xong hãy bấm Chia sẻ để gửi link mới.</p>
+            <button className="ui-btn mt-2 !px-2.5 !py-1 !text-xs" onClick={p.onKeepShared}>
+              Lưu vào máy này
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Map name + share */}
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <input
+            className="w-full rounded-lg border border-transparent bg-transparent px-2 py-1 text-[15px] font-semibold text-zinc-900 outline-none transition placeholder:text-zinc-400 hover:border-zinc-200 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+            value={p.title}
+            placeholder="Tên bản đồ"
+            aria-label="Tên bản đồ"
+            maxLength={160}
+            onChange={(e) => p.onTitle(e.target.value)}
+          />
+          {descOpen ? (
+            <textarea
+              className="mt-1 w-full resize-none rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-xs text-zinc-700 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+              rows={2}
+              maxLength={500}
+              placeholder="Mô tả ngắn (tùy chọn)"
+              aria-label="Mô tả bản đồ"
+              value={p.description}
+              onChange={(e) => p.onDescription(e.target.value)}
+            />
+          ) : (
+            <button className="ui-btn-ghost !px-2 !text-[11px]" onClick={() => setDescOpen(true)}>
+              + Thêm mô tả
+            </button>
+          )}
+        </div>
+        <button
+          className="ui-btn-primary shrink-0 !px-3 !py-2"
+          onClick={p.onShare}
+          disabled={p.features.length === 0}
+          title={p.features.length ? 'Tạo link chia sẻ bản đồ' : 'Vẽ ít nhất một nét để chia sẻ'}
+        >
+          <IconShare width={15} height={15} />
+          Chia sẻ
+        </button>
+      </div>
+
       {/* Tools */}
       <div>
         <div className="ui-tabs" style={{ ['--n' as string]: TOOLS.length, ['--i' as string]: Math.max(0, index) }} role="toolbar" aria-label="Công cụ vẽ">
@@ -221,7 +283,7 @@ export default function SketchPanel(p: SketchPanelProps) {
 
       {p.features.length > 0 && (
         <div className="flex items-center justify-between text-[11px] text-zinc-400">
-          <span>Lưu tự động trên trình duyệt này</span>
+          <span>{p.sharedView ? 'Bản đồ chia sẻ — chưa lưu trên máy này' : 'Lưu tự động trên trình duyệt này'}</span>
           {confirmClear ? (
             <span className="flex items-center gap-1">
               <button className="ui-btn-ghost !text-red-600 hover:!bg-red-50" onClick={() => (p.onClearAll(), setConfirmClear(false))}>

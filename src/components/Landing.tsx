@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { IconAlert, IconArrowRight, IconCheck, IconUpload, Logo } from './icons';
+import { IconAlert, IconArrowRight, IconCheck, IconPen, IconUpload, Logo } from './icons';
 
 /** Formats cycled in the headline, in the order the app reads them. */
 const FORMATS = ['.dwg', '.dxf', '.kmz', '.kml'];
@@ -121,6 +121,7 @@ export default function Landing({
   resumeName,
   onResume,
   panel,
+  onBlankMap,
 }: {
   onFile: (file: File) => void;
   busy: boolean;
@@ -129,6 +130,8 @@ export default function Landing({
   /** A drawing is already loaded: offer to go back to it. */
   resumeName?: string;
   onResume?: () => void;
+  /** Open an empty map to draw on (no file needed). */
+  onBlankMap?: () => void;
   /** Shown in place of the drop zone (e.g. the coordinate-system step) while keeping the hero. */
   panel?: ReactNode;
 }) {
@@ -251,6 +254,26 @@ export default function Landing({
               <button className="ui-btn-ghost mx-auto mt-3" onClick={onResume}>
                 Tiếp tục với {resumeName}
                 <IconArrowRight width={14} height={14} />
+              </button>
+            )}
+
+            {onBlankMap && !busy && (
+              <div className="mt-5 flex items-center gap-3 text-xs text-zinc-400">
+                <span className="h-px flex-1 bg-zinc-200" />
+                hoặc
+                <span className="h-px flex-1 bg-zinc-200" />
+              </div>
+            )}
+            {onBlankMap && !busy && (
+              <button className="ui-cta group mx-auto mt-4" onClick={onBlankMap}>
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 ring-1 ring-white/30">
+                  <IconPen width={15} height={15} className="transition-transform duration-300 group-hover:-rotate-12" />
+                </span>
+                <span>
+                  Tạo bản đồ mới
+                  <span className="font-normal text-white/80"> — vẽ và chia sẻ</span>
+                </span>
+                <IconArrowRight width={16} height={16} className="transition-transform duration-300 group-hover:translate-x-1" />
               </button>
             )}
 

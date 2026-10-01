@@ -407,3 +407,59 @@ input[type="color"].ui-color::-moz-color-swatch { border: 0; border-radius: 999p
   .ui-file-row[data-leaving="true"] { transform: none; }
   .ui-tool-indicator { transition: opacity 0.2s; }
 }
+
+/* ---- Landing call-to-action: filled blue pill, coloured glow, periodic shine ---- */
+.ui-cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  overflow: hidden;
+  border-radius: 999px;
+  padding: 0.55rem 1.4rem 0.55rem 0.6rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(110deg, #2563eb 0%, #0ea5e9 55%, #6366f1 100%);
+  box-shadow:
+    0 10px 30px -8px rgba(37, 99, 235, 0.55),
+    0 2px 6px rgba(37, 99, 235, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transition:
+    transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.25s ease;
+}
+.ui-cta:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 16px 36px -8px rgba(37, 99, 235, 0.65),
+    0 3px 8px rgba(37, 99, 235, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+.ui-cta:active {
+  transform: translateY(0) scale(0.99);
+}
+.ui-cta:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 4px rgba(37, 99, 235, 0.25),
+    0 10px 30px -8px rgba(37, 99, 235, 0.55);
+}
+/* A soft light sweep every few seconds. */
+.ui-cta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.35) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: ui-cta-shine 3.6s ease-in-out 1.6s infinite;
+  pointer-events: none;
+}
+@keyframes ui-cta-shine {
+  0% { transform: translateX(-120%); }
+  35%, 100% { transform: translateX(120%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-cta::after { animation: none; display: none; }
+  .ui-cta:hover { transform: none; }
+}

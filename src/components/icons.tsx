@@ -91,3 +91,13 @@ export const Logo = (p: P) => (
     <path d="m8 14.5 6 3.5 6-3.5M8 18l6 3.5 6-3.5" fill="none" stroke="#60a5fa" strokeWidth="1.6" strokeLinejoin="round" />
   </svg>
 );
+export const IconArrowRight = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </svg>
+);
+export const IconArrowLeft = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M19 12H5M11 6l-6 6 6 6" />
+  </svg>
+);

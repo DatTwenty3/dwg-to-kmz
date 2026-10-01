@@ -4,16 +4,37 @@ import type { CrsOptions } from '@/lib/cad/types';
 import {
   CANDIDATE_LON0,
   EPSG_TABLE,
+  PROVINCES,
   epsgForProj4,
   formatDegMin,
   resolveCrsInput,
   getProvince,
-  searchProvinces,
-  type CrsCandidate,
   type LocationCheck,
 } from '@/lib/geo';
 import { crsFromForm, type CrsForm, type CrsMode } from './crsForm';
-import { IconAlert, IconCheck, IconChevron, IconSearch, IconTarget } from './icons';
+import { IconAlert, IconCheck, IconChevron, IconTarget } from './icons';
+
+interface UnitOption {
+  key: string;
+  provinceId: string;
+  label: string;
+  lon0: number;
+}
+
+/**
+ * One group per current province; options are the provinces it was merged from (drawings made before
+ * 2025 use their KTT), plus the current unit's own KTT when it differs (e.g. Lai Châu, TT 24/2025).
+ */
+const PROVINCE_GROUPS: { id: string; name: string; options: UnitOption[] }[] = PROVINCES.map((p) => {
+  const units = p.formerUnits?.length ? p.formerUnits : [{ name: p.name, lon0: p.lon0 }];
+  const options: UnitOption[] = units.map((u) => ({ key: `${p.id}|${u.name}`, provinceId: p.id, label: u.name, lon0: u.lon0 }));
+  if (!units.some((u) => u.lon0 === p.lon0)) {
+    options.push({ key: `${p.id}|*`, provinceId: p.id, label: `${p.name} (KTT hiện hành)`, lon0: p.lon0 });
+  }
+  return { id: p.id, name: p.name, options };
+}).sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+
+const UNIT_OPTIONS_BY_KEY = new Map(PROVINCE_GROUPS.flatMap((g) => g.options.map((o) => [o.key, o] as const)));
 
 const UNIT_OPTIONS: { value: number; label: string }[] = [
   { value: 1, label: 'mét (m)' },
@@ -26,10 +47,9 @@ export interface CrsPanelProps {
   provinceId: string;
   /** Note under the province picker (auto-detected province, or a reminder to choose one). */
   hint?: string;
-  onProvince: (id: string) => void;
-  candidates: CrsCandidate[];
+  /** A province (former unit) was picked: apply VN-2000 with its KTT (3° zone). */
+  onPickUnit: (provinceId: string, lon0: number) => void;
   activeCrs: CrsOptions | null;
-  onApplyCandidate: (c: CrsCandidate) => void;
   form: CrsForm;
   onFormChange: (f: CrsForm) => void;
   onApplyForm: () => void;
@@ -38,17 +58,17 @@ export interface CrsPanelProps {
   target?: boolean;
   /** Fit the map to the drawing; undefined while nothing is loaded. */
   onZoom?: () => void;
+  /** Hide the "Tới bản vẽ" button (no map on the CRS step page). Default true. */
+  showZoom?: boolean;
   check: LocationCheck | null;
   busy: boolean;
   disabled: boolean;
 }
 
 export default function CrsPanel(props: CrsPanelProps) {
-  const { provinceId, onProvince, candidates, activeCrs, form, onFormChange, busy, disabled } = props;
-  const [query, setQuery] = useState('');
-  const [showAll, setShowAll] = useState(false);
-  const [picking, setPicking] = useState(false);
-  const results = useMemo(() => searchProvinces(query), [query]);
+  const { provinceId, activeCrs, form, onFormChange, busy, disabled } = props;
+  /** Remembers which former unit was picked when two share a KTT (e.g. Cần Thơ / Hậu Giang, both 105°). */
+  const [unitKey, setUnitKey] = useState('');
   const province = provinceId ? getProvince(provinceId) : undefined;
   const set = <K extends keyof CrsForm>(k: K, v: CrsForm[K]) => onFormChange({ ...form, [k]: v });
 
@@ -60,126 +80,58 @@ export default function CrsPanel(props: CrsPanelProps) {
   const formCrs = crsFromForm(form);
   const customResult = form.mode === 'proj4' && form.proj4.trim() ? resolveCrsInput(form.proj4) : null;
   const formEpsg = formCrs.proj4 ? epsgForProj4(formCrs.proj4) : undefined;
-  const isActive = (c: CrsOptions) =>
-    !!activeCrs && activeCrs.proj4 === c.proj4 && activeCrs.swapXY === c.swapXY && activeCrs.unitScale === c.unitScale;
-  const shown = showAll ? candidates : candidates.slice(0, 3);
 
-  const pickProvince = (id: string) => {
-    onProvince(id);
-    setQuery('');
-    setPicking(false);
-  };
+  // Which option reflects the current state: same province and same KTT (VN-2000, 3° zone).
+  const group = PROVINCE_GROUPS.find((g) => g.id === provinceId);
+  const matching = form.mode === 'vn2000' && form.zone === 3 ? (group?.options.filter((o) => o.lon0 === form.lon0) ?? []) : [];
+  const selectedKey = matching.find((o) => o.key === unitKey)?.key ?? matching[0]?.key ?? '';
+  const activeEpsg = activeCrs ? epsgForProj4(activeCrs.proj4) : undefined;
+  const activeLabel =
+    form.mode === 'vn2000'
+      ? `VN-2000 KTT ${formatDegMin(form.lon0)} múi ${form.zone}°${activeEpsg ? ` (EPSG:${activeEpsg})` : ''}`
+      : activeEpsg
+        ? `EPSG:${activeEpsg}`
+        : 'thiết lập thủ công';
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Province */}
+      {/* Province (grouped by current unit, options are the pre-2025 provinces and their KTT) */}
       <div>
-        <span className="ui-label">Tỉnh / thành của bản vẽ</span>
-        {province && !picking ? (
-          <div className="flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2">
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-zinc-900">{province.name}</p>
-              <p className="truncate text-[11px] text-zinc-500">
-                KTT {formatDegMin(province.lon0)}
-                {province.aliases.length ? ` · gồm ${province.aliases.slice(0, 3).join(', ')}` : ''}
-              </p>
-            </div>
-            <button className="ui-btn-ghost" onClick={() => setPicking(true)}>
-              Đổi
-            </button>
-          </div>
-        ) : (
-          <div className="relative">
-            <IconSearch className="pointer-events-none absolute left-3 top-[19px] -translate-y-1/2 text-zinc-400" />
-            <input
-              id="province-search"
-              className="ui-input pl-9"
-              placeholder="Tìm tỉnh, vd. can tho, soc trang"
-              autoFocus={picking}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-            {(query.trim() || picking) && (
-            <ul className="ui-scroll mt-1.5 max-h-44 overflow-y-auto rounded-lg border border-zinc-200 bg-white p-1" aria-label="Danh sách tỉnh">
-              {results.map((p) => (
-                <li key={p.id}>
-                  <button
-                    className={`flex w-full items-baseline gap-2 rounded-md px-2.5 py-1.5 text-left transition hover:bg-zinc-50 ${
-                      p.id === provinceId ? 'bg-blue-50' : ''
-                    }`}
-                    onClick={() => pickProvince(p.id)}
-                  >
-                    <span className="text-[13px] text-zinc-900">{p.name}</span>
-                    <span className="ml-auto shrink-0 text-[11px] tabular-nums text-zinc-400">{formatDegMin(p.lon0)}</span>
-                  </button>
-                </li>
+        <label className="ui-label" htmlFor="province-select">
+          Tỉnh / thành của bản vẽ
+        </label>
+        <select
+          id="province-select"
+          className="ui-input cursor-pointer"
+          value={selectedKey}
+          disabled={disabled}
+          onChange={(e) => {
+            const opt = UNIT_OPTIONS_BY_KEY.get(e.target.value);
+            if (!opt) return;
+            setUnitKey(opt.key);
+            props.onPickUnit(opt.provinceId, opt.lon0);
+          }}
+        >
+          <option value="" disabled>
+            — Chọn tỉnh / thành —
+          </option>
+          {PROVINCE_GROUPS.map((g) => (
+            <optgroup key={g.id} label={g.name}>
+              {g.options.map((o) => (
+                <option key={o.key} value={o.key}>
+                  {o.label} · KTT {formatDegMin(o.lon0)}
+                </option>
               ))}
-              {provinceId && (
-                <li>
-                  <button className="w-full rounded-md px-2.5 py-1.5 text-left text-[13px] text-zinc-500 hover:bg-zinc-50" onClick={() => pickProvince('')}>
-                    Bỏ chọn (tự đoán)
-                  </button>
-                </li>
-              )}
-              {results.length === 0 && <li className="px-2.5 py-1.5 text-[13px] text-zinc-400">Không tìm thấy tỉnh.</li>}
-            </ul>
-            )}
-          </div>
-        )}
+            </optgroup>
+          ))}
+        </select>
         {props.hint && <p className="mt-2 text-xs leading-relaxed text-amber-700">{props.hint}</p>}
-      </div>
-
-      {/* Candidates */}
-      {!props.target && (
-      <div>
-        <span className="ui-label">Phương án gợi ý</span>
-        {candidates.length === 0 ? (
-          <p className="text-xs text-zinc-400">Mở bản vẽ để xem gợi ý.</p>
-        ) : (
-          <ul className="flex flex-col gap-1.5">
-            {shown.map((c, i) => {
-              const active = isActive(c.crs);
-              const code = epsgForProj4(c.crs.proj4);
-              return (
-                <li key={`${c.label}-${i}`}>
-                  <button
-                    disabled={busy || disabled}
-                    onClick={() => props.onApplyCandidate(c)}
-                    title={c.reason}
-                    className={`flex w-full items-start gap-2.5 rounded-lg border px-3 py-2 text-left transition ${
-                      active ? 'border-blue-500 bg-blue-50/50 ring-4 ring-blue-500/10' : 'border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50'
-                    }`}
-                  >
-                    <span
-                      className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                        active ? 'border-blue-600 bg-blue-600 text-white' : 'border-zinc-300'
-                      }`}
-                    >
-                      {active && <IconCheck width={10} height={10} strokeWidth={3} />}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[13px] font-medium text-zinc-900">{c.label}</span>
-                        {code && <span className="ui-chip">EPSG:{code}</span>}
-                        {i === 0 && <span className="ui-chip bg-blue-50 text-blue-700">Đề xuất</span>}
-                      </span>
-                      <span className="mt-0.5 block text-[11px] leading-snug text-zinc-500">
-                        {c.reason} · {c.center[1].toFixed(4)}°N {c.center[0].toFixed(4)}°E
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        {candidates.length > 3 && (
-          <button className="ui-btn-ghost mt-1.5" onClick={() => setShowAll((v) => !v)}>
-            {showAll ? 'Thu gọn' : `Xem thêm ${candidates.length - 3} phương án`}
-          </button>
+        {!props.target && activeCrs && (
+          <p className="mt-2 text-xs text-zinc-500">
+            Đang dùng: <span className="font-medium text-zinc-700">{activeLabel}</span>
+          </p>
         )}
       </div>
-      )}
 
       {/* Manual (or the DXF target CRS in target mode) */}
       <details className="group rounded-lg border border-zinc-200" open={props.target || undefined}>
@@ -315,15 +267,17 @@ export default function CrsPanel(props: CrsPanelProps) {
 
       {/* Location check + zoom */}
       <div>
-        <div className="grid grid-cols-2 gap-2">
+        <div className={`grid gap-2 ${props.showZoom === false ? 'grid-cols-1' : 'grid-cols-2'}`}>
           <button className="ui-btn" disabled={disabled} onClick={props.onCheck}>
             <IconCheck />
             Kiểm tra vị trí
           </button>
-          <button className="ui-btn" disabled={disabled || !props.onZoom} onClick={props.onZoom}>
-            <IconTarget />
-            Tới bản vẽ
-          </button>
+          {props.showZoom !== false && (
+            <button className="ui-btn" disabled={disabled || !props.onZoom} onClick={props.onZoom}>
+              <IconTarget />
+              Tới bản vẽ
+            </button>
+          )}
         </div>
         {props.check && (
           <p

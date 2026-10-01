@@ -162,6 +162,8 @@ Deploy: `vercel` (preview) / `vercel --prod`. Không cần biến môi trường
 
 ## Thiết kế giao diện
 
+- **Thương hiệu "LEDAT-GIS"** (tác giả LEDAT). Luồng 3 trang trong `App.tsx` (state `stage`): **Trang chủ** `Landing.tsx` (nền trắng, chữ LEDAT-GIS hiện dần, dòng "Đưa các định dạng [.dwg/.dxf/.kmz/.kml gõ–xóa kiểu typewriter] của bạn lên bản đồ", khung thả file) → **Chọn hệ tọa độ** `CrsStep.tsx` hiển thị ngay dưới hero của Landing (prop `panel`, cùng một `<Landing>` nên hero không render lại; chỉ với DWG/DXF; KMZ/KML đã có tọa độ nên vào thẳng bản đồ) → **Bản đồ**. Hiệu ứng gõ chữ chạy cả khi `prefers-reduced-motion` (chỉ đổi chữ tại chỗ).
+- **Chọn hệ tọa độ = chọn tỉnh từ danh sách** (`<select>` nhóm theo 34 tỉnh hiện hành, mỗi lựa chọn là một tỉnh cũ trước sáp nhập kèm KTT; không ô tìm kiếm, không danh sách "phương án gợi ý" — chủ dự án đã bỏ). Chọn → VN-2000 KTT đó, múi 3°, giữ đơn vị/đổi X/Y. `suggestCrs` vẫn chạy ngầm để chọn sẵn tỉnh + KTT tốt nhất khi mở file. Trường hợp đặc biệt (múi 6°, EPSG, proj4, offset) nằm trong "Thiết lập thủ công". Animation là CSS `ui-*` trong `globals.css`, tôn trọng `prefers-reduced-motion`.
 - **Chỉ giao diện sáng**, phong cách tối giản: bản đồ tràn màn hình, bảng điều khiển nổi bên trái (`.ui-floating`, rộng 384px, thu gọn được), các bước đánh số 1–4 (Bản vẽ → Hệ tọa độ → Layer → Xuất), chọn nền bản đồ dạng pill ở góc trên phải.
 - Màu: xám `zinc` trung tính, nút chính đen `zinc-900`, màu nhấn duy nhất `blue-600` (trạng thái chọn/focus); `amber` cho cảnh báo, `emerald`/`red` cho kết quả kiểm tra. Không thêm màu thương hiệu khác.
 - Font giao diện **Be Vietnam Pro** (`--font-ui`); chữ trên bản đồ dùng Roboto (`--font-roboto`) cho atlas deck.gl.

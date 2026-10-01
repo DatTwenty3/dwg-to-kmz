@@ -2,7 +2,7 @@
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CadDocument, CrsOptions, Vec2 } from '@/lib/cad/types';
-import { checkLocation, getProvince, suggestCrs, type CrsCandidate, type LocationCheck } from '@/lib/geo';
+import { buildVn2000, checkLocation, getProvince, suggestCrs, type LocationCheck } from '@/lib/geo';
 import {
   buildLayers,
   DEFAULT_BASEMAP_ID,
@@ -14,10 +14,12 @@ import {
 import { CadPipeline } from '@/lib/pipeline';
 import { VIETNAMESE_CHARSET } from '@/lib/text';
 import CrsPanel from './CrsPanel';
+import CrsStep from './CrsStep';
 import { DEFAULT_FORM, crsFromForm, formFromCrs, sameBaseCrs, type CrsForm } from './crsForm';
 import EntityPopup from './EntityPopup';
 import ExportPanel, { buildExport } from './ExportPanel';
 import FileDropzone, { ACCEPTED_EXT } from './FileDropzone';
+import Landing from './Landing';
 import LayerPanel from './LayerPanel';
 import type { MapPick } from './MapView';
 import { IconAlert, IconPanel, IconSpinner, IconUpload, Logo } from './icons';
@@ -29,6 +31,8 @@ const MapView = dynamic(() => import('./MapView'), {
 });
 
 type Status = 'idle' | 'parsing' | 'transforming' | 'ready' | 'error';
+/** landing → (CAD) crs → map; KML/KMZ sources go straight to the map. */
+type Stage = 'landing' | 'crs' | 'map';
 
 /** Width of the floating panel plus margins, so fitBounds keeps the drawing clear of it. */
 const PANEL_INSET = 400;
@@ -66,7 +70,6 @@ export default function App() {
   const [timing, setTiming] = useState<{ parse?: number; transform?: number }>({});
   const [provinceId, setProvinceId] = useState('');
   const [provinceGuess, setProvinceGuess] = useState<ProvinceGuess | null>(null);
-  const [candidates, setCandidates] = useState<CrsCandidate[]>([]);
   const [activeCrs, setActiveCrs] = useState<CrsOptions | null>(null);
   const [form, setForm] = useState<CrsForm>(DEFAULT_FORM);
   const [check, setCheck] = useState<LocationCheck | null>(null);
@@ -77,6 +80,7 @@ export default function App() {
   const [font, setFont] = useState<{ family: string; ready: boolean }>({ family: DEFAULT_FONT_FAMILY, ready: false });
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [dragDepth, setDragDepth] = useState(0);
+  const [stage, setStage] = useState<Stage>('landing');
 
   const pipeline = useCallback(() => (pipelineRef.current ??= new CadPipeline()), []);
   useEffect(() => () => pipelineRef.current?.dispose(), []);
@@ -119,7 +123,6 @@ export default function App() {
   const autoApply = useCallback(
     (raw: CadDocument, prov: string) => {
       const list = suggestCrs(raw, prov || undefined);
-      setCandidates(list);
       if (list.length > 0) void applyCrs(list[0].crs, { fit: true, provinceId: prov });
       else {
         setStatus('ready');
@@ -141,7 +144,6 @@ export default function App() {
       setProgress({ stage: 'Đọc file', percent: 0 });
       setDoc(null);
       setRawDoc(null);
-      setCandidates([]);
       setCheck(null);
       setPick(null);
       transformSeq.current++;
@@ -164,10 +166,13 @@ export default function App() {
         setProvinceId(prov);
         if (raw.crs) {
           // KML/KMZ: already WGS84 → show as is; the form becomes the DXF target CRS.
-          setCandidates([]);
           setForm(targetFormFor(prov));
           void applyCrs({ proj4: raw.crs, swapXY: false, unitScale: 1 }, { fit: true, provinceId: prov, syncForm: false });
-        } else autoApply(raw, prov);
+          setStage('map');
+        } else {
+          autoApply(raw, prov);
+          setStage('crs');
+        }
       } catch (err) {
         setError(`Không đọc được bản vẽ: ${err instanceof Error ? err.message : String(err)}`);
         setStatus('error');
@@ -213,13 +218,22 @@ export default function App() {
     };
   }, []);
 
-  const onProvince = (id: string) => {
+  /** Province picked from the list: VN-2000 with that (former) province's KTT, 3° zone, keeping units / axis swap. */
+  const onPickUnit = (id: string, lon0: number) => {
     setProvinceId(id);
     setProvinceGuess(null);
     if (rawDoc?.crs) {
-      setForm(targetFormFor(id));
+      // KML/KMZ: this only sets the DXF target CRS.
+      setForm({ ...targetFormFor(id), lon0 });
       if (doc) setCheck(checkLocation(doc, id || undefined));
-    } else if (rawDoc) autoApply(rawDoc, id);
+    } else if (rawDoc) {
+      const crs: CrsOptions = {
+        proj4: buildVn2000(lon0, 3),
+        swapXY: activeCrs?.swapXY ?? false,
+        unitScale: activeCrs?.unitScale ?? 1,
+      };
+      void applyCrs(crs, { fit: true, provinceId: id });
+    }
   };
 
   const onApplyForm = () => {
@@ -269,21 +283,99 @@ export default function App() {
       }
     : undefined;
 
+  // Drop a file anywhere on any page.
+  const dropHandlers = {
+    onDragEnter: (e: React.DragEvent) => {
+      if (e.dataTransfer.types.includes('Files')) setDragDepth((d) => d + 1);
+    },
+    onDragLeave: () => setDragDepth((d) => Math.max(0, d - 1)),
+    onDragOver: (e: React.DragEvent) => e.preventDefault(),
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragDepth(0);
+      const f = e.dataTransfer.files?.[0];
+      if (f && !busy) void handleFile(f);
+    },
+  };
+
+  const dragOverlay = dragDepth > 0 && (
+    <div className="pointer-events-none fixed inset-3 z-40 flex items-center justify-center rounded-2xl border-2 border-dashed border-blue-500 bg-blue-500/10 backdrop-blur-[2px]">
+      <div className="ui-floating flex items-center gap-3 px-5 py-4 text-sm font-medium text-zinc-900">
+        <IconUpload className="text-blue-600" width={20} height={20} />
+        Thả để mở file
+      </div>
+    </div>
+  );
+
+  const crsPanel = (onStepPage: boolean) => (
+    <CrsPanel
+      provinceId={provinceId}
+      hint={
+        provinceGuess
+          ? `Tự nhận từ chữ trong bản vẽ (${provinceGuess.hits} chuỗi nhắc tới ${provinceGuess.name}). Đổi nếu chưa đúng.`
+          : rawDoc && !provinceId
+            ? 'Hãy chọn tỉnh: nhiều kinh tuyến trục đều cho vị trí hợp lệ.'
+            : undefined
+      }
+      onPickUnit={onPickUnit}
+      activeCrs={activeCrs}
+      form={form}
+      onFormChange={setForm}
+      onApplyForm={onApplyForm}
+      onCheck={() => doc && setCheck(checkLocation(doc, provinceId || undefined))}
+      onZoom={zoomToDrawing}
+      showZoom={!onStepPage}
+      target={isGeoSource}
+      check={check}
+      busy={busy}
+      disabled={!rawDoc}
+    />
+  );
+
+  // Landing and the CRS step share one <Landing> so the hero (and its animation) stays put.
+  if (stage === 'landing' || stage === 'crs') {
+    return (
+      <div className="relative" {...dropHandlers}>
+        <Landing
+          onFile={(f) => void handleFile(f)}
+          busy={status === 'parsing'}
+          progress={progress}
+          error={stage === 'landing' ? error : null}
+          resumeName={rawDoc ? fileName : undefined}
+          onResume={rawDoc ? () => setStage(isGeoSource ? 'map' : 'crs') : undefined}
+          panel={
+            stage === 'crs' ? (
+              <CrsStep
+                fileName={fileName}
+                stats={stats}
+                error={error}
+                busy={busy}
+                canContinue={!!doc && status === 'ready'}
+                onBack={() => setStage('landing')}
+                onContinue={() => {
+                  const b = doc && documentBounds(doc);
+                  if (b) setFit((f) => ({ bounds: b, seq: (f?.seq ?? 0) + 1 }));
+                  setStage('map');
+                }}
+              >
+                {crsPanel(true)}
+              </CrsStep>
+            ) : undefined
+          }
+        />
+        {stage === 'crs' && status === 'parsing' && (
+          <div className="ui-floating fixed bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2 text-xs font-medium text-zinc-700">
+            <IconSpinner className="text-blue-600" />
+            {`${progress?.stage ?? 'Đang đọc'} · ${Math.round(progress?.percent ?? 0)}%`}
+          </div>
+        )}
+        {dragOverlay}
+      </div>
+    );
+  }
+
   return (
-    <div
-      className="relative h-dvh w-full overflow-hidden bg-zinc-100"
-      onDragEnter={(e) => {
-        if (e.dataTransfer.types.includes('Files')) setDragDepth((d) => d + 1);
-      }}
-      onDragLeave={() => setDragDepth((d) => Math.max(0, d - 1))}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDragDepth(0);
-        const f = e.dataTransfer.files?.[0];
-        if (f) void handleFile(f);
-      }}
-    >
+    <div className="relative h-dvh w-full overflow-hidden bg-zinc-100" {...dropHandlers}>
       <main className="absolute inset-0">
         <MapView
           basemapId={basemapId}
@@ -304,11 +396,13 @@ export default function App() {
         aria-hidden={!sidebarOpen}
       >
         <header className="flex items-center gap-3 border-b border-zinc-100 px-5 py-4">
-          <Logo />
-          <div className="min-w-0 flex-1">
-            <h1 className="text-[15px] font-semibold leading-tight text-zinc-900">DWG → KMZ</h1>
-            <p className="truncate text-xs text-zinc-500">Bản vẽ CAD trên nền Google Hybrid</p>
-          </div>
+          <button className="flex min-w-0 flex-1 items-center gap-3 text-left" onClick={() => setStage('landing')} title="Về trang chủ">
+            <Logo />
+            <span className="min-w-0">
+              <span className="block text-[15px] font-semibold leading-tight text-zinc-900">LEDAT-GIS</span>
+              <span className="block truncate text-xs text-zinc-500">Bản vẽ CAD trên nền Google Hybrid</span>
+            </span>
+          </button>
           <button
             className="rounded-lg p-2 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-900"
             aria-label="Thu gọn bảng điều khiển"
@@ -330,29 +424,7 @@ export default function App() {
           </Section>
 
           <Section step={2} title={isGeoSource ? 'Hệ tọa độ đích (DXF)' : 'Hệ tọa độ'} defaultOpen>
-            <CrsPanel
-              provinceId={provinceId}
-              hint={
-                provinceGuess
-                  ? `Tự nhận từ chữ trong bản vẽ (${provinceGuess.hits} chuỗi nhắc tới ${provinceGuess.name}). Đổi nếu chưa đúng.`
-                  : rawDoc && !provinceId
-                    ? 'Hãy chọn tỉnh: nhiều kinh tuyến trục đều cho vị trí hợp lệ.'
-                    : undefined
-              }
-              onProvince={onProvince}
-              candidates={candidates}
-              activeCrs={activeCrs}
-              onApplyCandidate={(c) => void applyCrs(c.crs, { fit: true, provinceId })}
-              form={form}
-              onFormChange={setForm}
-              onApplyForm={onApplyForm}
-              onCheck={() => doc && setCheck(checkLocation(doc, provinceId || undefined))}
-              onZoom={zoomToDrawing}
-              target={isGeoSource}
-              check={check}
-              busy={busy}
-              disabled={!rawDoc}
-            />
+            {crsPanel(false)}
           </Section>
 
           <Section step={3} title="Layer" badge={rawDoc ? <span className="ui-chip">{rawDoc.layers.length}</span> : undefined}>
@@ -412,25 +484,7 @@ export default function App() {
         </button>
       )}
 
-      {/* Empty state */}
-      {!rawDoc && !busy && dragDepth === 0 && (
-        <div className="pointer-events-none absolute inset-0 z-10 hidden items-center justify-center md:flex md:pl-[400px]">
-          <div className="ui-floating px-6 py-5 text-center">
-            <p className="text-sm font-medium text-zinc-900">Kéo thả bản vẽ DWG / DXF vào bất kỳ đâu</p>
-            <p className="mt-1 text-xs text-zinc-500">Bản vẽ sẽ được đặt lên nền ảnh vệ tinh theo hệ tọa độ VN-2000</p>
-          </div>
-        </div>
-      )}
-
-      {/* Drag overlay */}
-      {dragDepth > 0 && (
-        <div className="pointer-events-none absolute inset-3 z-40 flex items-center justify-center rounded-2xl border-2 border-dashed border-blue-500 bg-blue-500/10 backdrop-blur-[2px]">
-          <div className="ui-floating flex items-center gap-3 px-5 py-4 text-sm font-medium text-zinc-900">
-            <IconUpload className="text-blue-600" width={20} height={20} />
-            Thả để mở bản vẽ
-          </div>
-        </div>
-      )}
+      {dragOverlay}
 
       {/* Status pill */}
       {busy && (

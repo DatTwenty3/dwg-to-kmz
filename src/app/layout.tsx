@@ -17,8 +17,8 @@ const roboto = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "DWG → KMZ",
-  description: "Hiển thị bản vẽ DWG/DXF trên nền Google Hybrid và xuất KML/KMZ",
+  title: "LEDAT-GIS",
+  description: "LEDAT-GIS — đưa bản vẽ DWG, DXF, KMZ, KML lên bản đồ Google Hybrid, xuất KMZ/KML/DXF",
   authors: [{ name: "LEDAT" }],
   creator: "LEDAT",
 };

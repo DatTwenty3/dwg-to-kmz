@@ -71,7 +71,12 @@ export function createFileLayerCache() {
   const cache = new Map<string, { sig: unknown[]; layers: Layer[] }>();
   return {
     get(f: FileRender, shared: SharedRenderOptions): Layer[] {
-      if (!f.doc || !f.shown) return [];
+      if (!f.doc || !f.shown) {
+        // deck.gl finalises layers that leave the layer list; handing the same (finalised) instances
+        // back when the file is shown again draws nothing. Forget them so showing builds fresh ones.
+        cache.delete(f.id);
+        return [];
+      }
       const sig = [f.doc, f.visibleLayers, f.opacity, f.highlightHandle, shared.fontFamily, shared.showText];
       const hit = cache.get(f.id);
       if (hit && hit.sig.length === sig.length && hit.sig.every((v, i) => v === sig[i])) return hit.layers;

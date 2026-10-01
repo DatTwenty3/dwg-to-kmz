@@ -79,6 +79,17 @@ describe('multi-file layer ids', () => {
     expect(cache.get(render('f2', d2, { shown: false }), shared)).toEqual([]);
   });
 
+  it('builds fresh layers when a hidden file is shown again (deck.gl finalised the old ones)', () => {
+    const cache = createFileLayerCache();
+    const d = makeDoc(105.7, 10);
+    const shared = { showText: true };
+    const before = cache.get(render('f1', d), shared);
+    expect(cache.get(render('f1', d, { shown: false }), shared)).toEqual([]);
+    const after = cache.get(render('f1', d), shared);
+    expect(after.length).toBe(before.length);
+    after.forEach((l, i) => expect(l).not.toBe(before[i]));
+  });
+
   it('draws the top of the list last (on top)', () => {
     const cache = createFileLayerCache();
     const files = [render('top', makeDoc(105.7, 10)), render('mid', makeDoc(105.7, 10)), render('bottom', makeDoc(105.7, 10))];

@@ -140,7 +140,270 @@ body {
 .ui-caret { animation: ui-caret 1s steps(1) infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .ui-rise, .ui-fade-up, .ui-format-in, .ui-shimmer, .ui-draw, .ui-ping, .ui-drift { animation: none !important; }
+  /* Continuous / large motion off. */
+  .ui-shimmer, .ui-draw, .ui-ping, .ui-drift { animation: none !important; }
   .ui-draw { stroke-dashoffset: 0; }
   .ui-ping { opacity: 0; }
+  /* Entrances keep a gentle opacity-only fade so scene changes stay smooth without movement. */
+  .ui-rise, .ui-fade-up, .ui-format-in, .ui-pop-in, .ui-slide-in-left, .ui-drop-in { animation-name: ui-fade !important; }
+}
+
+/* ---- Entrances ---- */
+@keyframes ui-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes ui-pop-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ui-slide-in-left {
+  from { opacity: 0; transform: translateX(-28px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ui-drop-in {
+  from { opacity: 0; transform: translateY(-14px); }
+  to { opacity: 1; transform: none; }
+}
+.ui-pop-in { animation: ui-pop-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+/* backwards fill: once finished, the element's own transform (e.g. panel collapse) applies again. */
+.ui-slide-in-left { animation: ui-slide-in-left 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.15s backwards; }
+.ui-drop-in { animation: ui-drop-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+
+/* ---- Scene changes (View Transitions API; no-op where unsupported) ---- */
+::view-transition-old(root) {
+  animation: ui-scene-out 0.38s cubic-bezier(0.4, 0, 1, 1) both;
+}
+::view-transition-new(root) {
+  animation: ui-scene-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) 0.08s both;
+}
+/* Hero title / subtitle morph between their landing and step sizes. */
+::view-transition-group(ledat-title),
+::view-transition-group(ledat-subtitle) {
+  animation-duration: 0.55s;
+  animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes ui-scene-out {
+  to { opacity: 0; transform: scale(0.985); filter: blur(3px); }
+}
+@keyframes ui-scene-in {
+  from { opacity: 0; transform: scale(1.015); filter: blur(3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root) { animation: ui-fade 0.3s reverse both; }
+  ::view-transition-new(root) { animation: ui-fade 0.35s both; }
+}
+
+/* ---- Smooth <details> open/close (Chromium; others just snap) ---- */
+:root { interpolate-size: allow-keywords; }
+details::details-content {
+  block-size: 0;
+  overflow: hidden;
+  transition: block-size 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), content-visibility 0.3s allow-discrete;
+}
+details[open]::details-content { block-size: auto; }
+
+/* ================= Map page: control panel, style editor, status ================= */
+@keyframes ui-row-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ui-tab-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ui-popover-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ui-popover-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(4px) scale(0.97); }
+}
+@keyframes ui-eye-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes ui-loadbar {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(350%); }
+}
+@keyframes ui-skeleton {
+  from { background-position: 150% 0; }
+  to { background-position: -50% 0; }
+}
+@keyframes ui-reveal {
+  from { opacity: 0; filter: blur(8px); transform: scale(1.01); }
+  to { opacity: 1; filter: none; transform: none; }
+}
+@keyframes ui-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes ui-pulse-ring {
+  from { transform: scale(0.6); opacity: 0.5; }
+  to { transform: scale(1.7); opacity: 0; }
+}
+.ui-row-in { animation: ui-row-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.ui-tab-in { animation: ui-tab-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.ui-popover { transform-origin: top left; animation: ui-popover-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.ui-popover[data-closing="true"] { animation: ui-popover-out 0.14s ease-in both; }
+.ui-eye-pop { animation: ui-eye-pop 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.ui-loadbar { animation: ui-loadbar 1.3s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+.ui-skeleton {
+  background: linear-gradient(100deg, #f4f4f5 30%, #fafafa 50%, #f4f4f5 70%);
+  background-size: 300% 100%;
+  animation: ui-skeleton 1.6s ease-in-out infinite;
+}
+.ui-reveal { animation: ui-reveal 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.ui-float { animation: ui-float 3.4s ease-in-out infinite; }
+.ui-pulse-ring { transform-box: fill-box; transform-origin: center; animation: ui-pulse-ring 1.6s ease-out infinite; }
+.ui-check-draw { stroke-dasharray: 30; stroke-dashoffset: 30; animation: ui-draw 0.5s 0.15s ease-out forwards; }
+.ui-circle-draw { stroke-dasharray: 100; stroke-dashoffset: 100; animation: ui-draw 0.6s ease-out forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-loadbar, .ui-skeleton, .ui-float, .ui-pulse-ring { animation: none !important; }
+  .ui-skeleton { background: #f4f4f5; }
+  .ui-pulse-ring { opacity: 0; }
+  .ui-check-draw, .ui-circle-draw { animation: none !important; stroke-dashoffset: 0; }
+  .ui-row-in, .ui-tab-in, .ui-popover, .ui-reveal, .ui-eye-pop { animation-name: ui-fade !important; }
+  .ui-popover[data-closing="true"] { animation-name: ui-fade !important; animation-direction: reverse; }
+}
+
+/* Tabs with a sliding indicator (position driven by --i, count by --n). */
+.ui-tabs {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--n, 3), 1fr);
+  border-radius: 10px;
+  background: #f4f4f5;
+  padding: 3px;
+}
+.ui-tabs > button {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 8px;
+  padding: 7px 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #71717a;
+  transition: color 0.2s;
+}
+.ui-tabs > button:hover { color: #18181b; }
+.ui-tabs > button[aria-selected="true"], .ui-tabs > button[aria-pressed="true"] { color: #18181b; }
+.ui-tabs > button:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
+.ui-tabs-indicator {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px) / var(--n, 3));
+  transform: translateX(calc(var(--i, 0) * 100%));
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.1), 0 0 0 1px rgba(15, 23, 42, 0.04);
+  transition: transform 0.35s cubic-bezier(0.3, 0.9, 0.3, 1);
+}
+
+/* Range slider (width / opacity). --p = filled percentage. */
+.ui-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  outline: none;
+  cursor: pointer;
+  background: linear-gradient(to right, #2563eb var(--p, 0%), #e4e4e7 var(--p, 0%));
+}
+.ui-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid #2563eb;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.ui-range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #fff;
+  border: 2px solid #2563eb;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.ui-range:hover::-webkit-slider-thumb, .ui-range:active::-webkit-slider-thumb { transform: scale(1.2); }
+.ui-range:hover::-moz-range-thumb, .ui-range:active::-moz-range-thumb { transform: scale(1.2); }
+.ui-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2); }
+.ui-range:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.2); }
+
+/* Round icon button used in rows and headers. */
+.ui-icon-btn {
+  display: inline-flex;
+  height: 28px;
+  width: 28px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: #a1a1aa;
+  transition: background-color 0.15s, color 0.15s, transform 0.15s;
+}
+.ui-icon-btn:hover { background: #f4f4f5; color: #18181b; }
+.ui-icon-btn:active { transform: scale(0.92); }
+.ui-icon-btn:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+
+/* Layer rows: the style button shows on hover / focus-within (always on touch). */
+.ui-layer-row .ui-row-action { opacity: 0; transition: opacity 0.15s; }
+.ui-layer-row:hover .ui-row-action, .ui-layer-row:focus-within .ui-row-action, .ui-layer-row[data-active="true"] .ui-row-action { opacity: 1; }
+@media (hover: none) { .ui-layer-row .ui-row-action { opacity: 1; } }
+
+input[type="color"].ui-color {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 28px;
+  width: 28px;
+  cursor: pointer;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  padding: 0;
+}
+input[type="color"].ui-color::-webkit-color-swatch-wrapper { padding: 0; }
+input[type="color"].ui-color::-webkit-color-swatch { border: 0; border-radius: 999px; }
+input[type="color"].ui-color::-moz-color-swatch { border: 0; border-radius: 999px; }
+
+/* ================= Multi-file list & measurement tools ================= */
+@keyframes ui-grow-in {
+  from { grid-template-rows: 0fr; opacity: 0; transform: translateY(-6px); }
+  to { grid-template-rows: 1fr; opacity: 1; transform: none; }
+}
+/* File rows: grid-rows 0fr → 1fr collapses / expands the height smoothly. */
+.ui-file-row {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.22s, transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: ui-grow-in 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+.ui-file-row[data-leaving="true"] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transform: translateX(-12px);
+  pointer-events: none;
+}
+.ui-file-row > .ui-file-row-inner { min-height: 0; overflow: hidden; }
+.ui-tool-indicator { opacity: 0; transition: transform 0.35s cubic-bezier(0.3, 0.9, 0.3, 1), opacity 0.2s; }
+.ui-tool-indicator[data-on="true"] { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .ui-file-row { animation-name: ui-fade !important; transition: opacity 0.2s; }
+  .ui-file-row[data-leaving="true"] { transform: none; }
+  .ui-tool-indicator { transition: opacity 0.2s; }
 }

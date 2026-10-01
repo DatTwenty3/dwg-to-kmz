@@ -4,11 +4,29 @@
 /** [x, y] in drawing units before transform; [lng, lat] (WGS84) after transform. */
 export type Vec2 = [number, number];
 
+export type DashStyle = 'solid' | 'dashed' | 'dotted' | 'dashdot';
+
+/**
+ * User display overrides for a layer (set in the UI, honoured by the map and by every exporter).
+ * Absent fields mean "as in the drawing". Colours are already applied to entities by
+ * `applyLayerStyles`; width and dash are read from `layer.style` by renderers / exporters.
+ */
+export interface LayerStyle {
+  /** #rrggbb — replaces the colour of every entity on the layer. */
+  color?: string;
+  /** Line width in screen pixels (map, KML) — DXF maps it to the nearest lineweight. */
+  width?: number;
+  dash?: DashStyle;
+  /** 0..1 fill opacity for polygons (hatches) on the layer. */
+  fillOpacity?: number;
+}
+
 export interface CadLayer {
   name: string;
   /** #rrggbb */
   color: string;
   visible: boolean;
+  style?: LayerStyle;
 }
 
 interface EntityBase {
@@ -112,12 +130,16 @@ export type InputFormat = 'dwg' | 'dxf' | 'kmz' | 'kml';
 
 // ---- Worker protocol ----
 
+// The worker keeps one raw (drawing-coordinate) document per `docId`, so several files can be open
+// at once and each re-projected independently.
 export type WorkerRequest =
-  | { id: number; type: 'parse'; fileName: string; data: ArrayBuffer }
-  | { id: number; type: 'transform'; crs: CrsOptions };
+  | { id: number; type: 'parse'; docId: string; fileName: string; data: ArrayBuffer }
+  | { id: number; type: 'transform'; docId: string; crs: CrsOptions }
+  | { id: number; type: 'release'; docId: string };
 
 export type WorkerResponse =
   | { id: number; type: 'progress'; stage: string; percent: number }
   | { id: number; type: 'parsed'; doc: CadDocument }
   | { id: number; type: 'transformed'; doc: CadDocument }
+  | { id: number; type: 'released' }
   | { id: number; type: 'error'; message: string };

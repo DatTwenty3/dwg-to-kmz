@@ -26,6 +26,7 @@ export {
   documentBounds,
   hexToRgba,
   pathWidthPx,
+  dashPattern,
   CAP_HEIGHT_RATIO,
   DEFAULT_MIN_TEXT_PIXELS,
   DEFAULT_FONT_FAMILY,
@@ -33,3 +34,24 @@ export {
 export { TextSizeCullExtension } from './text-cull';
 export type { ProvinceGuess } from './provinceGuess';
 export { guessProvinceFromText } from './provinceGuess';
+export type { FileRender, SharedRenderOptions } from './multi';
+export {
+  createFileLayerCache,
+  FILE_TAG_COLORS,
+  fileIdOfLayerId,
+  fileLayerPrefix,
+  moveById,
+  nextTagColor,
+  orderFileLayers,
+  shownBounds,
+  unionBounds,
+} from './multi';
+export type { BuildMeasureOptions, MeasureAnim, MeasureDraft, Measurement, MeasureTool, SegmentInfo } from './measureTool';
+export {
+  buildMeasureLayers,
+  centroidOf,
+  fmtLngLat,
+  nearestSnap,
+  segmentsOf,
+  snapCandidatesOf,
+} from './measureTool';

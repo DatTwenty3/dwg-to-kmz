@@ -11,9 +11,20 @@ const KIND_LABEL: Record<CadEntity['kind'], string> = {
   point: 'Điểm',
 };
 
-export default function EntityPopup({ pick, onClose }: { pick: PickRef; onClose: () => void }) {
+export default function EntityPopup({
+  pick,
+  file,
+  onClose,
+}: {
+  pick: PickRef;
+  /** Shown when several files are open: which one the object belongs to. */
+  file?: { name: string; tag: string };
+  onClose: () => void;
+}) {
   const e = pick.entity;
-  const rows: [string, string][] = [['Layer', e.layer]];
+  const rows: [string, string][] = [];
+  if (file) rows.push(['File', file.name]);
+  rows.push(['Layer', e.layer]);
   if (e.kind === 'text') {
     rows.push(['Nội dung', e.text]);
     rows.push(['Cao chữ', `${e.height.toFixed(2)} m`]);

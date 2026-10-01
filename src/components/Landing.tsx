@@ -152,6 +152,7 @@ export default function Landing({
         <h1
           className={`font-bold tracking-tighter text-zinc-900 transition-[font-size] duration-500 ${panel ? 'text-5xl sm:text-7xl' : 'text-6xl sm:text-8xl'}`}
           aria-label={BRAND}
+          style={{ viewTransitionName: 'ledat-title' }}
         >
           {[...BRAND].map((ch, k) => (
             <span
@@ -167,7 +168,7 @@ export default function Landing({
 
         <p
           className="ui-fade-up mt-6 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-lg text-zinc-600 sm:text-2xl"
-          style={{ animationDelay: '0.7s' }}
+          style={{ animationDelay: '0.7s', viewTransitionName: 'ledat-subtitle' }}
         >
           <span>Đưa các định dạng</span>
           <FormatTyper />
@@ -175,7 +176,7 @@ export default function Landing({
         </p>
 
         {panel ? (
-          <div className="ui-fade-up mt-10 w-full max-w-2xl text-left">{panel}</div>
+          <div className="mt-10 w-full max-w-2xl text-left">{panel}</div>
         ) : (
           <>
           <div className="ui-fade-up mt-10 w-full max-w-xl" style={{ animationDelay: '0.95s' }}>

@@ -9,6 +9,12 @@
 //   written as a solid fill (tint); `fillOpacity` < 1 is written as entity transparency (group 440).
 // - Colours: layer colour = nearest ACI (62) + true colour (420); an entity whose colour differs from its layer
 //   gets its own 62 + 420, otherwise it stays ByLayer.
+// - Layer style (CadLayer.style, set by the UI): `dash` → layer linetype (solid → Continuous, otherwise an LTYPE
+//   DASHED / DOT / DASHDOT written only when used); `width` (screen px) → layer lineweight (group 370).
+//   Patterns follow acad.lin (DASHED = dash,gap 2:1; DOT = 0-length dash; DASHDOT) but are expressed in metres of
+//   the drawing (dash 2 m, gap 1 m, i.e. 2 mm / 1 mm at 1:1000) and multiplied by the unit factor of `opts.units`
+//   (mm drawing → 2000), so $LTSCALE stays 1. px → lineweight: 1 px ≈ 0.25 mm (width*25 in 1/100 mm), snapped to
+//   the nearest standard DXF lineweight. $LWDISPLAY=1 is only set when some exported layer has a width.
 // - Values are rounded to 1e-6 so numbers never print in exponent notation.
 // - TEXT is limited to 250 characters (DXF group 1 limit); MTEXT is split in 250-char chunks (groups 3 + 1).
 import {
@@ -26,6 +32,7 @@ import {
   point2d,
   point3d,
   type Dxfier,
+  type DxfLayer,
   type MTextAttachmentPoint,
 } from '@tarikjabiri/dxf';
 import type { CadDocument, CadEntity, HAlign, PolygonEntity, TableEntity, TextEntity, VAlign, Vec2 } from '@/lib/cad/types';
@@ -53,6 +60,29 @@ const UNIT_CODES: Record<string, Units> = {
 };
 
 // ---------------------------------------------------------------- helpers
+
+/** Standard DXF lineweights, in 1/100 mm (group 370). */
+export const DXF_LINEWEIGHTS = [0, 5, 9, 13, 15, 18, 20, 25, 30, 35, 40, 50, 53, 60, 70, 80, 90, 100, 106, 120, 140, 158, 200, 211];
+/** 1 screen px ≈ 0.25 mm of plotted line (25 hundredths of a millimetre). */
+export const LINEWEIGHT_PER_PX = 25;
+
+/** Nearest standard DXF lineweight (1/100 mm) for a width in screen px; undefined when not a positive number. */
+export function pxToLineweight(px: number | undefined): number | undefined {
+  if (px === undefined || !(px > 0) || !Number.isFinite(px)) return undefined;
+  const target = px * LINEWEIGHT_PER_PX;
+  let best = DXF_LINEWEIGHTS[1];
+  for (const lw of DXF_LINEWEIGHTS) if (lw > 0 && Math.abs(lw - target) < Math.abs(best - target)) best = lw;
+  return best;
+}
+
+/** Linetype definitions in metres: [name, description, pattern elements (dash >0, gap <0, dot 0)]. */
+export const DXF_LINETYPES = {
+  dashed: ['DASHED', 'Dashed __ __ __ __', [2, -1]],
+  dotted: ['DOT', 'Dot . . . . . . .', [0, -1]],
+  dashdot: ['DASHDOT', 'Dash dot __ . __ . __ .', [2, -1, 0, -1]],
+} as const satisfies Record<string, readonly [string, string, readonly number[]]>;
+
+const UNIT_PER_METRE: Record<string, number> = { mm: 1000, cm: 100, m: 1, km: 0.001, in: 39.37007874, ft: 3.280839895 };
 
 const rnd = (x: number): number => {
   const v = Math.round(x * 1e6) / 1e6;
@@ -190,6 +220,31 @@ export function toDxf(doc: CadDocument, opts: DxfExportOptions = {}): string {
       visible.set(e.layer, true);
     }
   }
+  const styleOf = new Map<string, NonNullable<CadDocument['layers'][number]['style']>>();
+  for (const l of doc.layers) if (l.style && !styleOf.has(l.name)) styleOf.set(l.name, l.style);
+  const unitScale = UNIT_PER_METRE[opts.units ?? 'm'] ?? 1;
+  let anyWeight = false;
+  const applyLayerStyle = (layer: DxfLayer, cadName: string): void => {
+    const st = styleOf.get(cadName);
+    if (!st) return;
+    const dash = st.dash && st.dash !== 'solid' ? DXF_LINETYPES[st.dash] : undefined;
+    if (dash) {
+      w.tables.addLType(
+        dash[0],
+        dash[1],
+        dash[2].map((v) => rnd(v * unitScale)),
+      );
+      layer.lineType = dash[0];
+    }
+    const lw = pxToLineweight(st.width);
+    if (lw !== undefined) {
+      anyWeight = true;
+      patchDxfy(layer, (dx, ov) => {
+        const push = dx.push.bind(dx);
+        ov.push = (code: number, value: number | string) => push(code, code === 370 ? lw : value);
+      });
+    }
+  };
   const wanted = opts.layers ? new Set(opts.layers) : null;
   const dxfName = new Map<string, string>(); // CAD layer → DXF layer (exported layers only)
   const used = new Set<string>(['0']);
@@ -204,6 +259,7 @@ export function toDxf(doc: CadDocument, opts: DxfExportOptions = {}): string {
       dxfName.set(name, '0');
       zero.colorNumber = nearestAci(hex);
       zero.trueColor = TrueColor.fromHex(hex);
+      applyLayerStyle(zero, name);
       continue;
     }
     let cand = base;
@@ -212,7 +268,9 @@ export function toDxf(doc: CadDocument, opts: DxfExportOptions = {}): string {
     dxfName.set(name, cand);
     const layer = w.addLayer(cand, nearestAci(hex), 'Continuous');
     layer.trueColor = TrueColor.fromHex(hex);
+    applyLayerStyle(layer, name);
   }
+  if (anyWeight) w.setVariable('$LWDISPLAY', { 290: 1 });
 
   let minX = Infinity;
   let minY = Infinity;

@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { parseDwg } from '@/lib/cad';
+import { applyLayerStyles } from '@/lib/cad/style';
 import type { CadDocument } from '@/lib/cad/types';
 import { suggestCrs, transformDocument } from '@/lib/geo';
 import { buildLayers, documentBounds, guessProvinceFromText, prepareDocument, visibleData } from '@/lib/map';
@@ -48,5 +49,21 @@ describe('map layers on the Ninh Kiều fixture', () => {
     for (const g of prepareDocument(wgs).groups.values())
       for (const t of [...g.textsLight, ...g.textsDark]) for (const ch of t.text) if (ch !== '\n' && !set.has(ch)) missing.add(ch);
     expect([...missing]).toEqual([]);
+  });
+
+  it('restyling a layer of the real drawing is fast and only touches that layer', () => {
+    const vis = new Set(wgs.layers.map((l) => l.name));
+    buildLayers(wgs, { visibleLayers: vis });
+    const target = [...prepareDocument(wgs).counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    const t0 = performance.now();
+    const styled = applyLayerStyles(wgs, { [target]: { color: '#3b82f6', width: 3, dash: 'dashed' } });
+    const layers = buildLayers(styled, { visibleLayers: vis });
+    const ms = performance.now() - t0;
+    console.log(`restyle ${target}: ${ms.toFixed(0)} ms`);
+    expect(layers.some((l) => l.id === 'cad-paths-dashed')).toBe(true);
+    expect(ms).toBeLessThan(1500);
+    // untouched entities keep identity
+    const other = wgs.entities.findIndex((e) => e.layer !== target);
+    expect(styled.entities[other]).toBe(wgs.entities[other]);
   });
 });

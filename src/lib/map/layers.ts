@@ -10,11 +10,14 @@
 // - One deck layer per entity kind (not per CAD layer): a drawing with hundreds of CAD layers
 //   would otherwise cost hundreds of draw calls per frame.
 import type { Layer } from '@deck.gl/core';
+import { PathStyleExtension, type PathStyleExtensionProps } from '@deck.gl/extensions';
 import { PathLayer, PolygonLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers';
 import type {
   CadDocument,
   CadEntity,
+  DashStyle,
   HAlign,
+  LayerStyle,
   TableEntity,
   TextEntity,
   VAlign,
@@ -45,6 +48,10 @@ export interface BuildLayersOptions {
    * atlas built with fallback glyphs would stick. Default true.
    */
   showText?: boolean;
+  /** Prefix for every deck layer id (e.g. `${fileId}:`) so several documents can coexist on one map. */
+  idPrefix?: string;
+  /** Whole-document opacity 0..1 (deck.gl layer `opacity`); default 1. Highlight layers stay opaque. */
+  opacity?: number;
 }
 
 /** What a picked deck object refers to (the original entity + table cell, if any). */
@@ -59,6 +66,8 @@ export interface PathItem extends PickRef {
   path: Vec2[];
   color: RGBA;
   width: number;
+  /** [dash, gap] in screen pixels; undefined = solid line. */
+  dash?: [number, number];
 }
 export interface PolygonItem extends PickRef {
   polygon: Vec2[][];
@@ -81,6 +90,8 @@ export interface PointItem extends PickRef {
 
 interface LayerGroup {
   paths: PathItem[];
+  /** Paths drawn with a dash pattern (separate deck layer with PathStyleExtension). */
+  dashed: PathItem[];
   polygons: PolygonItem[];
   /** Texts with light fill colour (dark outline). */
   textsLight: TextItem[];
@@ -101,6 +112,7 @@ export interface PreparedDocument {
 export interface VisibleData {
   key: string;
   paths: PathItem[];
+  dashed: PathItem[];
   polygons: PolygonItem[];
   textsLight: TextItem[];
   textsDark: TextItem[];
@@ -127,6 +139,22 @@ const BASELINE: Record<VAlign, TextItem['baseline']> = {
   bottom: 'bottom',
   baseline: 'bottom',
 };
+
+/** Dash pattern in pixels for a line style at a given line width; undefined = solid. */
+export function dashPattern(dash: DashStyle | undefined, widthPx: number): [number, number] | undefined {
+  const u = Math.max(1, widthPx);
+  switch (dash) {
+    case 'dashed':
+      return [4 * u + 3, 2 * u + 2];
+    case 'dotted':
+      return [u, 2 * u + 2];
+    case 'dashdot':
+      // PathStyleExtension only supports one dash + one gap: a long dash with a short gap stands in for dash-dot.
+      return [7 * u + 3, 2 * u + 2];
+    default:
+      return undefined;
+  }
+}
 
 /** Pixel width for a CAD constant width in metres: hairline → 1 px, else 1 + w, clamped to 6. */
 export function pathWidthPx(widthM: number | undefined): number {
@@ -159,7 +187,7 @@ function cumulative(sizes: number[]): number[] {
   return out;
 }
 
-function addTable(e: TableEntity, geographic: boolean, group: LayerGroup, refs: PickRef[]) {
+function addTable(e: TableEntity, geographic: boolean, group: LayerGroup, refs: PickRef[], style?: LayerStyle) {
   if (!finiteVec(e.origin)) return;
   const rows = Math.min(e.rows, e.rowHeights.length);
   const cols = Math.min(e.cols, e.colWidths.length);
@@ -168,6 +196,8 @@ function addTable(e: TableEntity, geographic: boolean, group: LayerGroup, refs: 
   const ys = cumulative(e.rowHeights.slice(0, rows));
   const at = tableFrame(e.origin, e.rotation, geographic);
   const color = hexToRgba(e.color);
+  const lineWidth = style?.width ?? 1;
+  const dash = dashPattern(style?.dash, lineWidth);
 
   const covered = new Set<number>();
   const rects: { r0: number; c0: number; r1: number; c1: number; cell?: TableEntity['cells'][number] }[] = [];
@@ -193,9 +223,10 @@ function addTable(e: TableEntity, geographic: boolean, group: LayerGroup, refs: 
       cell: cellRef,
       path: [at(x0, y0), at(x1, y0), at(x1, y1), at(x0, y1), at(x0, y0)],
       color,
-      width: 1,
+      width: lineWidth,
+      dash,
     };
-    group.paths.push(item);
+    (dash ? group.dashed : group.paths).push(item);
     refs.push(item);
     const cell = rect.cell;
     if (cell && cell.text.trim()) {
@@ -234,10 +265,11 @@ export function prepareDocument(doc: CadDocument): PreparedDocument {
   const counts = new Map<string, number>();
   const byHandle = new Map<string, PickRef[]>();
   const order: string[] = doc.layers.map((l) => l.name);
+  const styleOf = new Map(doc.layers.map((l) => [l.name, l.style] as const));
   const getGroup = (name: string): LayerGroup => {
     let g = groups.get(name);
     if (!g) {
-      g = { paths: [], polygons: [], textsLight: [], textsDark: [], points: [] };
+      g = { paths: [], dashed: [], polygons: [], textsLight: [], textsDark: [], points: [] };
       groups.set(name, g);
       if (!order.includes(name)) order.push(name);
     }
@@ -253,8 +285,11 @@ export function prepareDocument(doc: CadDocument): PreparedDocument {
         const pts = e.points.filter(finiteVec);
         if (pts.length < 2) break;
         const path = e.closed && pts.length > 2 ? [...pts, pts[0]] : pts;
-        const item: PathItem = { entity: e, layer: e.layer, path, color: hexToRgba(e.color), width: pathWidthPx(e.width) };
-        g.paths.push(item);
+        const st = styleOf.get(e.layer);
+        const width = st?.width ?? pathWidthPx(e.width);
+        const dash = dashPattern(st?.dash, width);
+        const item: PathItem = { entity: e, layer: e.layer, path, color: hexToRgba(e.color), width, dash };
+        (dash ? g.dashed : g.paths).push(item);
         refs.push(item);
         break;
       }
@@ -275,7 +310,7 @@ export function prepareDocument(doc: CadDocument): PreparedDocument {
         break;
       }
       case 'table':
-        addTable(e, geographic, g, refs);
+        addTable(e, geographic, g, refs, styleOf.get(e.layer));
         break;
       case 'point': {
         if (!finiteVec(e.position)) break;
@@ -332,6 +367,7 @@ export function visibleData(doc: CadDocument, visibleLayers: Set<string>): Visib
   const data: VisibleData = {
     key,
     paths: pick('paths'),
+    dashed: pick('dashed'),
     polygons: pick('polygons'),
     textsLight: pick('textsLight'),
     textsDark: pick('textsDark'),
@@ -347,6 +383,8 @@ export function visibleData(doc: CadDocument, visibleLayers: Set<string>): Visib
 const getPath = (d: PathItem) => d.path;
 const getPathColor = (d: PathItem) => d.color;
 const getPathWidth = (d: PathItem) => d.width;
+const getPathDash = (d: PathItem) => d.dash ?? [0, 0];
+const dashExtension = new PathStyleExtension({ dash: true, dashMode: 'path' });
 const getPolygon = (d: PolygonItem) => d.polygon;
 const getPolyColor = (d: PolygonItem) => d.color;
 const getText = (d: TextItem) => d.text;
@@ -370,10 +408,17 @@ function cullExtension(minEmPixels: number): TextSizeCullExtension {
   return ext;
 }
 
-function textLayer(id: string, data: TextItem[], light: boolean, opts: BuildLayersOptions): TextLayer<TextItem> {
+function textLayer(
+  id: string,
+  data: TextItem[],
+  light: boolean,
+  opts: BuildLayersOptions,
+  opacity = 1,
+): TextLayer<TextItem> {
   const minCap = opts.minTextPixels ?? DEFAULT_MIN_TEXT_PIXELS;
   return new TextLayer<TextItem>({
     id,
+    opacity,
     data,
     pickable: true,
     billboard: false,
@@ -398,26 +443,42 @@ function textLayer(id: string, data: TextItem[], light: boolean, opts: BuildLaye
   });
 }
 
+/** Cheap signature of the layer styles, so deck.gl re-evaluates accessors when only a style changed. */
+function styleSignature(doc: CadDocument): string {
+  let out = '';
+  for (const l of doc.layers) {
+    const s = l.style;
+    if (s) out += `${l.name}|${s.color ?? ''}|${s.width ?? ''}|${s.dash ?? ''}|${s.fillOpacity ?? ''};`;
+  }
+  return out;
+}
+
 export function buildLayers(doc: CadDocument, opts: BuildLayersOptions): Layer[] {
   const data = visibleData(doc, opts.visibleLayers);
   const layers: Layer[] = [];
+  const sig = styleSignature(doc);
+  const prefix = opts.idPrefix ?? '';
+  const opacity = Math.min(1, Math.max(0, opts.opacity ?? 1));
 
   if (data.polygons.length)
     layers.push(
       new PolygonLayer<PolygonItem>({
-        id: 'cad-polygons',
+        id: `${prefix}cad-polygons`,
+        opacity,
         data: data.polygons,
         pickable: true,
         stroked: false,
         filled: true,
         getPolygon,
         getFillColor: getPolyColor,
+        updateTriggers: { getFillColor: sig },
       }),
     );
   if (data.paths.length)
     layers.push(
       new PathLayer<PathItem>({
-        id: 'cad-paths',
+        id: `${prefix}cad-paths`,
+        opacity,
         data: data.paths,
         pickable: true,
         widthUnits: 'pixels',
@@ -425,12 +486,33 @@ export function buildLayers(doc: CadDocument, opts: BuildLayersOptions): Layer[]
         getPath,
         getColor: getPathColor,
         getWidth: getPathWidth,
+        updateTriggers: { getColor: sig, getWidth: sig },
+      }),
+    );
+  if (data.dashed.length)
+    layers.push(
+      new PathLayer<PathItem, PathStyleExtensionProps<PathItem>>({
+        id: `${prefix}cad-paths-dashed`,
+        opacity,
+        data: data.dashed,
+        pickable: true,
+        widthUnits: 'pixels',
+        widthMinPixels: 1,
+        getPath,
+        getColor: getPathColor,
+        getWidth: getPathWidth,
+        getDashArray: getPathDash,
+        dashUnits: 'pixels',
+        dashJustified: false,
+        extensions: [dashExtension],
+        updateTriggers: { getColor: sig, getWidth: sig, getDashArray: sig },
       }),
     );
   if (data.points.length)
     layers.push(
       new ScatterplotLayer<PointItem>({
-        id: 'cad-points',
+        id: `${prefix}cad-points`,
+        opacity,
         data: data.points,
         pickable: true,
         radiusUnits: 'pixels',
@@ -441,11 +523,12 @@ export function buildLayers(doc: CadDocument, opts: BuildLayersOptions): Layer[]
         getLineColor: [0, 0, 0, 200],
         getPosition: getPointPos,
         getFillColor: getPointColor,
+        updateTriggers: { getFillColor: sig },
       }),
     );
   if (opts.showText !== false) {
-    if (data.textsDark.length) layers.push(textLayer('cad-text-dark', data.textsDark, false, opts));
-    if (data.textsLight.length) layers.push(textLayer('cad-text-light', data.textsLight, true, opts));
+    if (data.textsDark.length) layers.push(textLayer(`${prefix}cad-text-dark`, data.textsDark, false, opts, opacity));
+    if (data.textsLight.length) layers.push(textLayer(`${prefix}cad-text-light`, data.textsLight, true, opts, opacity));
   }
 
   layers.push(...highlightLayers(doc, opts));
@@ -467,7 +550,7 @@ function highlightLayers(doc: CadDocument, opts: BuildLayersOptions): Layer[] {
   if (paths.length)
     out.push(
       new PathLayer<Vec2[]>({
-        id: 'cad-highlight-paths',
+        id: `${opts.idPrefix ?? ''}cad-highlight-paths`,
         data: paths,
         widthUnits: 'pixels',
         getWidth: 4,
@@ -478,7 +561,7 @@ function highlightLayers(doc: CadDocument, opts: BuildLayersOptions): Layer[] {
   if (points.length)
     out.push(
       new ScatterplotLayer<Vec2>({
-        id: 'cad-highlight-points',
+        id: `${opts.idPrefix ?? ''}cad-highlight-points`,
         data: points,
         radiusUnits: 'pixels',
         getRadius: 7,

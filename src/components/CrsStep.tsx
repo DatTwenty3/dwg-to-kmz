@@ -52,9 +52,11 @@ export default function CrsStep({
 }) {
   return (
     <section aria-label="Chọn hệ tọa độ">
-      <Stepper current={1} />
+      <div className="ui-pop-in" style={{ animationDelay: '0.05s' }}>
+        <Stepper current={1} />
+      </div>
 
-      <div className="mt-6 text-center">
+      <div className="ui-pop-in mt-6 text-center" style={{ animationDelay: '0.12s' }}>
         <h2 className="text-xl font-semibold tracking-tight text-zinc-900">Chọn hệ tọa độ của bản vẽ</h2>
         <p className="mx-auto mt-1.5 max-w-lg text-sm leading-relaxed text-zinc-500">
           Chọn tỉnh / thành nơi bản vẽ được lập (theo địa giới cũ nếu bản vẽ có trước 2025) rồi mở bản đồ — vẫn đổi lại được ở bảng
@@ -62,7 +64,7 @@ export default function CrsStep({
         </p>
       </div>
 
-      <div className="ui-card mt-6 flex items-start gap-3 p-4 shadow-[0_8px_32px_rgba(15,23,42,0.06)]">
+      <div className="ui-card ui-pop-in mt-6 flex items-start gap-3 p-4 shadow-[0_8px_32px_rgba(15,23,42,0.06)]" style={{ animationDelay: '0.2s' }}>
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
           <IconFile width={20} height={20} />
         </span>
@@ -85,7 +87,9 @@ export default function CrsStep({
         </button>
       </div>
 
-      <div className="ui-card mt-3 p-5 shadow-[0_8px_32px_rgba(15,23,42,0.06)]">{children}</div>
+      <div className="ui-card ui-pop-in mt-3 p-5 shadow-[0_8px_32px_rgba(15,23,42,0.06)]" style={{ animationDelay: '0.28s' }}>
+        {children}
+      </div>
 
       {error && (
         <p className="mt-4 flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2 text-xs leading-relaxed text-red-700">
@@ -94,7 +98,10 @@ export default function CrsStep({
         </p>
       )}
 
-      <div className="sticky bottom-0 -mx-4 mt-4 flex items-center gap-3 bg-gradient-to-t from-white via-white to-white/0 px-4 pb-4 pt-6">
+      <div
+        className="ui-pop-in sticky bottom-0 -mx-4 mt-4 flex items-center gap-3 bg-gradient-to-t from-white via-white to-white/0 px-4 pb-4 pt-6"
+        style={{ animationDelay: '0.36s' }}
+      >
         <button className="ui-btn" onClick={onBack}>
           <IconArrowLeft />
           Chọn file khác

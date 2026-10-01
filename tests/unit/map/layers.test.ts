@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { PathLayer, TextLayer } from '@deck.gl/layers';
-import type { CadDocument, CadEntity } from '@/lib/cad/types';
+import type { CadDocument, CadEntity, LayerStyle } from '@/lib/cad/types';
+import { applyLayerStyles } from '@/lib/cad/style';
 import { WGS84_PROJ4 } from '@/lib/geo';
 import {
   buildLayers,
   CAP_HEIGHT_RATIO,
+  dashPattern,
   documentBounds,
   hexToRgba,
   pathWidthPx,
@@ -274,5 +276,75 @@ describe('buildLayers', () => {
     const ext = new TextSizeCullExtension({ minEmPixels: 5.714 });
     const shaders = ext.getShaders.call({} as never, ext) as { inject: Record<string, string> };
     expect(shaders.inject['vs:#main-end']).toContain('sizePixels < 5.714');
+  });
+});
+
+describe('layer styles', () => {
+  const styled = (style: LayerStyle): CadDocument => {
+    const d = sample();
+    return applyLayerStyles(d, { 'Đường': style });
+  };
+
+  it('dashPattern: solid is undefined, others scale with width', () => {
+    expect(dashPattern(undefined, 2)).toBeUndefined();
+    expect(dashPattern('solid', 2)).toBeUndefined();
+    const a = dashPattern('dashed', 1)!;
+    const b = dashPattern('dashed', 4)!;
+    expect(b[0]).toBeGreaterThan(a[0]);
+    expect(dashPattern('dotted', 2)![0]).toBeLessThan(dashPattern('dashed', 2)![0]);
+    expect(dashPattern('dashdot', 2)).toHaveLength(2);
+  });
+
+  it('style width overrides the entity width; colour flows to the items', () => {
+    const doc = styled({ color: '#123456', width: 4 });
+    const data = visibleData(doc, allVisible(doc));
+    const lines = data.paths.filter((p) => p.layer === 'Đường');
+    expect(lines.length).toBe(2);
+    for (const p of lines) {
+      expect(p.width).toBe(4);
+      expect(p.color).toEqual([0x12, 0x34, 0x56, 255]);
+    }
+  });
+
+  it('dashed layer goes to a separate PathLayer with PathStyleExtension; others stay solid', () => {
+    const doc = styled({ dash: 'dashed', width: 2 });
+    const layers = buildLayers(doc, { visibleLayers: allVisible(doc) });
+    const dashed = layers.find((l) => l.id === 'cad-paths-dashed') as PathLayer<PathItem>;
+    expect(dashed).toBeDefined();
+    expect((dashed.props.data as PathItem[]).every((p) => p.layer === 'Đường' && p.dash)).toBe(true);
+    expect(dashed.props.extensions?.length).toBe(1);
+    const solid = layers.find((l) => l.id === 'cad-paths') as PathLayer<PathItem>;
+    expect((solid.props.data as PathItem[]).some((p) => p.layer === 'Đường')).toBe(false);
+  });
+
+  it('no dashed layer without a dash style; table grid honours width', () => {
+    const plain = sample();
+    expect(buildLayers(plain, { visibleLayers: allVisible(plain) }).some((l) => l.id === 'cad-paths-dashed')).toBe(false);
+    const doc = applyLayerStyles(sample(), { 'Bảng': { width: 3, dash: 'dotted' } });
+    const data = visibleData(doc, allVisible(doc));
+    expect(data.dashed.length).toBeGreaterThan(0);
+    expect(data.dashed.every((p) => p.width === 3)).toBe(true);
+  });
+
+  it('polygon fill opacity applies; updateTriggers change with the style signature', () => {
+    const doc = styled({});
+    expect(doc).toBe(doc);
+    const d2 = applyLayerStyles(sample(), { 'Đất ở': { fillOpacity: 0.2, color: '#00ff00' } });
+    const poly = visibleData(d2, allVisible(d2)).polygons[0];
+    expect(poly.color).toEqual([0, 255, 0, 51]);
+    const base = sample();
+    const l1 = buildLayers(base, { visibleLayers: allVisible(base) }).find((l) => l.id === 'cad-paths')!;
+    const d3 = applyLayerStyles(sample(), { 'Đường': { width: 3 } });
+    const l2 = buildLayers(d3, { visibleLayers: allVisible(d3) }).find((l) => l.id === 'cad-paths')!;
+    expect(JSON.stringify(l2.props.updateTriggers)).not.toBe(JSON.stringify(l1.props.updateTriggers));
+  });
+
+  it('same styled doc + same visibility reuses data arrays (pan/zoom does not rebuild)', () => {
+    const doc = styled({ dash: 'dotted' });
+    const a = buildLayers(doc, { visibleLayers: allVisible(doc) });
+    const b = buildLayers(doc, { visibleLayers: allVisible(doc) });
+    const da = a.find((l) => l.id === 'cad-paths-dashed')!.props.data;
+    const db = b.find((l) => l.id === 'cad-paths-dashed')!.props.data;
+    expect(da).toBe(db);
   });
 });

@@ -21,3 +21,5 @@ export type { EpsgEntry, CrsInputResult } from './epsg';
 export { EPSG_TABLE, getEpsg, resolveCrsInput, epsgForProj4 } from './epsg';
 export type { InversePointTransformer } from './project';
 export { createInversePointTransformer, projectDocument } from './project';
+export type { PlanarMeasure } from './measure';
+export { geodesicDistance, pathLength, geodesicArea, planarMeasure, formatLength, formatArea } from './measure';

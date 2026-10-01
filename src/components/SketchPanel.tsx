@@ -1,0 +1,265 @@
+'use client';
+// "Vẽ" tab: draw lines / areas / points on the map, then name, label and style each one.
+// Sketches are exported with the open files through the "Gộp tất cả" export option.
+import { useState } from 'react';
+import type { LayerStyle } from '@/lib/cad/types';
+import { SKETCH_DEFAULT_COLOR, SKETCH_DEFAULT_FILL, SKETCH_DEFAULT_LABEL_SIZE, type SketchFeature, type SketchKind } from '@/lib/cad/sketch';
+import { IconArea, IconBrush, IconEye, IconEyeOff, IconPin, IconPolyline, IconTarget, IconTrash } from './icons';
+import LayerStyleEditor from './LayerStyleEditor';
+
+const TOOLS: { id: SketchKind; label: string; hint: string; icon: typeof IconPolyline }[] = [
+  { id: 'line', label: 'Đường', hint: 'Vẽ đường gấp khúc', icon: IconPolyline },
+  { id: 'polygon', label: 'Vùng', hint: 'Vẽ vùng khép kín', icon: IconArea },
+  { id: 'point', label: 'Điểm', hint: 'Đặt điểm', icon: IconPin },
+];
+const KIND_ICON: Record<SketchKind, typeof IconPolyline> = { line: IconPolyline, polygon: IconArea, point: IconPin };
+
+export interface SketchPanelProps {
+  features: SketchFeature[];
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+  tool: SketchKind | null;
+  onTool: (t: SketchKind | null) => void;
+  /** Colour new sketches start with. */
+  nextColor: string;
+  onNextColor: (c: string) => void;
+  onUpdate: (id: string, patch: Partial<SketchFeature>) => void;
+  onRemove: (id: string) => void;
+  onClearAll: () => void;
+  shown: boolean;
+  onToggleShown: () => void;
+  opacity: number;
+  onOpacity: (v: number) => void;
+  onZoom: (id: string) => void;
+}
+
+export default function SketchPanel(p: SketchPanelProps) {
+  const [styleOpen, setStyleOpen] = useState<{ id: string; el: HTMLElement } | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const index = TOOLS.findIndex((t) => t.id === p.tool);
+  const editing = styleOpen ? p.features.find((f) => f.id === styleOpen.id) : undefined;
+
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      {/* Tools */}
+      <div>
+        <div className="ui-tabs" style={{ ['--n' as string]: TOOLS.length, ['--i' as string]: Math.max(0, index) }} role="toolbar" aria-label="Công cụ vẽ">
+          <span className="ui-tabs-indicator ui-tool-indicator" data-on={index >= 0} aria-hidden />
+          {TOOLS.map((t) => (
+            <button
+              key={t.id}
+              aria-pressed={p.tool === t.id}
+              title={`${t.hint}${p.tool === t.id ? ' (nhấn lại để tắt)' : ''}`}
+              onClick={() => p.onTool(p.tool === t.id ? null : t.id)}
+            >
+              <t.icon width={14} height={14} />
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-2 flex items-center gap-2 text-[11px] text-zinc-500">
+          <span>Màu nét mới</span>
+          <label className="relative h-5 w-5 cursor-pointer overflow-hidden rounded-full ring-1 ring-zinc-900/10" title="Đổi màu nét vẽ mới">
+            <span className="absolute inset-0" style={{ background: p.nextColor }} />
+            <input
+              type="color"
+              className="absolute inset-0 cursor-pointer opacity-0"
+              value={p.nextColor}
+              onChange={(e) => p.onNextColor(e.target.value)}
+              aria-label="Màu nét vẽ mới"
+            />
+          </label>
+          <span className="ml-auto truncate">{p.tool ? 'Nhấp lên bản đồ để vẽ' : 'Chọn công cụ rồi nhấp lên bản đồ'}</span>
+        </div>
+      </div>
+
+      {/* Layer-level controls */}
+      <div className="flex items-center gap-2 rounded-xl bg-zinc-50 px-2.5 py-2">
+        <button
+          className="ui-icon-btn"
+          role="switch"
+          aria-checked={p.shown}
+          aria-label={p.shown ? 'Ẩn lớp nét vẽ' : 'Hiện lớp nét vẽ'}
+          onClick={p.onToggleShown}
+          style={{ color: p.shown ? '#18181b' : '#d4d4d8' }}
+        >
+          {p.shown ? <IconEye /> : <IconEyeOff />}
+        </button>
+        <span className="whitespace-nowrap text-[13px] font-medium text-zinc-800">Nét vẽ</span>
+        <span className="ui-chip">{p.features.length}</span>
+        <input
+          type="range"
+          className="ui-range ml-auto w-24"
+          min={0}
+          max={100}
+          value={Math.round(p.opacity * 100)}
+          onChange={(e) => p.onOpacity(Number(e.target.value) / 100)}
+          aria-label="Độ trong suốt lớp nét vẽ"
+          title="Độ hiển thị lớp nét vẽ"
+        />
+        <span className="w-9 text-right text-[11px] tabular-nums text-zinc-500">{Math.round(p.opacity * 100)}%</span>
+      </div>
+
+      {/* List */}
+      <ul className="ui-scroll -mx-2 min-h-0 flex-1 overflow-y-auto px-1">
+        {p.features.length === 0 && (
+          <li className="flex flex-col items-center gap-3 px-4 py-8 text-center text-xs text-zinc-400">
+            <svg width="88" height="56" viewBox="0 0 88 56" aria-hidden>
+              <path d="M8 44 30 18l18 18L80 10" fill="none" stroke="#e4e4e7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M8 44 30 18l18 18L80 10" fill="none" stroke="#e11d48" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" pathLength="100" className="ui-check-draw" />
+              {[
+                [8, 44],
+                [30, 18],
+                [48, 36],
+                [80, 10],
+              ].map(([x, y]) => (
+                <circle key={`${x}`} cx={x} cy={y} r="3.2" fill="#fff" stroke="#e11d48" strokeWidth="2" />
+              ))}
+            </svg>
+            Chưa có nét vẽ. Chọn Đường, Vùng hoặc Điểm ở trên để bắt đầu — nét vẽ được xuất chung với bản vẽ khi chọn “Gộp tất cả” ở tab Xuất.
+          </li>
+        )}
+        {p.features.map((f, i) => {
+          const Icon = KIND_ICON[f.kind];
+          const selected = p.selectedId === f.id;
+          return (
+            <li
+              key={f.id}
+              className={`ui-row-in rounded-lg px-1 transition-colors ${selected ? 'bg-blue-50/60' : 'hover:bg-zinc-50'}`}
+              style={{ animationDelay: `${Math.min(i, 14) * 22}ms` }}
+            >
+              <div className="group flex items-center gap-1">
+                <button
+                  className="ui-icon-btn"
+                  role="switch"
+                  aria-checked={!f.hidden}
+                  aria-label={`${f.hidden ? 'Hiện' : 'Ẩn'} ${f.name}`}
+                  onClick={() => p.onUpdate(f.id, { hidden: !f.hidden })}
+                  style={{ color: f.hidden ? '#d4d4d8' : '#18181b' }}
+                >
+                  {f.hidden ? <IconEyeOff /> : <IconEye />}
+                </button>
+                <button className="flex min-w-0 flex-1 items-center gap-2.5 py-1.5 text-left" onClick={() => p.onSelect(selected ? null : f.id)}>
+                  <span
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-white"
+                    style={{ background: f.style.color, opacity: f.hidden ? 0.4 : 1 }}
+                  >
+                    <Icon width={12} height={12} />
+                  </span>
+                  <span className={`min-w-0 flex-1 truncate text-[13px] ${f.hidden ? 'text-zinc-400' : 'text-zinc-800'}`} title={f.name}>
+                    {f.name}
+                  </span>
+                  {f.label && <span className="max-w-[35%] truncate text-[11px] text-zinc-400">“{f.label}”</span>}
+                </button>
+                <button
+                  className="ui-icon-btn ui-row-action"
+                  aria-label={`Kiểu ${f.name}`}
+                  title="Đổi màu, nét, vùng tô"
+                  onClick={(e) => {
+                    const el = e.currentTarget;
+                    setStyleOpen((o) => (o?.id === f.id ? null : { id: f.id, el }));
+                  }}
+                >
+                  <IconBrush width={15} height={15} />
+                </button>
+                <button className="ui-icon-btn ui-row-action hover:!text-red-600" aria-label={`Xóa ${f.name}`} title="Xóa" onClick={() => p.onRemove(f.id)}>
+                  <IconTrash width={15} height={15} />
+                </button>
+              </div>
+
+              {/* Details of the selected sketch */}
+              <div className="grid transition-[grid-template-rows] duration-300 ease-out" style={{ gridTemplateRows: selected ? '1fr' : '0fr' }}>
+                <div className="overflow-hidden">
+                  {selected && (
+                    <div className="grid grid-cols-[1fr_auto] gap-2 px-2 pb-3 pt-1">
+                      <label className="col-span-2">
+                        <span className="ui-label">Tên (tên layer khi xuất)</span>
+                        <input
+                          key={f.name}
+                          className="ui-input !py-1.5"
+                          defaultValue={f.name}
+                          onBlur={(e) => p.onUpdate(f.id, { name: e.target.value })}
+                          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                        />
+                      </label>
+                      <label>
+                        <span className="ui-label">Nhãn chữ trên bản đồ</span>
+                        <input
+                          className="ui-input !py-1.5"
+                          placeholder="Không có nhãn"
+                          value={f.label ?? ''}
+                          onChange={(e) => p.onUpdate(f.id, { label: e.target.value })}
+                        />
+                      </label>
+                      <label>
+                        <span className="ui-label">Cỡ (m)</span>
+                        <input
+                          type="number"
+                          min={0.5}
+                          step={0.5}
+                          className="ui-input w-20 !py-1.5 tabular-nums"
+                          value={f.labelSize ?? SKETCH_DEFAULT_LABEL_SIZE}
+                          onChange={(e) => {
+                            const v = Number(e.target.value);
+                            if (v > 0) p.onUpdate(f.id, { labelSize: v });
+                          }}
+                        />
+                      </label>
+                      <button className="ui-btn col-span-2 !py-1.5 !text-xs" onClick={() => p.onZoom(f.id)}>
+                        <IconTarget width={14} height={14} />
+                        Tới nét vẽ
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      {p.features.length > 0 && (
+        <div className="flex items-center justify-between text-[11px] text-zinc-400">
+          <span>Lưu tự động trên trình duyệt này</span>
+          {confirmClear ? (
+            <span className="flex items-center gap-1">
+              <button className="ui-btn-ghost !text-red-600 hover:!bg-red-50" onClick={() => (p.onClearAll(), setConfirmClear(false))}>
+                Xóa hết?
+              </button>
+              <button className="ui-btn-ghost" onClick={() => setConfirmClear(false)}>
+                Không
+              </button>
+            </span>
+          ) : (
+            <button className="ui-btn-ghost" onClick={() => setConfirmClear(true)}>
+              <IconTrash width={13} height={13} />
+              Xóa tất cả
+            </button>
+          )}
+        </div>
+      )}
+
+      {styleOpen && editing && (
+        <LayerStyleEditor
+          key={editing.id}
+          anchor={styleOpen.el}
+          title={editing.name}
+          subtitle={editing.kind === 'line' ? 'Đường' : editing.kind === 'polygon' ? 'Vùng' : 'Điểm'}
+          value={editing.style}
+          defaultColor={SKETCH_DEFAULT_COLOR}
+          features={{ line: editing.kind !== 'point', fill: editing.kind === 'polygon' }}
+          onChange={(patch: LayerStyle) => p.onUpdate(editing.id, { style: { ...editing.style, ...patch, color: patch.color ?? editing.style.color } })}
+          onReset={() =>
+            p.onUpdate(editing.id, {
+              style: {
+                color: SKETCH_DEFAULT_COLOR,
+                ...(editing.kind === 'line' ? { width: 3 } : editing.kind === 'polygon' ? { width: 2, fillOpacity: SKETCH_DEFAULT_FILL } : {}),
+              },
+            })
+          }
+          onClose={() => setStyleOpen(null)}
+        />
+      )}
+    </div>
+  );
+}

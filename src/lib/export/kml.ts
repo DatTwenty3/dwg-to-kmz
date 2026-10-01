@@ -38,6 +38,13 @@ export interface KmlBuildResult {
   placemarks: number;
   /** Entities dropped because of degenerate / non-finite geometry. */
   skipped: number;
+  /** Vietnamese notes for the user (e.g. dash styles KML cannot express). */
+  notes: string[];
+}
+
+/** LineStyle width (px) from a user layer style: clamp 0.5..20, 1 decimal. */
+export function styleWidthPx(w: number): number {
+  return clamp(round1(w), 0.5, 20);
 }
 
 export const LABEL_ICON_HREF = 'http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png';
@@ -107,20 +114,22 @@ class StyleRegistry {
     return id;
   }
 
-  line(color: string, width: number | undefined): string {
+  /** `px` (layer style, screen px) overrides the CAD constant width `width` (metres). */
+  line(color: string, width: number | undefined, px?: number): string {
     const c = hexToKmlColor(color);
-    const w = lineWidthPx(width);
+    const w = px !== undefined ? styleWidthPx(px) : lineWidthPx(width);
     return this.get(`L|${c}|${w}`, () => `<LineStyle><color>${c}</color><width>${w}</width></LineStyle>`);
   }
 
-  poly(color: string, fillOpacity: number): string {
+  poly(color: string, fillOpacity: number, px?: number): string {
     const line = hexToKmlColor(color);
     const fill = hexToKmlColor(color, fillOpacity);
     const doFill = fill.slice(0, 2) !== '00' ? 1 : 0;
+    const lw = px !== undefined ? styleWidthPx(px) : 1;
     return this.get(
-      `P|${fill}|${doFill}`,
+      `P|${fill}|${doFill}|${lw}`,
       () =>
-        `<LineStyle><color>${line}</color><width>1</width></LineStyle>` +
+        `<LineStyle><color>${line}</color><width>${lw}</width></LineStyle>` +
         `<PolyStyle><color>${fill}</color><fill>${doFill}</fill><outline>1</outline></PolyStyle>`,
     );
   }
@@ -161,6 +170,7 @@ class Writer {
   constructor(
     readonly styles: StyleRegistry,
     readonly opts: ExportOptions,
+    readonly widths: Map<string, number> = new Map(),
   ) {}
 
   private pointPlacemark(styleId: string, p: Vec2, name: string | null, descHtml: string | null): void {
@@ -180,7 +190,7 @@ class Writer {
       return;
     }
     this.out.push(
-      '<Placemark><styleUrl>#', this.styles.line(e.color, e.width), '</styleUrl><LineString><tessellate>1</tessellate>',
+      '<Placemark><styleUrl>#', this.styles.line(e.color, e.width, this.widths.get(e.layer)), '</styleUrl><LineString><tessellate>1</tessellate>',
       CLAMP, '<coordinates>', cs, '</coordinates></LineString></Placemark>\n',
     );
     this.placemarks++;
@@ -205,7 +215,7 @@ class Writer {
       return;
     }
     const o = this.out;
-    o.push('<Placemark><styleUrl>#', this.styles.poly(e.color, e.fillOpacity), '</styleUrl><Polygon><tessellate>1</tessellate>', CLAMP);
+    o.push('<Placemark><styleUrl>#', this.styles.poly(e.color, e.fillOpacity, this.widths.get(e.layer)), '</styleUrl><Polygon><tessellate>1</tessellate>', CLAMP);
     o.push('<outerBoundaryIs><LinearRing><coordinates>', rings[0], '</coordinates></LinearRing></outerBoundaryIs>');
     for (let i = 1; i < rings.length; i++) {
       o.push('<innerBoundaryIs><LinearRing><coordinates>', rings[i], '</coordinates></LinearRing></innerBoundaryIs>');
@@ -244,7 +254,7 @@ class Writer {
 
     // Grid lines: one Placemark, MultiGeometry of merged straight runs.
     if (g.lines.length > 0) {
-      o.push('<Placemark><name>Đường kẻ bảng</name><styleUrl>#', this.styles.line(e.color, 0), '</styleUrl><MultiGeometry>');
+      o.push('<Placemark><name>Đường kẻ bảng</name><styleUrl>#', this.styles.line(e.color, 0, this.widths.get(e.layer)), '</styleUrl><MultiGeometry>');
       for (const [a, b] of g.lines) {
         o.push('<LineString><tessellate>1</tessellate>', CLAMP, '<coordinates>', coord(a), ' ', coord(b), '</coordinates></LineString>');
       }
@@ -478,7 +488,14 @@ export function buildKml(doc: CadDocument, opts: ExportOptions): KmlBuildResult 
   }
 
   const styles = new StyleRegistry();
-  const w = new Writer(styles, opts);
+  const widths = new Map<string, number>();
+  let dashLayers = 0;
+  for (const l of doc.layers) {
+    if (!index.has(l.name) || !l.style) continue;
+    if (l.style.width !== undefined && l.style.width > 0 && Number.isFinite(l.style.width)) widths.set(l.name, l.style.width);
+    if (l.style.dash && l.style.dash !== 'solid') dashLayers++;
+  }
+  const w = new Writer(styles, opts, widths);
   for (let i = 0; i < layerNames.length; i++) {
     if (buckets[i].length === 0) continue;
     const before = w.out.length;
@@ -497,7 +514,9 @@ export function buildKml(doc: CadDocument, opts: ExportOptions): KmlBuildResult 
     w.out.join(''),
     '</Document>\n</kml>\n',
   ].join('');
-  return { kml, placemarks: w.placemarks, skipped: w.skipped };
+  const notes: string[] = [];
+  if (dashLayers > 0) notes.push(`KML không hỗ trợ nét đứt — ${dashLayers} layer xuất thành nét liền`);
+  return { kml, placemarks: w.placemarks, skipped: w.skipped, notes };
 }
 
 export function toKml(doc: CadDocument, opts: ExportOptions): string {

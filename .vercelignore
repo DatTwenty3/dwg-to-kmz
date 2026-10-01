@@ -1,0 +1,12 @@
+# User drawings: never upload to Vercel
+/dwg/
+/public/samples/
+
+# Rebuilt on Vercel (`npm install` runs scripts/copy-wasm.mjs, `next build` makes .next)
+/.next/
+/public/wasm/
+/node_modules/
+
+# Local-only tooling
+/.claude/
+*.tsbuildinfo

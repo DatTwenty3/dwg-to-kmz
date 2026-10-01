@@ -205,6 +205,40 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
     map.on('zoom', schedule);
     map.on('load', schedule);
 
+    // Middle-button (wheel) drag pans the map, like in CAD — also while a draw / measure tool owns left clicks.
+    const surface = map.getCanvasContainer();
+    let midDrag: { x: number; y: number; cursor: string } | null = null;
+    const onMidDown = (e: MouseEvent) => {
+      if (e.button !== 1) return;
+      e.preventDefault(); // no browser auto-scroll
+      map.stop();
+      midDrag = { x: e.clientX, y: e.clientY, cursor: map.getCanvas().style.cursor };
+      map.getCanvas().style.cursor = 'grabbing';
+      window.addEventListener('mousemove', onMidMove);
+      window.addEventListener('mouseup', onMidUp);
+    };
+    const onMidMove = (e: MouseEvent) => {
+      if (!midDrag) return;
+      const dx = e.clientX - midDrag.x;
+      const dy = e.clientY - midDrag.y;
+      midDrag.x = e.clientX;
+      midDrag.y = e.clientY;
+      if (dx || dy) map.panBy([-dx, -dy], { duration: 0 });
+    };
+    const onMidUp = (e: MouseEvent) => {
+      if (e.button !== 1 || !midDrag) return;
+      map.getCanvas().style.cursor = midDrag.cursor;
+      midDrag = null;
+      window.removeEventListener('mousemove', onMidMove);
+      window.removeEventListener('mouseup', onMidUp);
+    };
+    // Some browsers open links / paste on middle click: swallow it over the map.
+    const onAux = (e: MouseEvent) => {
+      if (e.button === 1) e.preventDefault();
+    };
+    surface.addEventListener('mousedown', onMidDown);
+    surface.addEventListener('auxclick', onAux);
+
     const overlay = new MapboxOverlay({
       interleaved: false,
       layers: [],
@@ -234,6 +268,10 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
       overlayRef.current = null;
       mapRef.current = null;
       if (raf) cancelAnimationFrame(raf);
+      surface.removeEventListener('mousedown', onMidDown);
+      surface.removeEventListener('auxclick', onAux);
+      window.removeEventListener('mousemove', onMidMove);
+      window.removeEventListener('mouseup', onMidUp);
       map.remove();
     };
   }, []);

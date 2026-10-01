@@ -93,6 +93,7 @@ export default function SketchPanel(p: SketchPanelProps) {
           min={0}
           max={100}
           value={Math.round(p.opacity * 100)}
+          style={{ ['--p' as string]: `${Math.round(p.opacity * 100)}%` }}
           onChange={(e) => p.onOpacity(Number(e.target.value) / 100)}
           aria-label="Độ trong suốt lớp nét vẽ"
           title="Độ hiển thị lớp nét vẽ"

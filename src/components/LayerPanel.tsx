@@ -130,7 +130,7 @@ export default function LayerPanel({
                 aria-checked={on}
                 aria-label={`${on ? 'Ẩn' : 'Hiện'} layer ${l.name}`}
                 onClick={() => toggle(l.name)}
-                style={{ color: on ? '#18181b' : '#d4d4d8' }}
+                style={{ color: on ? '#0e1f3b' : '#d4d4d8' }}
               >
                 {on ? <IconEye key="on" className="ui-eye-pop" /> : <IconEyeOff key="off" className="ui-eye-pop" />}
               </button>

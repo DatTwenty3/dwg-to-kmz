@@ -1,10 +1,18 @@
 @import "tailwindcss";
 
-/* Light, minimal design system. One accent (blue), neutral zinc greys, near-black primary actions. */
+/* Light, minimal design system. One accent (blue), neutral zinc greys, brand-navy primary actions and text. */
 :root {
   color-scheme: light;
   --background: #ffffff;
-  --foreground: #18181b;
+  --foreground: #0e1f3b;
+}
+
+/* Brand navy (from the LEDAT-GIS logo) takes the place of Tailwind's darkest greys, so every
+   text-zinc-900 / bg-zinc-900 (headings, primary buttons, selected states) follows the brand. */
+@theme {
+  --color-zinc-800: #1b2f52;
+  --color-zinc-900: #0e1f3b;
+  --color-zinc-950: #081429;
 }
 
 @theme inline {
@@ -135,7 +143,7 @@ body {
 .ui-fade-up { animation: ui-fade-up 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 .ui-format-in { animation: ui-format-in 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 .ui-shimmer {
-  background-image: linear-gradient(90deg, #2563eb, #0ea5e9, #6366f1, #2563eb);
+  background-image: linear-gradient(90deg, #0e1f3b, #1e40af, #2563eb, #0e1f3b);
   background-size: 200% 100%;
   -webkit-background-clip: text;
   background-clip: text;
@@ -147,9 +155,48 @@ body {
 .ui-drift { animation: ui-drift 18s ease-in-out infinite alternate; }
 .ui-caret { animation: ui-caret 1s steps(1) infinite; }
 
+/* ---- Landing backdrop motion ---- */
+@keyframes ui-wave {
+  to { transform: translateX(var(--period)); }
+}
+@keyframes ui-march {
+  to { stroke-dashoffset: -100; }
+}
+@keyframes ui-aurora {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  33% { transform: translate3d(6vw, -4vh, 0) scale(1.12); }
+  66% { transform: translate3d(-4vw, 5vh, 0) scale(0.94); }
+  100% { transform: translate3d(0, 0, 0) scale(1); }
+}
+/* Contours slide one wave period and loop seamlessly (the path is periodic). */
+.ui-wave { animation: ui-wave linear infinite; }
+.ui-draw-in { animation: ui-fade 1.6s ease-out both; }
+.ui-march { animation: ui-march 6s linear infinite; }
+.ui-aurora {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  opacity: 0.7;
+  will-change: transform;
+  animation: ui-aurora 28s ease-in-out infinite;
+}
+.ui-aurora-a { left: -10%; top: -15%; width: 55vw; height: 55vw; background: radial-gradient(circle, #93c5fd, transparent 70%); }
+.ui-aurora-b { right: -15%; top: 20%; width: 50vw; height: 50vw; background: radial-gradient(circle, #a5b4fc, transparent 70%); animation-duration: 34s; animation-delay: -12s; }
+.ui-aurora-c { left: 20%; bottom: -30%; width: 60vw; height: 45vw; background: radial-gradient(circle, #bae6fd, transparent 70%); animation-duration: 40s; animation-delay: -20s; }
+/* Pointer parallax: each layer shifts by its --depth, eased. */
+.ui-parallax {
+  transform: translate3d(calc(var(--mx, 0) * var(--depth)), calc(var(--my, 0) * var(--depth)), 0);
+  transition: transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* Continuous / large motion off. */
   .ui-shimmer, .ui-draw, .ui-ping, .ui-drift { animation: none !important; }
+  /* The landing backdrop stays alive (owner's choice — Windows with "animation effects" off reports reduced
+     motion), only slower and without the travelling point / parallax. */
+  .ui-wave { animation-duration: 90s !important; }
+  .ui-aurora { animation-duration: 60s !important; }
+  .ui-traveller { display: none; }
   .ui-draw { stroke-dashoffset: 0; }
   .ui-ping { opacity: 0; }
   /* Entrances keep a gentle opacity-only fade so scene changes stay smooth without movement. */
@@ -302,8 +349,8 @@ details[open]::details-content { block-size: auto; }
   color: #71717a;
   transition: color 0.2s;
 }
-.ui-tabs > button:hover { color: #18181b; }
-.ui-tabs > button[aria-selected="true"], .ui-tabs > button[aria-pressed="true"] { color: #18181b; }
+.ui-tabs > button:hover { color: #0e1f3b; }
+.ui-tabs > button[aria-selected="true"], .ui-tabs > button[aria-pressed="true"] { color: #0e1f3b; }
 .ui-tabs > button:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
 .ui-tabs-indicator {
   position: absolute;
@@ -365,7 +412,7 @@ details[open]::details-content { block-size: auto; }
   color: #a1a1aa;
   transition: background-color 0.15s, color 0.15s, transform 0.15s;
 }
-.ui-icon-btn:hover { background: #f4f4f5; color: #18181b; }
+.ui-icon-btn:hover { background: #f4f4f5; color: #0e1f3b; }
 .ui-icon-btn:active { transform: scale(0.92); }
 .ui-icon-btn:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
 
@@ -416,7 +463,21 @@ input[type="color"].ui-color::-moz-color-swatch { border: 0; border-radius: 999p
   .ui-tool-indicator { transition: opacity 0.2s; }
 }
 
-/* ---- Landing call-to-action: filled blue pill, coloured glow, periodic shine ---- */
+/* ---- Brand wordmark: Montserrat, as in the logo artwork ---- */
+.ui-wordmark {
+  font-family: var(--font-brand), var(--font-ui), sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #0e1f3b;
+}
+.ui-tagline {
+  font-family: var(--font-brand), var(--font-ui), sans-serif;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: #0e1f3b;
+}
+
+/* ---- Landing call-to-action: navy → blue pill, coloured glow, periodic shine ---- */
 .ui-cta {
   position: relative;
   display: inline-flex;
@@ -428,7 +489,7 @@ input[type="color"].ui-color::-moz-color-swatch { border: 0; border-radius: 999p
   font-size: 0.95rem;
   font-weight: 600;
   color: #fff;
-  background: linear-gradient(110deg, #2563eb 0%, #0ea5e9 55%, #6366f1 100%);
+  background: linear-gradient(110deg, #0e1f3b 0%, #1e3a8a 50%, #2563eb 100%);
   box-shadow:
     0 10px 30px -8px rgba(37, 99, 235, 0.55),
     0 2px 6px rgba(37, 99, 235, 0.25),

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { buildShareUrl, SHARE_LINK_SOFT_LIMIT, type SharedMap } from '@/lib/cad/share';
+import { BRAND_NAVY } from './brand';
 import { brandedQr } from './qr';
 import { IconAlert, IconCheck, IconCopy, IconDownload, IconSpinner, IconX } from './icons';
 
@@ -85,16 +86,28 @@ export default function ShareDialog({ map, onClose }: { map: SharedMap; onClose:
       ctx.drawImage(img, pad, pad, size, size);
       if (branded.label) {
         const l = branded.label;
-        ctx.fillStyle = '#18181b';
-        ctx.font = `700 ${l.size * size}px ${font}`;
+        const brandFont = getComputedStyle(document.documentElement).getPropertyValue('--font-brand').trim() || font;
+        const x0 = pad + l.x * size;
+        ctx.fillStyle = BRAND_NAVY;
         ctx.textBaseline = 'middle';
-        ctx.letterSpacing = `${-0.02 * l.size * size}px`;
-        ctx.fillText(l.text, pad + l.x * size, pad + l.y * size, l.maxWidth * size);
-        ctx.letterSpacing = '0px';
+        ctx.textAlign = 'left';
+        ctx.font = `700 ${l.word.size * size}px ${brandFont}`;
+        const wordW = Math.min(ctx.measureText(l.word.text).width, l.width * size);
+        ctx.fillText(l.word.text, x0, pad + l.word.y * size, wordW);
+        // Tagline: letters spread evenly across the wordmark's width (as in the logo).
+        ctx.font = `500 ${l.tag.size * size}px ${brandFont}`;
+        const chars = [...l.tag.text];
+        const widths = chars.map((c) => ctx.measureText(c).width);
+        const spacing = (wordW - widths.reduce((a, b) => a + b, 0)) / (chars.length - 1);
+        let cx = x0;
+        chars.forEach((c, i) => {
+          ctx.fillText(c, cx, pad + l.tag.y * size);
+          cx += widths[i] + spacing;
+        });
       }
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#18181b';
+      ctx.fillStyle = BRAND_NAVY;
       ctx.font = titleFont;
       lines.forEach((l, i) => ctx.fillText(l, W / 2, pad + size + 36 + lineH / 2 + i * lineH));
 

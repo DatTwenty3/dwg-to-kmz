@@ -1,6 +1,7 @@
 'use client';
 // Floating control panel of the map page: header, file chip, tabs (Layer · Vẽ · Tọa độ · Xuất).
 import { useState, type ReactNode } from 'react';
+import Tagline from './Tagline';
 import { IconAlert, IconCheck, IconDownload, IconFile, IconGlobe, IconHome, IconLayers, IconPanel, IconPen, Logo } from './icons';
 
 export type PanelTab = 'layers' | 'draw' | 'crs' | 'export';
@@ -74,8 +75,13 @@ export default function MapPanel({
       aria-hidden={!open}
     >
       <header className="flex items-center gap-2 px-4 pb-3 pt-4">
-        <Logo width={26} height={26} />
-        <span className="flex-1 text-[15px] font-semibold tracking-tight text-zinc-900">LEDAT-GIS</span>
+        <Logo width={30} height={30} />
+        <span className="flex flex-1">
+          <span className="flex flex-col items-stretch">
+            <span className="ui-wordmark text-base leading-tight">LEDAT-GIS</span>
+            <Tagline className="pl-px text-[7px] leading-tight" />
+          </span>
+        </span>
         <button className="ui-icon-btn" aria-label="Về trang chủ" title="Về trang chủ" onClick={onHome}>
           <IconHome width={17} height={17} />
         </button>

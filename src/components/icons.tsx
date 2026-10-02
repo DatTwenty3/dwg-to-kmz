@@ -1,5 +1,6 @@
 // Minimal stroke icons (24×24, currentColor) so the UI needs no icon dependency.
 import type { SVGProps } from 'react';
+import { BRAND_NAVY, LOGO_PATH, LOGO_VIEWBOX } from './brand';
 
 type P = SVGProps<SVGSVGElement>;
 const base = (p: P) => ({
@@ -84,11 +85,10 @@ export const IconSpinner = (p: P) => (
 );
 
 /** App mark: stacked drawing sheets. */
+/** LEDAT-GIS brand mark (navy "LD" + map pin). */
 export const Logo = (p: P) => (
-  <svg width={28} height={28} viewBox="0 0 28 28" aria-hidden {...p}>
-    <rect width="28" height="28" rx="8" fill="#18181b" />
-    <path d="M8 10.5 14 7l6 3.5-6 3.5z" fill="#fff" />
-    <path d="m8 14.5 6 3.5 6-3.5M8 18l6 3.5 6-3.5" fill="none" stroke="#60a5fa" strokeWidth="1.6" strokeLinejoin="round" />
+  <svg width={28} height={28} viewBox={LOGO_VIEWBOX} aria-hidden {...p}>
+    <path d={LOGO_PATH} fill={BRAND_NAVY} fillRule="evenodd" />
   </svg>
 );
 export const IconArrowRight = (p: P) => (

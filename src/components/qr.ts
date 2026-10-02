@@ -1,35 +1,37 @@
-// Branded QR code: rounded modules, accent finder eyes and a "logo + LEDAT-GIS" badge in the middle.
+// Branded QR code: rounded modules, navy finder eyes and a "logo + LEDAT-GIS / GEOSPATIAL SOLUTIONS" badge in
+// the middle.
 import { encode, QrCodeDataType } from 'uqr';
+import { BRAND_NAVY, LOGO_PATH, LOGO_VIEWBOX } from './brand';
 
-const INK = '#18181b';
-const ACCENT = '#2563eb';
+const INK = BRAND_NAVY;
 const WORDMARK = 'LEDAT-GIS';
+const TAGLINE = 'GEOSPATIAL SOLUTIONS';
 
-/** The app logo (same drawing as <Logo/> in icons.tsx) as SVG markup in a 28×28 box. */
-const LOGO =
-  '<rect width="28" height="28" rx="8" fill="#18181b"/>' +
-  '<path d="M8 10.5 14 7l6 3.5-6 3.5z" fill="#fff"/>' +
-  '<path d="m8 14.5 6 3.5 6-3.5M8 18l6 3.5 6-3.5" fill="none" stroke="#60a5fa" stroke-width="1.6" stroke-linejoin="round"/>';
+/** The brand mark (same drawing as <Logo/> in icons.tsx). */
+const LOGO = `<path d="${LOGO_PATH}" fill="${BRAND_NAVY}" fill-rule="evenodd"/>`;
 
 /**
- * The badge hides the modules under it (~6 % of the code), which error correction level M (15 %) makes up for.
+ * The badge hides the modules under it (~8 % of the code), which error correction level M (15 %) makes up for.
  * Level Q would leave more headroom but makes the code denser and harder to scan off a screen (measured with
  * jsQR: M with the badge decodes at the same sizes as a plain M code); links too long for M fall back to level
  * L without a badge.
  */
 const LEVELS = [
-  { ecc: 'M', badge: 0.12 },
+  { ecc: 'M', badge: 0.14 },
   { ecc: 'L', badge: 0 },
 ] as const;
 
 export interface BrandedQr {
   svg: string;
-  /** Where the wordmark goes, as fractions of the image edge — for drawing it with the UI font on a canvas. */
-  label: { x: number; y: number; size: number; maxWidth: number; text: string } | null;
+  /**
+   * Where the wordmark and tagline go (centre lines), as fractions of the image edge — for painting them with the
+   * brand font on a canvas. The tagline is spread to the wordmark's width, which is at most `width`.
+   */
+  label: { x: number; width: number; word: { y: number; size: number; text: string }; tag: { y: number; size: number; text: string } } | null;
 }
 
 /**
- * `withText: false` leaves the wordmark out of the SVG (an SVG drawn through <img> cannot use the page's web
+ * `withText: false` leaves the wordmark and tagline out of the SVG (an SVG drawn through <img> cannot use the page's web
  * fonts), so the caller can paint `label` itself.
  */
 export function brandedQr(data: string, { withText = true }: { withText?: boolean } = {}): BrandedQr | null {
@@ -44,13 +46,17 @@ export function brandedQr(data: string, { withText = true }: { withText?: boolea
     const margin = 2;
     const v = n + margin * 2;
 
-    // Badge geometry in modules: logo square + wordmark, centred.
+    // Badge geometry in modules: logo square + two text lines (wordmark, tagline spread to the same width).
     const h = Math.round(n * badge);
-    const logo = h * 0.72;
+    const logo = h * 0.78;
     const pad = (h - logo) / 2;
-    const gap = pad * 0.8;
-    const fontSize = h * 0.42;
-    const width = h ? pad + logo + gap + fontSize * 5.9 + pad * 1.4 : 0;
+    const gap = pad * 0.9;
+    const wordSize = h * 0.38;
+    const tagSize = h * 0.115;
+    const textW = wordSize * 6.4;
+    const wordY = n / 2 - h * 0.1;
+    const tagY = n / 2 + h * 0.22;
+    const width = h ? pad + logo + gap + textW + pad * 1.4 : 0;
     const bx = n / 2 - width / 2;
     const by = n / 2 - h / 2;
     // Modules touching the badge (plus half a module of air) are left out.
@@ -63,17 +69,20 @@ export function brandedQr(data: string, { withText = true }: { withText?: boolea
         cells.push(`M${x + 0.08} ${y}h0.84a0.08 0.08 0 0 1 .08.08v0.84a.08.08 0 0 1-.08.08h-0.84a.08.08 0 0 1-.08-.08v-0.84a.08.08 0 0 1 .08-.08z`);
       }
     }
-    // Finder patterns: rounded ring + accent centre.
+    // Finder patterns: rounded ring + centre, in the brand navy.
     const eye = (x: number, y: number) =>
       `<rect x="${x + 0.5}" y="${y + 0.5}" width="6" height="6" rx="1.9" fill="none" stroke="${INK}"/>` +
-      `<rect x="${x + 2}" y="${y + 2}" width="3" height="3" rx="0.9" fill="${ACCENT}"/>`;
+      `<rect x="${x + 2}" y="${y + 2}" width="3" height="3" rx="0.9" fill="${INK}"/>`;
 
     const textX = bx + pad + logo + gap;
     const badgeSvg = h
-      ? `<svg x="${bx + pad}" y="${by + pad}" width="${logo}" height="${logo}" viewBox="0 0 28 28">${LOGO}</svg>` +
+      ? `<svg x="${bx + pad}" y="${by + pad}" width="${logo}" height="${logo}" viewBox="${LOGO_VIEWBOX}">${LOGO}</svg>` +
         (withText
-          ? `<text x="${textX}" y="${n / 2}" dominant-baseline="central" font-size="${fontSize}" font-weight="700" fill="${INK}" ` +
-            `style="font-family: var(--font-ui), Arial, sans-serif; letter-spacing: -0.02em">${WORDMARK}</text>`
+          ? `<g fill="${INK}" style="font-family: var(--font-brand), Arial, sans-serif">` +
+            `<text x="${textX}" y="${wordY}" dominant-baseline="central" font-size="${wordSize}" font-weight="700" ` +
+            `textLength="${textW}" lengthAdjust="spacing">${WORDMARK}</text>` +
+            `<text x="${textX}" y="${tagY}" dominant-baseline="central" font-size="${tagSize}" font-weight="500" ` +
+            `textLength="${textW}" lengthAdjust="spacing">${TAGLINE}</text></g>`
           : '')
       : '';
 
@@ -86,7 +95,14 @@ export function brandedQr(data: string, { withText = true }: { withText?: boolea
       eye(0, n - 7) +
       badgeSvg +
       `</svg>`;
-    const label = h ? { x: (textX + margin) / v, y: (n / 2 + margin) / v, size: fontSize / v, maxWidth: (fontSize * 5.9) / v, text: WORDMARK } : null;
+    const label = h
+      ? {
+          x: (textX + margin) / v,
+          width: textW / v,
+          word: { y: (wordY + margin) / v, size: wordSize / v, text: WORDMARK },
+          tag: { y: (tagY + margin) / v, size: tagSize / v, text: TAGLINE },
+        }
+      : null;
     return { svg, label };
   }
   return null;

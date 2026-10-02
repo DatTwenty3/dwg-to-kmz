@@ -143,7 +143,7 @@ export default function SketchPanel(p: SketchPanelProps) {
           aria-checked={p.shown}
           aria-label={p.shown ? 'Ẩn lớp nét vẽ' : 'Hiện lớp nét vẽ'}
           onClick={p.onToggleShown}
-          style={{ color: p.shown ? '#18181b' : '#d4d4d8' }}
+          style={{ color: p.shown ? '#0e1f3b' : '#d4d4d8' }}
         >
           {p.shown ? <IconEye /> : <IconEyeOff />}
         </button>
@@ -198,7 +198,7 @@ export default function SketchPanel(p: SketchPanelProps) {
                   aria-checked={!f.hidden}
                   aria-label={`${f.hidden ? 'Hiện' : 'Ẩn'} ${f.name}`}
                   onClick={() => p.onUpdate(f.id, { hidden: !f.hidden })}
-                  style={{ color: f.hidden ? '#d4d4d8' : '#18181b' }}
+                  style={{ color: f.hidden ? '#d4d4d8' : '#0e1f3b' }}
                 >
                   {f.hidden ? <IconEyeOff /> : <IconEye />}
                 </button>

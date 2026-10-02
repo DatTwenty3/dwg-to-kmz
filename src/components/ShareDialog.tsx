@@ -2,13 +2,32 @@
 // Share dialog: the whole custom map is packed into the link (URL fragment), so nothing is uploaded.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { buildShareUrl, SHARE_LINK_SOFT_LIMIT, type SharedMap } from '@/lib/cad/share';
+import { buildShareUrl, SHARE_LINK_SOFT_LIMIT, SHARE_TITLE_PARAM, type SharedMap } from '@/lib/cad/share';
 import { BRAND_NAVY } from './brand';
 import { brandedQr } from './qr';
 import { IconAlert, IconCheck, IconCopy, IconDownload, IconSpinner, IconX } from './icons';
 
 /** Byte capacity of the largest QR code (version 40, low error correction). */
 const QR_MAX = 2900;
+
+/**
+ * Ask the server for the link-preview image (/og?t=…) now, so it is rendered and cached at the CDN
+ * before a chat app's crawler asks for them — a cold render (~2 s) can exceed the crawler's patience and the
+ * preview then shows without image or title. Fire and forget.
+ */
+function prewarmPreview(shareUrl: string) {
+  try {
+    const u = new URL(shareUrl);
+    if (u.origin !== window.location.origin) return;
+    const title = u.searchParams.get(SHARE_TITLE_PARAM);
+    if (!title) return;
+    const og = new URL('/og', u.origin);
+    og.searchParams.set(SHARE_TITLE_PARAM, title);
+    void fetch(og, { priority: 'low' }).catch(() => {});
+  } catch {
+    /* ignore */
+  }
+}
 
 export default function ShareDialog({ map, onClose }: { map: SharedMap; onClose: () => void }) {
   const [url, setUrl] = useState<string | null>(null);
@@ -20,7 +39,10 @@ export default function ShareDialog({ map, onClose }: { map: SharedMap; onClose:
   useEffect(() => {
     let alive = true;
     buildShareUrl(window.location.href, map)
-      .then((u) => alive && setUrl(u))
+      .then((u) => {
+        if (alive) setUrl(u);
+        prewarmPreview(u);
+      })
       .catch((e: unknown) => alive && setError(e instanceof Error ? e.message : String(e)));
     return () => {
       alive = false;

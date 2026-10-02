@@ -20,6 +20,8 @@ export { transformDocument, createPointTransformer, metresPerDegree } from './tr
 export type { EpsgEntry, CrsInputResult } from './epsg';
 export { EPSG_TABLE, getEpsg, resolveCrsInput, epsgForProj4 } from './epsg';
 export type { InversePointTransformer } from './project';
-export { createInversePointTransformer, projectDocument } from './project';
+export { createInversePointTransformer, createSurveyPointTransformer, projectDocument } from './project';
 export type { PlanarMeasure } from './measure';
 export { geodesicDistance, pathLength, geodesicArea, planarMeasure, formatLength, formatArea } from './measure';
+export type { CoordinateQuery, Vn2000Guess, Vn2000At, Vn2000Zone } from './search';
+export { parseCoordinateQuery, locateVn2000, vn2000At, vn2000Candidates, VN2000_ZONES, zoneByKey, zoneKeyOf, zoneProj4 } from './search';

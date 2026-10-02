@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import type { LayerStyle } from '@/lib/cad/types';
 import { SKETCH_DEFAULT_COLOR, SKETCH_DEFAULT_FILL, SKETCH_DEFAULT_LABEL_SIZE, type SketchFeature, type SketchKind } from '@/lib/cad/sketch';
-import { IconAlert, IconArea, IconBrush, IconEye, IconEyeOff, IconPin, IconPolyline, IconShare, IconTarget, IconTrash } from './icons';
+import { IconAlert, IconArea, IconBrush, IconEye, IconEyeOff, IconNodes, IconPin, IconPolyline, IconRedo, IconShare, IconTarget, IconTrash, IconUndo } from './icons';
 import LayerStyleEditor from './LayerStyleEditor';
 
 const TOOLS: { id: SketchKind; label: string; hint: string; icon: typeof IconPolyline }[] = [
@@ -40,6 +40,10 @@ export interface SketchPanelProps {
   /** Viewing a map opened from a shared link: edits are not saved on this device. */
   sharedView: boolean;
   onKeepShared: () => void;
+  /** Sketch whose shape is being edited on the map. */
+  editingId: string | null;
+  onEdit: (id: string | null) => void;
+  history: { canUndo: boolean; canRedo: boolean; undo: () => void; redo: () => void };
 }
 
 export default function SketchPanel(p: SketchPanelProps) {
@@ -215,6 +219,15 @@ export default function SketchPanel(p: SketchPanelProps) {
                   {f.label && <span className="max-w-[35%] truncate text-[11px] text-zinc-400">“{f.label}”</span>}
                 </button>
                 <button
+                  className={`ui-icon-btn ${p.editingId === f.id ? '!bg-blue-50 !text-blue-600' : 'ui-row-action'}`}
+                  aria-label={`Sửa hình ${f.name}`}
+                  aria-pressed={p.editingId === f.id}
+                  title="Sửa hình (kéo đỉnh, thêm / xóa đỉnh, dời)"
+                  onClick={() => p.onEdit(p.editingId === f.id ? null : f.id)}
+                >
+                  <IconNodes width={15} height={15} />
+                </button>
+                <button
                   className="ui-icon-btn ui-row-action"
                   aria-label={`Kiểu ${f.name}`}
                   title="Đổi màu, nét, vùng tô"
@@ -268,10 +281,19 @@ export default function SketchPanel(p: SketchPanelProps) {
                           }}
                         />
                       </label>
-                      <button className="ui-btn col-span-2 !py-1.5 !text-xs" onClick={() => p.onZoom(f.id)}>
-                        <IconTarget width={14} height={14} />
-                        Tới nét vẽ
-                      </button>
+                      <div className="col-span-2 grid grid-cols-2 gap-2">
+                        <button
+                          className={`${p.editingId === f.id ? 'ui-btn-primary' : 'ui-btn'} !py-1.5 !text-xs`}
+                          onClick={() => p.onEdit(p.editingId === f.id ? null : f.id)}
+                        >
+                          <IconNodes width={14} height={14} />
+                          {p.editingId === f.id ? 'Xong sửa hình' : 'Sửa hình'}
+                        </button>
+                        <button className="ui-btn !py-1.5 !text-xs" onClick={() => p.onZoom(f.id)}>
+                          <IconTarget width={14} height={14} />
+                          Tới nét vẽ
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -281,9 +303,15 @@ export default function SketchPanel(p: SketchPanelProps) {
         })}
       </ul>
 
-      {p.features.length > 0 && (
-        <div className="flex items-center justify-between text-[11px] text-zinc-400">
-          <span>{p.sharedView ? 'Bản đồ chia sẻ — chưa lưu trên máy này' : 'Lưu tự động trên trình duyệt này'}</span>
+      {(p.features.length > 0 || p.history.canUndo || p.history.canRedo) && (
+        <div className="flex items-center gap-1 text-[11px] text-zinc-400">
+          <button className="ui-icon-btn !h-7 !w-7" onClick={p.history.undo} disabled={!p.history.canUndo} aria-label="Hoàn tác" title="Hoàn tác (Ctrl+Z)">
+            <IconUndo width={15} height={15} />
+          </button>
+          <button className="ui-icon-btn !h-7 !w-7" onClick={p.history.redo} disabled={!p.history.canRedo} aria-label="Làm lại" title="Làm lại (Ctrl+Y)">
+            <IconRedo width={15} height={15} />
+          </button>
+          <span className="ml-1 mr-auto truncate">{p.sharedView ? 'Bản đồ chia sẻ — chưa lưu trên máy này' : 'Lưu tự động trên trình duyệt này'}</span>
           {confirmClear ? (
             <span className="flex items-center gap-1">
               <button className="ui-btn-ghost !text-red-600 hover:!bg-red-50" onClick={() => (p.onClearAll(), setConfirmClear(false))}>
@@ -294,10 +322,12 @@ export default function SketchPanel(p: SketchPanelProps) {
               </button>
             </span>
           ) : (
-            <button className="ui-btn-ghost" onClick={() => setConfirmClear(true)}>
-              <IconTrash width={13} height={13} />
-              Xóa tất cả
-            </button>
+            p.features.length > 0 && (
+              <button className="ui-btn-ghost" onClick={() => setConfirmClear(true)}>
+                <IconTrash width={13} height={13} />
+                Xóa tất cả
+              </button>
+            )
           )}
         </div>
       )}

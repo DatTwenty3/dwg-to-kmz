@@ -4,6 +4,7 @@ import type { CadDocument, CrsOptions } from '@/lib/cad/types';
 import { toDxf, toKml, toKmz, type ExportOptions } from '@/lib/export';
 import { epsgForProj4, projectDocument } from '@/lib/geo';
 import { IconAlert, IconDownload, IconSpinner } from './icons';
+import { toast } from './toast';
 
 export type ExportFormat = 'kmz' | 'kml' | 'dxf';
 
@@ -137,9 +138,11 @@ export default function ExportPanel({
         dxfCrs,
       });
       download(blob, `${fileBase}.${format}`);
+      toast.success(`Đã xuất ${fileBase}.${format}`);
       setResult({ ok: true, seq: Date.now(), text: `${fileBase}.${format} · ${(blob.size / 1024).toFixed(0)} KB · ${ms.toFixed(0)} ms` });
     } catch (err) {
       setResult({ ok: false, seq: Date.now(), text: `Lỗi khi xuất: ${err instanceof Error ? err.message : String(err)}` });
+      toast.error('Xuất file thất bại — xem chi tiết trong tab Xuất.');
     } finally {
       setBusy(false);
     }

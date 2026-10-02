@@ -171,6 +171,28 @@ export const IconTrash = (p: P) => (
     <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
   </svg>
 );
+/** Edit shape: an outline with vertex handles. */
+export const IconNodes = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M6.5 7.5 17 5.5M18.5 7.5l-1 9M15.5 18.5 7 17M5.5 15.5l-.5-6" />
+    <rect x="3.5" y="5" width="4" height="4" rx="1" />
+    <rect x="16" y="3.5" width="4" height="4" rx="1" />
+    <rect x="15.5" y="16.5" width="4" height="4" rx="1" />
+    <rect x="3" y="15" width="4" height="4" rx="1" />
+  </svg>
+);
+export const IconUndo = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M9 14 4 9l5-5" />
+    <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+  </svg>
+);
+export const IconRedo = (p: P) => (
+  <svg {...base(p)}>
+    <path d="m15 14 5-5-5-5" />
+    <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+  </svg>
+);
 export const IconSave = (p: P) => (
   <svg {...base(p)}>
     <path d="M5 4h11l3 3v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4z" />

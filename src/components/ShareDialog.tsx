@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { buildShareUrl, cleanShareTitle, sharePayloadOf, SHARE_LINK_SOFT_LIMIT, SHARE_TITLE_PARAM, type SharedMap } from '@/lib/cad/share';
 import { BRAND_NAVY } from './brand';
 import { brandedQr } from './qr';
+import { toast } from './toast';
 import { IconAlert, IconCheck, IconCopy, IconDownload, IconSpinner, IconX } from './icons';
 
 /** Byte capacity of the largest QR code (version 40, low error correction). */
@@ -164,6 +165,7 @@ export default function ShareDialog({ map, onClose }: { map: SharedMap; onClose:
       a.click();
       a.remove();
       window.setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+      toast.success(`Đã tải mã QR “${a.download}”`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

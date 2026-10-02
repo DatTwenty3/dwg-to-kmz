@@ -5,6 +5,7 @@ import {
   AttributionControl,
   GeolocateControl,
   Map as MlMap,
+  Marker,
   NavigationControl,
   ScaleControl,
   setWorkerUrl,
@@ -14,8 +15,11 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import type { Layer, PickingInfo } from '@deck.gl/core';
 import type { CrsOptions, Vec2 } from '@/lib/cad/types';
-import type { SketchKind } from '@/lib/cad/sketch';
-import { createInversePointTransformer } from '@/lib/geo';
+import type { SketchFeature, SketchKind } from '@/lib/cad/sketch';
+import { IconRedo, IconUndo } from './icons';
+import { createSurveyPointTransformer, formatDegMin, vn2000At, type InversePointTransformer } from '@/lib/geo';
+import { toast } from './toast';
+import { useEditSketch } from './useEditSketch';
 import {
   BASEMAPS,
   FALLBACK_BASEMAP_ID,
@@ -78,6 +82,16 @@ export interface MapViewProps {
   onDrawToolChange?: (t: SketchKind | null) => void;
   /** A sketch was finished on the map ([lng, lat] vertices). */
   onSketchCommit?: (kind: SketchKind, points: Vec2[]) => void;
+  /** Search result marker (a pin with its label). */
+  pin?: { lngLat: Vec2; label: string } | null;
+  /** Sketch whose shape is being edited on the map (vertex handles); null = not editing. */
+  editSketch?: SketchFeature | null;
+  /** A drag / vertex deletion finished: the new vertices of `editSketch`. */
+  onEditCommit?: (points: Vec2[]) => void;
+  /** Leave edit mode ("Xong", Esc, or another tool started). */
+  onEditDone?: () => void;
+  /** Sketch history (shown in the edit bar). */
+  history?: { canUndo: boolean; canRedo: boolean; undo: () => void; redo: () => void };
 }
 
 const DRAW_LABEL: Record<SketchKind, string> = { line: 'đường', polygon: 'vùng', point: 'điểm' };
@@ -107,6 +121,11 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
   drawTool = null,
   onDrawToolChange,
   onSketchCommit,
+  pin = null,
+  editSketch = null,
+  onEditCommit,
+  onEditDone,
+  history,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
@@ -115,7 +134,6 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
   const onPickRef = useRef(onPick);
   const onBasemapRef = useRef(onBasemapChange);
   const monitorRef = useRef(new TileErrorMonitor(20, 30_000));
-  const [notice, setNotice] = useState<string | null>(null);
   const [popupXY, setPopupXY] = useState<[number, number] | null>(null);
   const insetRef = useRef(insetLeft);
   const firstFitRef = useRef(true);
@@ -127,7 +145,8 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
   const inverse = useMemo(() => {
     if (!drawingCrs) return null;
     try {
-      return createInversePointTransformer(drawingCrs);
+      // Map convention (X = Bắc, Y = Đông, metres), not the CAD file's own axis order.
+      return createSurveyPointTransformer(drawingCrs);
     } catch {
       return null;
     }
@@ -142,9 +161,10 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
     (kind, pts) => onSketchCommit?.(kind, pts),
     () => onDrawToolChange?.(null),
   );
-  // While measuring or drawing, clicks belong to the tool (no entity popups / hover cursor).
+  const edit = useEditSketch(mapRef, overlayRef, editSketch, (pts) => onEditCommit?.(pts));
+  // While measuring, drawing or editing, clicks belong to the tool (no entity popups / hover cursor).
   const measureActiveRef = useRef(false);
-  const toolActive = measure.active || drawTool !== null;
+  const toolActive = measure.active || drawTool !== null || editSketch !== null;
   useEffect(() => {
     measureActiveRef.current = toolActive;
     if (toolActive) onPickRef.current(null);
@@ -154,6 +174,25 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
   useEffect(() => {
     if (drawTool) setMeasureTool(null);
   }, [drawTool, setMeasureTool]);
+  // Editing a shape is exclusive with measuring / drawing too.
+  const editing = editSketch !== null;
+  const onEditDoneRef = useRef(onEditDone);
+  useEffect(() => {
+    onEditDoneRef.current = onEditDone;
+  });
+  useEffect(() => {
+    if (editing && (measure.active || drawTool)) onEditDoneRef.current?.();
+  }, [editing, measure.active, drawTool]);
+  useEffect(() => {
+    if (!editing) return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      if (e.key === 'Escape' || e.key === 'Enter') onEditDoneRef.current?.();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [editing]);
   useEffect(() => {
     inverseRef.current = inverse;
   }, [inverse]);
@@ -194,7 +233,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
       fitBoundsOptions: { maxZoom: 17 },
     });
     geolocate.on('error', (e) => {
-      setNotice(
+      toast.error(
         e.code === 1
           ? 'Trình duyệt chưa cho phép truy cập vị trí — hãy bật quyền Vị trí cho trang này rồi thử lại.'
           : e.code === 3
@@ -210,12 +249,21 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
       if (sourceId !== 'basemap' || !isGoogleBasemap(basemapRef.current)) return;
       if (monitorRef.current.record(Date.now())) {
         monitorRef.current.reset();
-        setNotice('Không tải được ảnh nền Google (lỗi liên tục) — đã tự chuyển sang nền Esri Vệ tinh.');
+        toast.info('Không tải được ảnh nền Google (lỗi liên tục) — đã tự chuyển sang nền Esri Vệ tinh.', 7000);
         onBasemapRef.current(FALLBACK_BASEMAP_ID);
       }
     });
 
     // Live cursor readout: written straight to the DOM (no React re-render per mouse move).
+    // Without a drawing CRS the X/Y are VN-2000 of the province under the cursor (transformers cached per KTT).
+    const autoByLon0 = new Map<number, InversePointTransformer | null>();
+    const autoXY = (lng: number, lat: number): { xy: [number, number]; lon0: number } | null => {
+      const at = vn2000At(lng, lat);
+      if (!at) return null;
+      if (!autoByLon0.has(at.lon0)) autoByLon0.set(at.lon0, createSurveyPointTransformer({ proj4: at.proj4, swapXY: false, unitScale: 1 }));
+      const xy = autoByLon0.get(at.lon0)?.(lng, lat);
+      return xy ? { xy, lon0: at.lon0 } : null;
+    };
     let raf = 0;
     let last: { lng: number; lat: number } | null = null;
     const paint = () => {
@@ -224,10 +272,14 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
       if (!last) return;
       const { lng, lat } = last;
       if (llRef.current) llRef.current.textContent = `${Math.abs(lat).toFixed(6)}°${lat >= 0 ? 'N' : 'S'}  ${Math.abs(lng).toFixed(6)}°${lng >= 0 ? 'E' : 'W'}`;
-      const xy = inverseRef.current?.(lng, lat);
+      const fixed = inverseRef.current;
+      const auto = fixed ? null : autoXY(lng, lat);
+      const xy = fixed ? fixed(lng, lat) : (auto?.xy ?? null);
       if (xyRef.current) {
         xyRef.current.textContent = xy
-          ? `X ${xy[0].toLocaleString('vi-VN', { maximumFractionDigits: 2 })}  Y ${xy[1].toLocaleString('vi-VN', { maximumFractionDigits: 2 })}`
+          ? `X ${xy[0].toLocaleString('vi-VN', { maximumFractionDigits: 2 })}  Y ${xy[1].toLocaleString('vi-VN', { maximumFractionDigits: 2 })}${
+              auto ? `  (KTT ${formatDegMin(auto.lon0)})` : ''
+            }`
           : '';
       }
     };
@@ -324,10 +376,11 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
   // deck.gl layers.
   const measureLayers = measure.layers;
   const drawLayers = draw.layers;
+  const editLayers = edit.layers;
   useEffect(() => {
-    const extra = [...measureLayers, ...drawLayers];
+    const extra = [...editLayers, ...measureLayers, ...drawLayers];
     overlayRef.current?.setProps({ layers: extra.length ? [...layers, ...extra] : layers });
-  }, [layers, measureLayers, drawLayers]);
+  }, [layers, measureLayers, drawLayers, editLayers]);
   useEffect(() => {
     // The drawing fades in each time a document first appears (and again after the next file is opened).
     if (layers.length > 0 && !hadLayers.current) {
@@ -345,6 +398,31 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
     void canvas.offsetWidth;
     canvas.classList.add('ui-reveal');
   }, [revealKey]);
+
+  // Search result pin (a DOM marker, so it stays crisp and above the drawing).
+  const pinLng = pin?.lngLat[0];
+  const pinLat = pin?.lngLat[1];
+  const pinLabel = pin?.label;
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || pinLng === undefined || pinLat === undefined) return;
+    // MapLibre positions the marker element with `transform`, so the drop animation lives on an inner node.
+    const el = document.createElement('div');
+    const inner = document.createElement('div');
+    inner.className = 'ui-search-pin';
+    el.appendChild(inner);
+    inner.innerHTML =
+      '<svg width="30" height="38" viewBox="0 0 30 38" aria-hidden="true"><path d="M15 37s12-12.6 12-22A12 12 0 0 0 3 15c0 9.4 12 22 12 22z" fill="#0e1f3b" stroke="#fff" stroke-width="2"/><circle cx="15" cy="15" r="4.5" fill="#fff"/></svg>';
+    if (pinLabel) {
+      const tag = document.createElement('span');
+      tag.textContent = pinLabel;
+      inner.appendChild(tag);
+    }
+    const marker = new Marker({ element: el, anchor: 'bottom' }).setLngLat([pinLng, pinLat]).addTo(map);
+    return () => {
+      marker.remove();
+    };
+  }, [pinLng, pinLat, pinLabel]);
 
   // Fit to drawing.
   const fitSeq = fit?.seq;
@@ -403,7 +481,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
       <div ref={containerRef} className="h-full w-full" />
 
       <div
-        className="ui-floating ui-drop-in ui-scroll absolute right-3 top-3 z-10 max-w-[calc(100%-76px)] overflow-x-auto rounded-xl p-1 sm:max-w-none"
+        className="ui-floating ui-drop-in ui-scroll absolute right-3 top-3 z-10 max-w-[calc(100%-124px)] overflow-x-auto rounded-xl p-1 sm:max-w-none"
         style={{ animationDelay: '0.3s' }}
       >
         <div className="flex gap-0.5" role="group" aria-label="Chọn bản đồ nền">
@@ -415,7 +493,6 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
                 title={b.label}
                 aria-pressed={active}
                 onClick={() => {
-                  setNotice(null);
                   onBasemapChange(b.id);
                 }}
                 className={`shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-medium transition sm:px-3 ${
@@ -476,6 +553,49 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
         </div>
       )}
 
+      {editSketch && (
+        <div
+          className="ui-floating ui-pop-in absolute bottom-14 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full py-1.5 pl-4 pr-1.5 text-xs text-zinc-600"
+          style={{ left: `calc(${insetLeft}px + (100% - ${insetLeft}px) / 2)`, maxWidth: `calc(100% - ${insetLeft + 24}px)` }}
+          role="status"
+        >
+          <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-blue-600" />
+          <span className="min-w-0 truncate">
+            <b className="font-semibold text-zinc-900">Đang sửa “{editSketch.name}”</b>
+            <span className="hidden sm:inline">
+              {editSketch.kind === 'point'
+                ? ' · kéo điểm để di chuyển'
+                : ' · kéo đỉnh để di chuyển · kéo điểm giữa cạnh để thêm đỉnh · chuột phải xóa đỉnh · kéo hình để dời'}
+            </span>
+          </span>
+          {history && (
+            <>
+              <button
+                className="ui-icon-btn !h-7 !w-7 shrink-0"
+                onClick={history.undo}
+                disabled={!history.canUndo}
+                aria-label="Hoàn tác"
+                title="Hoàn tác (Ctrl+Z)"
+              >
+                <IconUndo width={15} height={15} />
+              </button>
+              <button
+                className="ui-icon-btn !h-7 !w-7 shrink-0"
+                onClick={history.redo}
+                disabled={!history.canRedo}
+                aria-label="Làm lại"
+                title="Làm lại (Ctrl+Y)"
+              >
+                <IconRedo width={15} height={15} />
+              </button>
+            </>
+          )}
+          <button className="ui-btn-primary shrink-0 !rounded-full !px-3 !py-1 !text-xs" onClick={() => onEditDone?.()}>
+            Xong
+          </button>
+        </div>
+      )}
+
       {loading && (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-30 h-0.5 overflow-hidden bg-blue-600/10" role="progressbar" aria-label="Đang xử lý">
           <div className="ui-loadbar h-full w-1/4 rounded-full bg-blue-600" />
@@ -499,18 +619,6 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
         </span>
       </div>
 
-      {notice && (
-        <div
-          role="status"
-          className="ui-floating absolute left-1/2 top-3 z-20 flex max-w-[60%] -translate-x-1/2 items-start gap-3 px-4 py-3 text-sm text-zinc-700"
-        >
-          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
-          <span>{notice}</span>
-          <button className="text-zinc-400 transition hover:text-zinc-900" aria-label="Đóng thông báo" onClick={() => setNotice(null)}>
-            ×
-          </button>
-        </div>
-      )}
 
       {popup && popupXY && (
         <div

@@ -46,8 +46,12 @@ import type { MapPick } from './MapView';
 import { createOpenFile, drawingCrsLabel, type OpenFile } from './openFile';
 import ChoiceDialog, { type Choice } from './ChoiceDialog';
 import ShareDialog from './ShareDialog';
+import { toast, Toaster } from './toast';
+import { useIsPhone } from './useIsPhone';
+import SearchBox, { type GoTarget } from './SearchBox';
 import SketchPanel from './SketchPanel';
 import { IconAlert, IconFolderOpen, IconPen, IconPlus, IconSave, IconSpinner, IconUpload, Logo } from './icons';
+import { findText } from '@/lib/cad/find';
 import { readSession, SESSION_EXT, SessionError, writeSession, type Session, type SessionFile } from '@/lib/cad/session';
 
 const MapView = dynamic(() => import('./MapView'), {
@@ -72,7 +76,12 @@ const PANEL_INSET = 400;
 
 /** Default DXF target for KML/KMZ sources: VN-2000, the province's central meridian, 3° zone, metres. */
 function targetFormFor(provinceId: string): CrsForm {
-  return { ...DEFAULT_FORM, mode: 'vn2000', lon0: getProvince(provinceId)?.lon0 ?? 105, zone: 3 };
+  return {
+    ...DEFAULT_FORM,
+    mode: 'vn2000',
+    lon0: getProvince(provinceId)?.lon0 ?? 105,
+    zone: 3,
+  };
 }
 
 const fmtMs = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${Math.round(ms)} ms`);
@@ -150,9 +159,16 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   const [basemapId, setBasemapId] = useState(DEFAULT_BASEMAP_ID);
   const [fit, setFit] = useState<{ bounds: [Vec2, Vec2]; seq: number }>();
   const [pick, setPick] = useState<MapPick | null>(null);
-  const [font, setFont] = useState<{ family: string; ready: boolean }>({ family: DEFAULT_FONT_FAMILY, ready: false });
+  const [font, setFont] = useState<{ family: string; ready: boolean }>({
+    family: DEFAULT_FONT_FAMILY,
+    ready: false,
+  });
   // The map opens full-screen; the panel stays behind the "Bảng điều khiển" button until asked for.
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  /** Phones: the panel is a bottom sheet (MapPanel); it gets out of the way while drawing / editing on the map. */
+  const isPhone = useIsPhone();
+  /** Search result marker. */
+  const [pin, setPin] = useState<{ lngLat: Vec2; label: string } | null>(null);
   const [dragDepth, setDragDepth] = useState(0);
   // Safety net for the drag overlay: any drop, a drag that leaves the window, or a cancelled drag (Esc) resets it.
   useEffect(() => {
@@ -172,6 +188,14 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     };
   }, []);
   const [stage, setStage] = useState<Stage>('landing');
+  const stageRef = useRef(stage);
+  useEffect(() => {
+    stageRef.current = stage;
+  }, [stage]);
+  // On the map page the panel is often collapsed, so errors also pop up as a toast.
+  useEffect(() => {
+    if (globalError && stageRef.current === 'map') toast.error(globalError);
+  }, [globalError]);
   const [focusTab, setFocusTab] = useState<{ tab: PanelTab; seq: number }>();
   const [layerCache] = useState(() => createFileLayerCache());
   // ---- sketches (user drawings) ----
@@ -184,7 +208,12 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   );
   const [shareMap, setShareMap] = useState<SharedMap | null>(null);
   /** Decision dialog ("Tạo bản đồ mới" over an existing map, opening a .ldg session…). */
-  const [choice, setChoice] = useState<{ title: string; description: ReactNode; choices: Choice[]; hint?: ReactNode } | null>(null);
+  const [choice, setChoice] = useState<{
+    title: string;
+    description: ReactNode;
+    choices: Choice[];
+    hint?: ReactNode;
+  } | null>(null);
   const [sessionBusy, setSessionBusy] = useState<'saving' | 'opening' | null>(null);
   const sketchesRef = useRef(sketches);
   /** Session (.ldg) actions, defined further down; refs so earlier callbacks (handleFile) can use them. */
@@ -197,6 +226,32 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   const [sketchOpacity, setSketchOpacity] = useState(1);
   const [sketchSel, setSketchSel] = useState<string | null>(null);
   const [drawTool, setDrawTool] = useState<SketchKind | null>(null);
+  /** Sketch whose shape is being edited on the map. */
+  const [editId, setEditId] = useState<string | null>(null);
+  // Sketch undo / redo stacks (see recordSketches below).
+  const historyRef = useRef<{
+    past: SketchFeature[][];
+    future: SketchFeature[][];
+    key?: string;
+    at: number;
+  }>({ past: [], future: [], at: 0 });
+  const [historyState, setHistoryState] = useState({
+    canUndo: false,
+    canRedo: false,
+  });
+  const syncHistory = useCallback(() => {
+    const h = historyRef.current;
+    setHistoryState({
+      canUndo: h.past.length > 0,
+      canRedo: h.future.length > 0,
+    });
+  }, []);
+  /** Another map was loaded: its changes start a fresh history. */
+  const resetHistory = useCallback(() => {
+    historyRef.current = { past: [], future: [], at: 0 };
+    setEditId(null);
+    syncHistory();
+  }, [syncHistory]);
   const [nextColor, setNextColor] = useState(SKETCH_DEFAULT_COLOR);
   useEffect(() => {
     if (sharedView) return; // viewing someone's link: never overwrite this device's own map
@@ -239,8 +294,14 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
         /* ignore */
       }
     }
-    type VT = { ready: Promise<unknown>; finished: Promise<unknown>; updateCallbackDone: Promise<unknown> };
-    const d = document as Document & { startViewTransition?: (cb: () => void) => VT };
+    type VT = {
+      ready: Promise<unknown>;
+      finished: Promise<unknown>;
+      updateCallbackDone: Promise<unknown>;
+    };
+    const d = document as Document & {
+      startViewTransition?: (cb: () => void) => VT;
+    };
     if (!d.startViewTransition || document.visibilityState !== 'visible') {
       setStage(next);
       return;
@@ -291,7 +352,12 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       id: string,
       crs: CrsOptions,
       res: { out: CadDocument; ms: number },
-      opts: { fit: boolean; provinceId: string; syncForm?: boolean; note?: string },
+      opts: {
+        fit: boolean;
+        provinceId: string;
+        syncForm?: boolean;
+        note?: string;
+      },
     ) => {
       const cur = filesRef.current.find((f) => f.id === id);
       if (!cur) return;
@@ -314,12 +380,24 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   );
 
   const applyCrs = useCallback(
-    async (id: string, crs: CrsOptions, opts: { fit: boolean; provinceId: string; syncForm?: boolean; note?: string }) => {
+    async (
+      id: string,
+      crs: CrsOptions,
+      opts: {
+        fit: boolean;
+        provinceId: string;
+        syncForm?: boolean;
+        note?: string;
+      },
+    ) => {
       try {
         const res = await runTransform(id, crs);
         if (res) commitTransform(id, crs, res, opts);
       } catch (err) {
-        patch(id, { error: `Lỗi chuyển tọa độ: ${errMsg(err)}`, status: 'error' });
+        patch(id, {
+          error: `Lỗi chuyển tọa độ: ${errMsg(err)}`,
+          status: 'error',
+        });
       }
     },
     [runTransform, commitTransform, patch],
@@ -329,7 +407,11 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     async (id: string, raw: CadDocument, prov: string) => {
       const list = suggestCrs(raw, prov || undefined);
       if (list.length > 0) await applyCrs(id, list[0].crs, { fit: true, provinceId: prov });
-      else patch(id, { status: 'ready', error: 'Không đoán được hệ tọa độ — hãy thiết lập thủ công.' });
+      else
+        patch(id, {
+          status: 'ready',
+          error: 'Không đoán được hệ tọa độ — hãy thiết lập thủ công.',
+        });
     },
     [applyCrs, patch],
   );
@@ -358,9 +440,16 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
             provinceId: prov,
             note: `${baseCrs && base ? `Hệ tọa độ của "${base.fileName}" không khớp vị trí file này. ` : ''}Tự đoán: ${list[0].label}.`,
           });
-        } else patch(id, { status: 'ready', error: 'Không đoán được hệ tọa độ — hãy thiết lập thủ công.' });
+        } else
+          patch(id, {
+            status: 'ready',
+            error: 'Không đoán được hệ tọa độ — hãy thiết lập thủ công.',
+          });
       } catch (err) {
-        patch(id, { error: `Lỗi chuyển tọa độ: ${errMsg(err)}`, status: 'error' });
+        patch(id, {
+          error: `Lỗi chuyển tọa độ: ${errMsg(err)}`,
+          status: 'error',
+        });
       }
     },
     [runTransform, commitTransform, applyCrs, patch],
@@ -370,7 +459,9 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
 
   const dropFileResources = useCallback(
     (id: string) => {
-      void pipeline().release(id).catch(() => {});
+      void pipeline()
+        .release(id)
+        .catch(() => {});
       layerCache.drop(id);
       styledCache.delete(id);
       transformSeq.current.delete(id);
@@ -395,7 +486,10 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       const base = replace ? undefined : (prev.find((f) => f.id === activeIdRef.current) ?? prev[0]);
       const id = `f${++idSeq.current}`;
       if (replace) prev.forEach((f) => dropFileResources(f.id));
-      const entry = { ...createOpenFile(id, file.name, nextTagColor(replace ? [] : prev.map((f) => f.tag))), source: file };
+      const entry = {
+        ...createOpenFile(id, file.name, nextTagColor(replace ? [] : prev.map((f) => f.tag))),
+        source: file,
+      };
       commitFiles(replace ? [entry] : [entry, ...prev]);
       setActive(id);
       setPick(null);
@@ -436,7 +530,11 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
           await p;
         } else await addCad(id, raw, prov, base);
       } catch (err) {
-        patch(id, { error: `Không đọc được bản vẽ: ${errMsg(err)}`, status: 'error', progress: null });
+        patch(id, {
+          error: `Không đọc được bản vẽ: ${errMsg(err)}`,
+          status: 'error',
+          progress: null,
+        });
       }
     },
     [pipeline, patch, commitFiles, setActive, dropFileResources, applyCrs, autoApply, addCad, go],
@@ -478,7 +576,10 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     };
     (async () => {
       try {
-        await handleFile(await load(sample), { replace: true, provOverride: prov });
+        await handleFile(await load(sample), {
+          replace: true,
+          provOverride: prov,
+        });
         for (const u of adds) {
           if (filesRef.current[0]?.status === 'error') break;
           go('map');
@@ -499,7 +600,9 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       sharedPayloadRef.current = undefined; // only on first load; later hash changes come from the URL
       if (fromProp === null) {
         // (State already started from this device's own map: `fromShare` is false for a missing link.)
-        setGlobalError('Không tìm thấy bản đồ của link chia sẻ này — link có thể sai, hoặc đã hết hạn vì 7 ngày liền không ai mở. Hãy nhờ người gửi chia sẻ lại.');
+        setGlobalError(
+          'Không tìm thấy bản đồ của link chia sẻ này — link có thể sai, hoặc đã hết hạn vì 7 ngày liền không ai mở. Hãy nhờ người gửi chia sẻ lại.',
+        );
         window.history.replaceState(null, '', '/');
         return;
       }
@@ -520,6 +623,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
         return;
       }
       setSharedView(true);
+      resetHistory();
       sketchesRef.current = m.features;
       setSketches(m.features);
       setMapMeta({ title: m.title, description: m.description ?? '' });
@@ -533,7 +637,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     void openShared();
     window.addEventListener('hashchange', openShared);
     return () => window.removeEventListener('hashchange', openShared);
-  }, [go, requestFit]);
+  }, [go, requestFit, resetHistory]);
 
   // Tab title follows the map name on the map page.
   useEffect(() => {
@@ -551,8 +655,8 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
         title: 'Tạo bản đồ mới?',
         description: (
           <>
-            Máy này đang lưu bản đồ <b className="font-semibold text-zinc-800">“{title}”</b> với {own.length} nét vẽ. Mỗi máy
-            lưu một bản đồ — tạo mới sẽ thay thế bản đồ này.
+            Máy này đang lưu bản đồ <b className="font-semibold text-zinc-800">“{title}”</b> với {own.length} nét vẽ. Mỗi máy lưu một bản đồ — tạo mới
+            sẽ thay thế bản đồ này.
           </>
         ),
         choices: [
@@ -582,6 +686,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
 
   const startBlankMap = () => {
     if (sharedView) keepSharedMap();
+    resetHistory();
     sketchesRef.current = [];
     setSketches([]);
     setMapMeta({ title: DEFAULT_MAP_TITLE, description: '' });
@@ -596,6 +701,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     if (sharedView) {
       const own = loadSketches();
       keepSharedMap();
+      resetHistory();
       sketchesRef.current = own;
       setSketches(own);
       setMapMeta(loadMeta());
@@ -609,6 +715,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
 
   const keepSharedMap = () => {
     // Becomes this device's own map: persisted from now on, and the link is dropped from the address bar.
+    if (sharedView) toast.success('Bản đồ đã được lưu vào máy này.');
     setSharedView(false);
     try {
       window.history.replaceState(null, '', '/'); // drops /s/<id>, ?t= and #m= of the link
@@ -642,7 +749,10 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     const crs = crsFromForm(form);
     if (!crs.proj4) return;
     // Only a fine offset changed → keep the view so the user can compare with the imagery.
-    void applyCrs(af.id, crs, { fit: !sameBaseCrs(crs, activeCrs), provinceId });
+    void applyCrs(af.id, crs, {
+      fit: !sameBaseCrs(crs, activeCrs),
+      provinceId,
+    });
   };
 
   const { counts, kinds } = useMemo(() => {
@@ -687,39 +797,134 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
 
   // ---- sketch actions -----------------------------------------------------------------------------
 
+  // ---- sketch history (Hoàn tác / Làm lại) ----
+  // Every sketch change goes through recordSketches; loading another map (shared link, session, new map) resets
+  // the history. Rapid repeats of the same change (a slider, typing a label) merge into one step.
+  const recordSketches = useCallback(
+    (next: SketchFeature[], key?: string) => {
+      const h = historyRef.current;
+      const now = Date.now();
+      if (!(key && h.key === key && now - h.at < 1200)) {
+        h.past.push(sketchesRef.current);
+        if (h.past.length > 100) h.past.shift();
+      }
+      h.future = [];
+      h.key = key;
+      h.at = now;
+      sketchesRef.current = next;
+      setSketches(next);
+      syncHistory();
+    },
+    [syncHistory],
+  );
+  const stepHistory = useCallback(
+    (dir: 'undo' | 'redo') => {
+      const h = historyRef.current;
+      const from = dir === 'undo' ? h.past : h.future;
+      const to = dir === 'undo' ? h.future : h.past;
+      const next = from.pop();
+      if (!next) return;
+      to.push(sketchesRef.current);
+      h.key = undefined;
+      sketchesRef.current = next;
+      setSketches(next);
+      setSketchShown(true);
+      setSketchSel((s) => (s && next.some((f) => f.id === s) ? s : null));
+      setEditId((e) => (e && next.some((f) => f.id === e) ? e : null));
+      syncHistory();
+    },
+    [syncHistory],
+  );
+  const undoSketch = useCallback(() => stepHistory('undo'), [stepHistory]);
+  const redoSketch = useCallback(() => stepHistory('redo'), [stepHistory]);
+  const historyApi = useMemo(() => ({ ...historyState, undo: undoSketch, redo: redoSketch }), [historyState, undoSketch, redoSketch]);
+  // Ctrl/⌘+Z, Ctrl+Y / Ctrl+Shift+Z on the map page (not while typing, not while placing vertices: there
+  // Backspace removes the last vertex).
+  const drawToolRef = useRef(drawTool);
+  useEffect(() => {
+    drawToolRef.current = drawTool;
+  });
+  useEffect(() => {
+    if (stage !== 'map') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+      if (drawToolRef.current) return;
+      const k = e.key.toLowerCase();
+      if (k === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undoSketch();
+      } else if (k === 'y' || (k === 'z' && e.shiftKey)) {
+        e.preventDefault();
+        redoSketch();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [stage, undoSketch, redoSketch]);
+
   const commitSketch = useCallback(
     (kind: SketchKind, points: Vec2[]) => {
       const list = sketchesRef.current;
       const f: SketchFeature = {
         id: `k${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
         kind,
-        name: nextSketchName(kind, list.map((x) => x.name)),
+        name: nextSketchName(
+          kind,
+          list.map((x) => x.name),
+        ),
         points,
         // Thicker than drawing lines by default so sketches stand out on imagery.
-        style: { color: nextColor, ...(kind === 'line' ? { width: 3 } : kind === 'polygon' ? { width: 2, fillOpacity: SKETCH_DEFAULT_FILL } : {}) },
+        style: {
+          color: nextColor,
+          ...(kind === 'line' ? { width: 3 } : kind === 'polygon' ? { width: 2, fillOpacity: SKETCH_DEFAULT_FILL } : {}),
+        },
       };
-      sketchesRef.current = [...list, f];
-      setSketches(sketchesRef.current);
+      recordSketches([...list, f]);
       setSketchSel(f.id);
       setSketchShown(true);
       setFocusTab((t) => ({ tab: 'draw', seq: (t?.seq ?? 0) + 1 }));
     },
-    [nextColor],
+    [nextColor, recordSketches],
   );
-  const updateSketch = useCallback((id: string, p: Partial<SketchFeature>) => {
-    setSketches((list) =>
-      list.map((f) => {
-        if (f.id !== id) return f;
-        const next = { ...f, ...p };
-        if (p.name !== undefined) next.name = uniqueName(p.name, list.map((x) => x.name), f.name);
-        return next;
-      }),
-    );
-  }, []);
-  const removeSketch = useCallback((id: string) => {
-    setSketches((list) => list.filter((f) => f.id !== id));
-    setSketchSel((s) => (s === id ? null : s));
-  }, []);
+  const updateSketch = useCallback(
+    (id: string, p: Partial<SketchFeature>) => {
+      const list = sketchesRef.current;
+      recordSketches(
+        list.map((f) => {
+          if (f.id !== id) return f;
+          const next = { ...f, ...p };
+          if (p.name !== undefined)
+            next.name = uniqueName(
+              p.name,
+              list.map((x) => x.name),
+              f.name,
+            );
+          return next;
+        }),
+        // Same field of the same sketch changed again shortly after (slider, typing): one undo step.
+        `${id}:${Object.keys(p).sort().join(',')}`,
+      );
+    },
+    [recordSketches],
+  );
+  const removeSketch = useCallback(
+    (id: string) => {
+      recordSketches(sketchesRef.current.filter((f) => f.id !== id));
+      setSketchSel((s) => (s === id ? null : s));
+      setEditId((e) => (e === id ? null : e));
+    },
+    [recordSketches],
+  );
+  /** Shape edited on the map (one finished drag / vertex deletion). */
+  const commitEdit = useCallback(
+    (points: Vec2[]) => {
+      if (!editId) return;
+      recordSketches(sketchesRef.current.map((f) => (f.id === editId ? { ...f, points } : f)));
+    },
+    [editId, recordSketches],
+  );
   const zoomToSketch = useCallback(
     (id: string) => {
       const f = sketches.find((x) => x.id === id);
@@ -809,7 +1014,11 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     }
     const sketchCount = sketchShown ? sketchDoc.layers.length : 0;
     if (sketchCount) parts.push({ name: uniqueName('Nét vẽ', used), doc: sketchDoc });
-    return { doc: parts.length ? mergeDocuments(parts) : null, files: parts.length - (sketchCount ? 1 : 0), sketches: sketchCount };
+    return {
+      doc: parts.length ? mergeDocuments(parts) : null,
+      files: parts.length - (sketchCount ? 1 : 0),
+      sketches: sketchCount,
+    };
   }, [renderList, files, sketchDoc, sketchShown]);
   const styledActive = renderList.find((r) => r.id === af?.id)?.doc ?? null;
   const styledRef = useRef(styledActive);
@@ -861,6 +1070,40 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
         ? crsFromForm(form)
         : null
       : activeCrs;
+  // CRS of the X/Y readouts (status bar, point tool, search): the drawing's, or the DXF target for KML/KMZ and
+  // sketch-only maps. Kept referentially stable (crsFromForm builds a new object every render).
+  // No drawing open (new map, shared map): null → each point is read in VN-2000 of its own province instead.
+  const readoutKey = af && dxfCrs ? JSON.stringify(dxfCrs) : '';
+  const readoutCrs = useMemo(() => (readoutKey ? (JSON.parse(readoutKey) as CrsOptions) : null), [readoutKey]);
+
+  const editSketch = editId && sketchShown ? (sketches.find((f) => f.id === editId && !f.hidden) ?? null) : null;
+
+  // ---- search ----
+  const findOnMap = useCallback(
+    (q: string) =>
+      findText(
+        q,
+        files.filter((f) => f.shown && f.doc).map((f) => ({ name: f.fileName, doc: f.doc! })),
+        sketchShown ? sketches : [],
+      ),
+    [files, sketches, sketchShown],
+  );
+  const goTo = (t: GoTarget) => {
+    setPin({ lngLat: t.lngLat, label: t.label });
+    if (isPhone) setSidebarOpen(false);
+    const d = 0.0015; // ~170 m around a point
+    requestFit(
+      t.bounds ?? [
+        [t.lngLat[0] - d, t.lngLat[1] - d],
+        [t.lngLat[0] + d, t.lngLat[1] + d],
+      ],
+    );
+    if (t.sketchId) {
+      setSketchShown(true);
+      setSketchSel(t.sketchId);
+    }
+  };
+
   const warnings = doc?.warnings ?? rawDoc?.warnings ?? [];
   const stats = rawDoc
     ? [
@@ -929,7 +1172,6 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     />
   );
 
-
   // ---- session files (.ldg) ---------------------------------------------------------------------
   // The whole working session in one file: open drawings (original bytes) with their CRS / layers / styles,
   // sketches, map name and basemap. Save it to continue later or send it to someone (src/lib/cad/session.ts).
@@ -956,13 +1198,22 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       );
       const title = mapMeta.title.trim() || DEFAULT_MAP_TITLE;
       const blob = await writeSession({
-        map: { title, description: mapMeta.description.trim() || undefined, basemap: basemapId, features: sketchesRef.current },
+        map: {
+          title,
+          description: mapMeta.description.trim() || undefined,
+          basemap: basemapId,
+          features: sketchesRef.current,
+        },
         sketchLayer: { shown: sketchShown, opacity: sketchOpacity },
         files,
-        active: Math.max(0, ready.findIndex((f) => f.id === activeIdRef.current)),
+        active: Math.max(
+          0,
+          ready.findIndex((f) => f.id === activeIdRef.current),
+        ),
         savedAt: new Date().toISOString(),
       });
       download(blob, `${fileSafe(title)}${SESSION_EXT}`);
+      toast.success(`Đã lưu phiên làm việc “${fileSafe(title)}${SESSION_EXT}”`);
     } catch (err) {
       setGlobalError(`Không lưu được phiên làm việc: ${errMsg(err)}`);
     } finally {
@@ -991,7 +1242,11 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       else if (sf.crs) await applyCrs(id, sf.crs, { fit: false, provinceId: sf.provinceId });
       else await autoApply(id, raw, sf.provinceId);
     } catch (err) {
-      patch(id, { error: `Không đọc được bản vẽ: ${errMsg(err)}`, status: 'error', progress: null });
+      patch(id, {
+        error: `Không đọc được bản vẽ: ${errMsg(err)}`,
+        status: 'error',
+        progress: null,
+      });
     }
   };
 
@@ -1002,9 +1257,13 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       setActive(null);
       setPick(null);
       if (sharedView) keepSharedMap();
+      resetHistory();
       sketchesRef.current = session.map.features;
       setSketches(session.map.features);
-      setMapMeta({ title: session.map.title, description: session.map.description ?? '' });
+      setMapMeta({
+        title: session.map.title,
+        description: session.map.description ?? '',
+      });
       if (session.map.basemap) setBasemapId(session.map.basemap);
       setSketchShown(session.sketchLayer.shown);
       setSketchOpacity(session.sketchLayer.opacity);
@@ -1013,11 +1272,13 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       const added = session.map.features.map((f) => {
         const name = uniqueName(f.name, names);
         names.push(name);
-        return { ...f, id: `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`, name };
+        return {
+          ...f,
+          id: `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`,
+          name,
+        };
       });
-      const next = [...sketchesRef.current, ...added];
-      sketchesRef.current = next;
-      setSketches(next);
+      recordSketches([...sketchesRef.current, ...added]);
       if (added.length) setSketchShown(true);
     }
     setSketchSel(null);
@@ -1039,9 +1300,15 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     const ids = jobs.map((j) => j.id).reverse();
     if (ids.length) setActive(ids[session.active] ?? ids[0]);
     go('map');
-    setFocusTab((t) => ({ tab: ids.length ? 'layers' : 'draw', seq: (t?.seq ?? 0) + 1 }));
+    setFocusTab((t) => ({
+      tab: ids.length ? 'layers' : 'draw',
+      seq: (t?.seq ?? 0) + 1,
+    }));
     if (!ids.length) requestFit(sketchToDocument(sketchesRef.current).bbox);
     for (const j of jobs) await restoreFile(j.id, j.sf, j.file);
+    const failed = jobs.filter((j) => filesRef.current.find((f) => f.id === j.id)?.status === 'error').length;
+    if (failed) toast.error(`Mở phiên xong nhưng ${failed} bản vẽ bị lỗi — xem danh sách file.`);
+    else toast.success(`Đã mở phiên “${session.map.title}”`);
     if (ids.length) {
       const sk = sketchToDocument(sketchesRef.current);
       requestFit(unionBounds([shownBounds(filesRef.current), sk.layers.length ? sk.bbox : null]));
@@ -1072,8 +1339,8 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       description: (
         <>
           Phiên làm việc gồm <b className="font-semibold text-zinc-800">{content}</b>
-          {session.savedAt ? `, lưu lúc ${new Date(session.savedAt).toLocaleString('vi-VN')}` : ''}. Bản đồ đang mở có{' '}
-          {filesRef.current.length} bản vẽ và {sketchesRef.current.length} nét vẽ.
+          {session.savedAt ? `, lưu lúc ${new Date(session.savedAt).toLocaleString('vi-VN')}` : ''}. Bản đồ đang mở có {filesRef.current.length} bản
+          vẽ và {sketchesRef.current.length} nét vẽ.
         </>
       ),
       choices: [
@@ -1148,7 +1415,16 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
           progress={af?.progress ?? null}
           error={stage === 'landing' ? (globalError ?? af?.error ?? null) : null}
           resumeName={rawDoc ? af?.fileName : sketches.length ? mapMeta.title : undefined}
-          onResume={rawDoc ? () => go(files.length > 1 || isGeoSource ? 'map' : 'crs') : sketches.length ? () => go('map') : undefined}
+          onResume={
+            rawDoc
+              ? () => go(files.length > 1 || isGeoSource ? 'map' : 'crs')
+              : sketches.length
+                ? () => {
+                    go('map');
+                    requestFit(sketchToDocument(sketches).bbox);
+                  }
+                : undefined
+          }
           onBlankMap={openBlankMap}
           panel={
             stage === 'crs' ? (
@@ -1178,6 +1454,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
         {dragOverlay}
         {choiceDialog}
         {sessionPill}
+        <Toaster />
       </div>
     );
   }
@@ -1237,9 +1514,15 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
           fit={fit}
           onPick={onMapPick}
           popup={popup}
-          insetLeft={sidebarOpen ? PANEL_INSET : 0}
-          drawingCrs={isGeoSource ? null : activeCrs}
-          drawingCrsLabel={drawingCrsLabel(isGeoSource ? null : activeCrs)}
+          insetLeft={sidebarOpen && !isPhone ? PANEL_INSET : 0}
+          // X/Y readouts: the drawing's CRS, or for KML/KMZ and sketch-only maps the VN-2000 target of the DXF export.
+          drawingCrs={readoutCrs}
+          drawingCrsLabel={drawingCrsLabel(readoutCrs)}
+          pin={pin}
+          editSketch={editSketch}
+          onEditCommit={commitEdit}
+          onEditDone={() => setEditId(null)}
+          history={historyApi}
           fontFamily={font.family}
           loading={busy}
           drawTool={drawTool}
@@ -1288,15 +1571,33 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
             selectedId={sketchSel}
             onSelect={setSketchSel}
             tool={drawTool}
-            onTool={setDrawTool}
+            onTool={(t) => {
+              setDrawTool(t);
+              if (t && isPhone) setSidebarOpen(false);
+            }}
             nextColor={nextColor}
             onNextColor={setNextColor}
             onUpdate={updateSketch}
             onRemove={removeSketch}
             onClearAll={() => {
-              setSketches([]);
+              recordSketches([]);
               setSketchSel(null);
+              setEditId(null);
+              toast.info('Đã xóa tất cả nét vẽ — bấm Hoàn tác (Ctrl+Z) nếu lỡ tay.');
             }}
+            editingId={editId}
+            onEdit={(id) => {
+              if (id) {
+                setDrawTool(null);
+                setSketchShown(true);
+                setSketchSel(id);
+                const f = sketchesRef.current.find((x) => x.id === id);
+                if (f?.hidden) updateSketch(id, { hidden: false });
+                if (isPhone) setSidebarOpen(false);
+              }
+              setEditId(id);
+            }}
+            history={historyApi}
             shown={sketchShown}
             onToggleShown={() => setSketchShown((v) => !v)}
             opacity={sketchOpacity}
@@ -1320,24 +1621,26 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
         }
         crsTab={
           !af ? (
-            noFileHint('Hệ tọa độ chỉ cần khi mở bản vẽ DWG/DXF. Nét vẽ trên bản đồ dùng tọa độ WGS84; khi xuất DXF sẽ tự đổi sang VN-2000 theo tỉnh.')
+            noFileHint(
+              'Hệ tọa độ chỉ cần khi mở bản vẽ DWG/DXF. Nét vẽ trên bản đồ dùng tọa độ WGS84; khi xuất DXF sẽ tự đổi sang VN-2000 theo tỉnh.',
+            )
           ) : (
-          <>
-            {af?.needsConfirm && (
-              <div className="ui-pop-in mb-3 flex items-start gap-2.5 rounded-xl bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-800">
-                <IconAlert className="mt-0.5 shrink-0" width={14} height={14} />
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium">File mới thêm — hãy xem lại hệ tọa độ.</p>
-                  <p>{af.crsNote}</p>
-                  <button className="ui-btn mt-2 !px-2.5 !py-1 !text-xs" onClick={() => patch(af.id, { needsConfirm: false })}>
-                    Giữ nguyên
-                  </button>
+            <>
+              {af?.needsConfirm && (
+                <div className="ui-pop-in mb-3 flex items-start gap-2.5 rounded-xl bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-800">
+                  <IconAlert className="mt-0.5 shrink-0" width={14} height={14} />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">File mới thêm — hãy xem lại hệ tọa độ.</p>
+                    <p>{af.crsNote}</p>
+                    <button className="ui-btn mt-2 !px-2.5 !py-1 !text-xs" onClick={() => patch(af.id, { needsConfirm: false })}>
+                      Giữ nguyên
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-            {isGeoSource && <p className="mb-3 text-xs text-zinc-500">Hệ tọa độ đích khi xuất DXF.</p>}
-            {crsPanel(false)}
-          </>
+              )}
+              {isGeoSource && <p className="mb-3 text-xs text-zinc-500">Hệ tọa độ đích khi xuất DXF.</p>}
+              {crsPanel(false)}
+            </>
           )
         }
         onSaveSession={() => void saveSession()}
@@ -1351,8 +1654,8 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-semibold text-zinc-900">Phiên làm việc (.ldg)</p>
                 <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-500">
-                  Lưu mọi bản vẽ đang mở cùng hệ tọa độ, layer, kiểu nét và nét vẽ vào một file — mở lại sau hoặc gửi cho người khác
-                  (kéo thả file .ldg vào trang).
+                  Lưu mọi bản vẽ đang mở cùng hệ tọa độ, layer, kiểu nét và nét vẽ vào một file — mở lại sau hoặc gửi cho người khác (kéo thả file
+                  .ldg vào trang).
                 </p>
                 <button
                   className="ui-btn-primary mt-2 !px-3 !py-1.5 !text-xs"
@@ -1387,32 +1690,40 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
         }
       />
 
-      {!sidebarOpen && (
-        <button
-          className="ui-floating absolute left-3 top-3 z-30 flex items-center gap-2.5 p-2 text-sm font-medium text-zinc-900 transition hover:bg-white sm:pr-4"
-          onClick={() => setSidebarOpen(true)}
-          aria-label="Mở bảng điều khiển"
-          title="Bảng điều khiển"
-        >
-          <Logo width={24} height={24} />
-          {/* Phones: logo only, so the button stays clear of the basemap pill. */}
-          <span className="hidden sm:inline">Bảng điều khiển</span>
-        </button>
-      )}
+      {/* Top-left: panel button (when collapsed) + search. With the panel open the search moves right of it. */}
+      <div
+        className="absolute top-3 z-20 flex items-start gap-2 transition-[left] duration-300 ease-out"
+        style={{
+          left: sidebarOpen && !isPhone ? 'calc(min(384px, 100% - 24px) + 24px)' : 12,
+        }}
+      >
+        {!sidebarOpen && (
+          <button
+            className="ui-floating flex h-10 shrink-0 items-center gap-2.5 p-2 text-sm font-medium text-zinc-900 transition hover:bg-white sm:pr-4"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Mở bảng điều khiển"
+            title="Bảng điều khiển"
+          >
+            <Logo width={24} height={24} />
+            {/* Phones: logo only, so the button stays clear of the basemap pill. */}
+            <span className="hidden lg:inline">Bảng điều khiển</span>
+          </button>
+        )}
+        <SearchBox drawingCrs={readoutCrs} find={findOnMap} onGo={goTo} onClear={() => setPin(null)} />
+      </div>
 
       {dragOverlay}
 
       {shareMap && <ShareDialog map={shareMap} onClose={() => setShareMap(null)} />}
       {choiceDialog}
       {sessionPill}
+      <Toaster />
 
       {/* Status pill */}
       {busyFile && (
         <div className="ui-floating pointer-events-none absolute bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2 text-xs font-medium text-zinc-700">
           <IconSpinner className="text-blue-600" />
-          {busyFile.status === 'parsing'
-            ? `${progress?.stage ?? 'Đang đọc'} · ${Math.round(progress?.percent ?? 0)}%`
-            : 'Đang chuyển tọa độ…'}
+          {busyFile.status === 'parsing' ? `${progress?.stage ?? 'Đang đọc'} · ${Math.round(progress?.percent ?? 0)}%` : 'Đang chuyển tọa độ…'}
         </div>
       )}
     </div>

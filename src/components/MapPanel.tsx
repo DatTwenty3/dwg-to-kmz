@@ -1,6 +1,7 @@
 'use client';
 // Floating control panel of the map page: header, file chip, tabs (Layer · Vẽ · Tọa độ · Xuất).
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
+import { useIsPhone } from './useIsPhone';
 import Tagline from './Tagline';
 import { IconAlert, IconCheck, IconDownload, IconFile, IconGlobe, IconHome, IconLayers, IconPanel, IconPen, IconSave, IconSpinner, Logo } from './icons';
 
@@ -57,6 +58,12 @@ export default function MapPanel({
   // A request made before the panel mounted (e.g. "Tạo bản đồ mới" → Vẽ) picks the first tab.
   const [tab, setTab] = useState<PanelTab>(focusTab?.tab ?? 'layers');
   const [warnOpen, setWarnOpen] = useState(false);
+  // Phones: the panel is a bottom sheet, half height or full; null = not being dragged.
+  const phone = useIsPhone();
+  const [sheetFull, setSheetFull] = useState(false);
+  const [sheetDrag, setSheetDrag] = useState<number | null>(null);
+  const sheetStart = useRef<number | null>(null);
+  const sheetDy = useRef(0);
   // External tab requests (adjust state during render instead of in an effect).
   const [seenFocus, setSeenFocus] = useState(focusTab?.seq);
   if (focusTab && focusTab.seq !== seenFocus) {
@@ -74,12 +81,63 @@ export default function MapPanel({
 
   return (
     <aside
-      className={`ui-floating ui-slide-in-left absolute bottom-3 left-3 top-3 z-30 flex w-[384px] max-w-[calc(100%-24px)] flex-col overflow-hidden transition-transform duration-300 ease-out ${
-        open ? 'translate-x-0' : '-translate-x-[calc(100%+24px)]'
-      }`}
+      className={
+        phone
+          ? `ui-floating fixed inset-x-0 bottom-0 z-30 flex flex-col overflow-hidden !rounded-b-none !rounded-t-2xl ${sheetDrag === null ? 'transition-[transform,height] duration-300 ease-out' : ''}`
+          : `ui-floating ui-slide-in-left absolute bottom-3 left-3 top-3 z-30 flex w-[384px] max-w-[calc(100%-24px)] flex-col overflow-hidden transition-transform duration-300 ease-out ${
+              open ? 'translate-x-0' : '-translate-x-[calc(100%+24px)]'
+            }`
+      }
+      style={
+        phone
+          ? {
+              height: sheetFull ? 'calc(100dvh - 64px)' : 'min(58dvh, 34rem)',
+              transform: open ? `translateY(${Math.max(sheetDrag ?? 0, sheetFull ? 0 : -999)}px)` : 'translateY(calc(100% + 16px))',
+            }
+          : undefined
+      }
       aria-hidden={!open}
     >
-      <header className="flex items-center gap-2 px-4 pb-3 pt-4">
+      {phone && (
+        // Bottom-sheet grip: tap = half ↔ full height; drag up = full, drag down = half / close.
+        <div
+          className="flex shrink-0 cursor-grab touch-none justify-center pb-1 pt-2.5 active:cursor-grabbing"
+          onPointerDown={(e) => {
+            e.currentTarget.setPointerCapture(e.pointerId);
+            sheetStart.current = e.clientY;
+            sheetDy.current = 0;
+            setSheetDrag(0);
+          }}
+          onPointerMove={(e) => {
+            if (sheetStart.current === null) return;
+            sheetDy.current = e.clientY - sheetStart.current;
+            setSheetDrag(sheetDy.current);
+          }}
+          onPointerUp={() => {
+            const dy = sheetDy.current; // ref: the last move may not have re-rendered yet
+            sheetStart.current = null;
+            sheetDy.current = 0;
+            setSheetDrag(null);
+            if (Math.abs(dy) < 6) setSheetFull((f) => !f);
+            else if (dy < -50) setSheetFull(true);
+            else if (dy > 70) {
+              if (sheetFull) setSheetFull(false);
+              else onCollapse();
+            }
+          }}
+          onPointerCancel={() => {
+            sheetStart.current = null;
+            setSheetDrag(null);
+          }}
+          role="button"
+          aria-label={sheetFull ? 'Thu nhỏ bảng điều khiển' : 'Mở rộng bảng điều khiển'}
+          tabIndex={0}
+          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && setSheetFull((f) => !f)}
+        >
+          <span className="h-1.5 w-10 rounded-full bg-zinc-300" />
+        </div>
+      )}
+      <header className={`flex items-center gap-2 px-4 pb-3 ${phone ? 'pt-1' : 'pt-4'}`}>
         <Logo width={30} height={30} />
         <span className="flex flex-1">
           <span className="flex flex-col items-stretch">

@@ -86,6 +86,40 @@ body {
   width: 36px !important;
   height: 36px !important;
 }
+/* Markers (search pin, live position dot) above the deck.gl canvas, which comes later in the DOM. */
+.maplibregl-canvas-container .maplibregl-marker { z-index: 2; }
+
+/* Search result pin: navy drop pin + label chip under it. */
+.ui-search-pin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  animation: ui-pin-drop 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.ui-search-pin svg { filter: drop-shadow(0 4px 6px rgba(15, 23, 42, 0.35)); }
+.ui-search-pin span {
+  order: -1;
+  margin-bottom: 4px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 999px;
+  background: #fff;
+  padding: 2px 10px;
+  font: 600 12px/1.6 var(--font-ui), system-ui, sans-serif;
+  color: #0e1f3b;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
+}
+@keyframes ui-pin-drop {
+  from { opacity: 0; transform: translateY(-14px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-search-pin { animation-name: ui-fade; }
+}
+
 /* Live position dot in the accent colour. */
 .maplibregl-user-location-dot,
 .maplibregl-user-location-dot::before {

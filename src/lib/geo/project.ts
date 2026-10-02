@@ -56,6 +56,18 @@ export function createInversePointTransformer(crs: CrsOptions): InversePointTran
   };
 }
 
+/**
+ * WGS84 → map-convention coordinates of the drawing's projected CRS, as on Vietnamese maps and in survey
+ * records: **X = Northing, Y = Easting**, in metres, true ground position (the drawing's own axis swap, unit
+ * scale and fine-tune offset are ignored — those only describe how the CAD file stores coordinates).
+ * Returns null for a geographic CRS (lat/lng has no X/Y).
+ */
+export function createSurveyPointTransformer(crs: CrsOptions): InversePointTransformer | null {
+  const resolved = resolveCrsInput(crs.proj4);
+  if (!resolved.ok || isGeographic(resolved.proj4)) return null;
+  return createInversePointTransformer({ proj4: crs.proj4, swapXY: true, unitScale: 1 });
+}
+
 /** Drawing-space direction (degrees CCW from +X) of a ground direction `rotationDeg` (CCW from east) at `ll`. */
 function drawingRotation(inv: InversePointTransformer, ll: Vec2, p0: Vec2, rotationDeg: number): number {
   const r = rotationDeg * DEG;

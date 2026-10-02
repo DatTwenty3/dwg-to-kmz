@@ -78,6 +78,14 @@ body {
   width: 36px !important;
   height: 36px !important;
 }
+/* Live position dot in the accent colour. */
+.maplibregl-user-location-dot,
+.maplibregl-user-location-dot::before {
+  background-color: #2563eb !important;
+}
+.maplibregl-user-location-accuracy-circle {
+  background-color: rgba(37, 99, 235, 0.14) !important;
+}
 .maplibregl-ctrl-scale {
   border-radius: 6px;
   border-color: #52525b !important;

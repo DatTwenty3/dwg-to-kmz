@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   AttributionControl,
+  GeolocateControl,
   Map as MlMap,
   NavigationControl,
   ScaleControl,
@@ -173,10 +174,35 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
       zoom: VIETNAM_ZOOM,
       maxZoom: 22,
       attributionControl: false,
+      locale: {
+        'GeolocateControl.FindMyLocation': 'Vị trí của tôi',
+        'GeolocateControl.LocationNotAvailable': 'Không xác định được vị trí',
+        'NavigationControl.ZoomIn': 'Phóng to',
+        'NavigationControl.ZoomOut': 'Thu nhỏ',
+        'NavigationControl.ResetBearing': 'Kéo để xoay bản đồ, bấm để quay về hướng Bắc',
+      },
       canvasContextAttributes: { antialias: true },
     });
     map.addControl(new AttributionControl({ compact: true }), 'bottom-right');
     map.addControl(new NavigationControl({ visualizePitch: false }), 'bottom-right');
+    // Live position: one small button above the zoom buttons. First press follows the user (blue dot +
+    // accuracy circle, updated as they move); panning stops following, pressing again resumes / turns it off.
+    const geolocate = new GeolocateControl({
+      positionOptions: { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+      trackUserLocation: true,
+      showAccuracyCircle: true,
+      fitBoundsOptions: { maxZoom: 17 },
+    });
+    geolocate.on('error', (e) => {
+      setNotice(
+        e.code === 1
+          ? 'Trình duyệt chưa cho phép truy cập vị trí — hãy bật quyền Vị trí cho trang này rồi thử lại.'
+          : e.code === 3
+            ? 'Quá thời gian chờ tín hiệu vị trí — hãy thử lại ở nơi thoáng hoặc bật GPS.'
+            : 'Không xác định được vị trí hiện tại trên thiết bị này.',
+      );
+    });
+    map.addControl(geolocate, 'bottom-right');
     map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-right');
 
     map.on('error', (ev) => {

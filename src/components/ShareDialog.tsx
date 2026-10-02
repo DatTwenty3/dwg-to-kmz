@@ -2,8 +2,8 @@
 // Share dialog: the whole custom map is packed into the link (URL fragment), so nothing is uploaded.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { renderSVG } from 'uqr';
 import { buildShareUrl, SHARE_LINK_SOFT_LIMIT, type SharedMap } from '@/lib/cad/share';
+import { brandedQr } from './qr';
 import { IconAlert, IconCheck, IconCopy, IconDownload, IconSpinner, IconX } from './icons';
 
 /** Byte capacity of the largest QR code (version 40, low error correction). */
@@ -38,21 +38,20 @@ export default function ShareDialog({ map, onClose }: { map: SharedMap; onClose:
 
   const qr = useMemo(() => {
     if (!url || url.length > QR_MAX) return null;
-    try {
-      return renderSVG(url, { ecc: 'L', border: 2, pixelSize: 4, blackColor: '#18181b', whiteColor: '#ffffff' });
-    } catch {
-      return null;
-    }
+    return brandedQr(url)?.svg ?? null;
   }, [url]);
 
   const [qrBusy, setQrBusy] = useState(false);
-  /** PNG for print / documents: large QR, the map title and the app name underneath. */
+  /** PNG for print / documents: the branded QR with the map title underneath. */
   const downloadQr = async () => {
     if (!qr) return;
     setQrBusy(true);
     try {
+      // The wordmark is painted on the canvas below: an SVG drawn through <img> cannot use the web font.
+      const branded = url ? brandedQr(url, { withText: false }) : null;
+      if (!branded) return;
       const img = new Image();
-      const svgUrl = URL.createObjectURL(new Blob([qr], { type: 'image/svg+xml' }));
+      const svgUrl = URL.createObjectURL(new Blob([branded.svg], { type: 'image/svg+xml' }));
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve();
         img.onerror = () => reject(new Error('Không vẽ được mã QR'));
@@ -60,35 +59,44 @@ export default function ShareDialog({ map, onClose }: { map: SharedMap; onClose:
       });
       URL.revokeObjectURL(svgUrl);
 
-      const size = 1024; // QR edge in px — sharp when printed
-      const pad = 64;
+      // Card: QR with the logo in the middle, the map title underneath.
+      const W = 1080;
+      const pad = 72;
+      const size = W - pad * 2;
       const font = getComputedStyle(document.documentElement).getPropertyValue('--font-ui').trim() || 'sans-serif';
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Trình duyệt không hỗ trợ canvas');
       // Wrap the title to the QR width (max 2 lines).
-      ctx.font = `600 44px ${font}`;
-      const words = map.title.split(/\s+/);
+      const titleFont = `600 52px ${font}`;
+      ctx.font = titleFont;
       const lines: string[] = [];
-      for (const w of words) {
+      for (const w of map.title.split(/\s+/)) {
         const last = lines[lines.length - 1];
-        if (last !== undefined && ctx.measureText(`${last} ${w}`).width <= size) lines[lines.length - 1] = `${last} ${w}`;
+        if (last !== undefined && ctx.measureText(`${last} ${w}`).width <= size - 40) lines[lines.length - 1] = `${last} ${w}`;
         else lines.push(w);
       }
       if (lines.length > 2) lines.splice(2, lines.length - 2, `${lines[1]}…`);
-      canvas.width = size + pad * 2;
-      canvas.height = pad + size + 40 + lines.length * 56 + 52 + pad;
+      const lineH = 66;
+      canvas.width = W;
+      canvas.height = pad + size + 36 + lines.length * lineH + pad - 8;
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.imageSmoothingEnabled = false; // keep modules crisp
       ctx.drawImage(img, pad, pad, size, size);
+      if (branded.label) {
+        const l = branded.label;
+        ctx.fillStyle = '#18181b';
+        ctx.font = `700 ${l.size * size}px ${font}`;
+        ctx.textBaseline = 'middle';
+        ctx.letterSpacing = `${-0.02 * l.size * size}px`;
+        ctx.fillText(l.text, pad + l.x * size, pad + l.y * size, l.maxWidth * size);
+        ctx.letterSpacing = '0px';
+      }
       ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       ctx.fillStyle = '#18181b';
-      ctx.font = `600 44px ${font}`;
-      lines.forEach((l, i) => ctx.fillText(l, canvas.width / 2, pad + size + 72 + i * 56));
-      ctx.fillStyle = '#71717a';
-      ctx.font = `500 30px ${font}`;
-      ctx.fillText('Quét để mở bản đồ · LEDAT-GIS', canvas.width / 2, pad + size + 72 + lines.length * 56 + 20);
+      ctx.font = titleFont;
+      lines.forEach((l, i) => ctx.fillText(l, W / 2, pad + size + 36 + lineH / 2 + i * lineH));
 
       const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/png'));
       if (!blob) throw new Error('Không tạo được ảnh PNG');
@@ -175,7 +183,7 @@ export default function ShareDialog({ map, onClose }: { map: SharedMap; onClose:
               {qr ? (
                 <div className="flex items-center gap-4 rounded-xl bg-zinc-50 p-3">
                   <div
-                    className="h-32 w-32 shrink-0 overflow-hidden rounded-lg bg-white p-1 ring-1 ring-zinc-200 [&>svg]:h-full [&>svg]:w-full"
+                    className="h-40 w-40 shrink-0 overflow-hidden rounded-lg bg-white p-1 ring-1 ring-zinc-200 [&>svg]:h-full [&>svg]:w-full"
                     // uqr returns a self-contained <svg> built from the link text (no user HTML).
                     dangerouslySetInnerHTML={{ __html: qr }}
                     aria-label="Mã QR của link"

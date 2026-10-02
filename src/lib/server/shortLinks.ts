@@ -12,6 +12,12 @@ export interface ShortLinkRecord {
 }
 
 export const SHORT_ID_RE = /^[A-Za-z0-9]{8,16}$/;
+
+/**
+ * A link nobody opens for this long is deleted (keeps the free Redis tier from filling up). Every open — by a
+ * person or a chat app's preview bot — and every re-share restarts the countdown (sliding expiry).
+ */
+export const SHORT_LINK_IDLE_TTL_S = 7 * 24 * 3600;
 const KEY = (id: string) => `share:${id}`;
 
 // <prefix>_REST_API_URL / <prefix>_REST_API_TOKEN (Vercel names them after the prefix typed when connecting:
@@ -72,21 +78,22 @@ export async function saveShortLink(rec: ShortLinkRecord): Promise<string> {
   const value = JSON.stringify(rec);
   for (const length of [8, 10, 12, 16]) {
     const id = contentId(rec.p, length);
-    if ((await redis(['SET', KEY(id), value, 'NX'])) === 'OK') return id;
-    const existing = await loadShortLink(id);
+    if ((await redis(['SET', KEY(id), value, 'NX', 'EX', SHORT_LINK_IDLE_TTL_S])) === 'OK') return id;
+    const existing = await loadShortLink(id); // also restarts its countdown
     if (existing?.p === rec.p) {
       // Same map shared again: keep the id, refresh the title if it changed.
-      if (existing.t !== rec.t) await redis(['SET', KEY(id), value]);
+      if (existing.t !== rec.t) await redis(['SET', KEY(id), value, 'EX', SHORT_LINK_IDLE_TTL_S]);
       return id;
     }
   }
   throw new Error('Could not allocate a short link id');
 }
 
+/** Reads a link and restarts its idle countdown (GETEX: one command). */
 export async function loadShortLink(id: string): Promise<ShortLinkRecord | null> {
   if (!SHORT_ID_RE.test(id) || !shortLinksEnabled()) return null;
   try {
-    const raw = await redis(['GET', KEY(id)]);
+    const raw = await redis(['GETEX', KEY(id), 'EX', SHORT_LINK_IDLE_TTL_S]);
     if (typeof raw !== 'string') return null;
     const rec = JSON.parse(raw) as Partial<ShortLinkRecord>;
     return typeof rec.p === 'string' && typeof rec.t === 'string' ? { p: rec.p, t: rec.t } : null;

@@ -481,7 +481,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       sharedPayloadRef.current = undefined; // only on first load; later hash changes come from the URL
       if (fromProp === null) {
         // (State already started from this device's own map: `fromShare` is false for a missing link.)
-        setGlobalError('Không tìm thấy bản đồ của link chia sẻ này — link có thể sai hoặc bản đồ đã bị xóa.');
+        setGlobalError('Không tìm thấy bản đồ của link chia sẻ này — link có thể sai, hoặc đã hết hạn vì 7 ngày liền không ai mở. Hãy nhờ người gửi chia sẻ lại.');
         window.history.replaceState(null, '', '/');
         return;
       }

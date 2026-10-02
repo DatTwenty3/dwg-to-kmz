@@ -1,18 +1,30 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { loadShortLink, saveShortLink, shortLinksEnabled, underRateLimit } from '@/lib/server/shortLinks';
+import { loadShortLink, saveShortLink, SHORT_LINK_IDLE_TTL_S, shortLinksEnabled, underRateLimit } from '@/lib/server/shortLinks';
 
 /** In-memory stand-in for the Upstash REST endpoint. */
 function fakeUpstash() {
   const db = new Map<string, string>();
+  const ttl = new Map<string, number>();
+  const exOf = (args: (string | number)[]) => {
+    const i = args.indexOf('EX');
+    return i >= 0 ? Number(args[i + 1]) : undefined;
+  };
   const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
-    const [cmd, key, ...args] = JSON.parse(String(init.body)) as string[];
+    const [cmd, key, ...args] = JSON.parse(String(init.body)) as [string, string, ...(string | number)[]];
     let result: unknown = null;
     if (cmd === 'SET') {
       if (args.includes('NX') && db.has(key)) result = null;
       else {
-        db.set(key, args[0]);
+        db.set(key, String(args[0]));
+        const ex = exOf(args);
+        if (ex) ttl.set(key, ex);
+        else ttl.delete(key);
         result = 'OK';
       }
+    } else if (cmd === 'GETEX') {
+      result = db.get(key) ?? null;
+      const ex = exOf(args);
+      if (result !== null && ex) ttl.set(key, ex);
     } else if (cmd === 'GET') result = db.get(key) ?? null;
     else if (cmd === 'INCR') {
       db.set(key, String(Number(db.get(key) ?? 0) + 1));
@@ -20,7 +32,7 @@ function fakeUpstash() {
     } else if (cmd === 'EXPIRE') result = 1;
     return new Response(JSON.stringify({ result }), { status: 200 });
   });
-  return { db, fetchMock };
+  return { db, ttl, fetchMock };
 }
 
 describe('short share links', () => {
@@ -68,6 +80,18 @@ describe('short share links', () => {
     fake.db.set(`share:${id}`, JSON.stringify({ p: 'other', t: '' })); // simulate a hash collision
     const again = await saveShortLink({ p: 'one', t: '' });
     expect(again).toHaveLength(10);
+  });
+
+  it('expires links after a week without opens; each open restarts the countdown', async () => {
+    expect(SHORT_LINK_IDLE_TTL_S).toBe(7 * 24 * 3600);
+    const id = await saveShortLink({ p: 'ttl', t: '' });
+    expect(fake.ttl.get(`share:${id}`)).toBe(SHORT_LINK_IDLE_TTL_S);
+    fake.ttl.set(`share:${id}`, 10); // almost expired
+    await loadShortLink(id);
+    expect(fake.ttl.get(`share:${id}`)).toBe(SHORT_LINK_IDLE_TTL_S);
+    // A title change keeps the expiry too.
+    await saveShortLink({ p: 'ttl', t: 'Tên mới' });
+    expect(fake.ttl.get(`share:${id}`)).toBe(SHORT_LINK_IDLE_TTL_S);
   });
 
   it('rejects malformed ids without asking the store', async () => {

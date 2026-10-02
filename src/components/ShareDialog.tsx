@@ -274,7 +274,7 @@ export default function ShareDialog({ map, onClose }: { map: SharedMap; onClose:
 
               <p className="text-[11px] leading-relaxed text-zinc-400">
                 {isShort
-                  ? 'Nét vẽ được lưu trên máy chủ LEDAT-GIS để link ngắn gọn. '
+                  ? 'Nét vẽ được lưu trên máy chủ LEDAT-GIS để link ngắn gọn; link tự hết hạn nếu 7 ngày liền không ai mở. '
                   : 'Toàn bộ nét vẽ nằm ngay trong link, không lưu lên máy chủ. '}
                 Ai có link đều xem được; link là bản chụp tại lúc tạo — sửa xong hãy chia sẻ link mới. Bản vẽ DWG/DXF/KMZ đã mở không được gửi kèm.
               </p>

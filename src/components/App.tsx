@@ -495,6 +495,9 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       setPick(null);
       // A freshly opened drawing starts on its layers (not on a tab left over from an earlier map).
       if (replace) setFocusTab((t) => ({ tab: 'layers', seq: (t?.seq ?? 0) + 1 }));
+      // A drawing opened from the home page with no sketches around starts new work: drop the old map name
+      // (it would otherwise name this drawing's exports and session).
+      if (replace && sketchesRef.current.length === 0) setMapMeta({ title: DEFAULT_MAP_TITLE, description: '' });
       const t0 = performance.now();
       try {
         const raw = await pipeline().parse(file, (stage, percent) => patch(id, { progress: { stage, percent } }), id);
@@ -1078,6 +1081,11 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
 
   const editSketch = editId && sketchShown ? (sketches.find((f) => f.id === editId && !f.hidden) ?? null) : null;
 
+  /** The user gave the map a name (not the default one). */
+  const mapNamed = !!mapMeta.title.trim() && mapMeta.title.trim() !== DEFAULT_MAP_TITLE;
+  /** File name for the session (.ldg): the map's name when it has one, else the selected drawing's name. */
+  const workName = mapNamed ? fileSafe(mapMeta.title) : af ? baseName(af.fileName) : fileSafe(DEFAULT_MAP_TITLE);
+
   // ---- search ----
   const findOnMap = useCallback(
     (q: string) =>
@@ -1212,8 +1220,8 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
         ),
         savedAt: new Date().toISOString(),
       });
-      download(blob, `${fileSafe(title)}${SESSION_EXT}`);
-      toast.success(`Đã lưu phiên làm việc “${fileSafe(title)}${SESSION_EXT}”`);
+      download(blob, `${workName}${SESSION_EXT}`);
+      toast.success(`Đã lưu phiên làm việc “${workName}${SESSION_EXT}”`);
     } catch (err) {
       setGlobalError(`Không lưu được phiên làm việc: ${errMsg(err)}`);
     } finally {
@@ -1680,7 +1688,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
               key={`${af?.id}-${isGeoSource ? 'geo' : 'cad'}`}
               doc={styledActive}
               sourceFileName={af?.fileName ?? fileSafe(mapMeta.title)}
-              mergedName={sketches.length ? fileSafe(mapMeta.title) : undefined}
+              mergedName={sketches.length && mapNamed ? fileSafe(mapMeta.title) : undefined}
               visible={af?.visible ?? new Set()}
               dxfCrs={dxfCrs}
               defaultFormat={isGeoSource ? 'dxf' : 'kmz'}

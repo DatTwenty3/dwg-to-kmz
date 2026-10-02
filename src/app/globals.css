@@ -86,6 +86,16 @@ body {
   width: 36px !important;
   height: 36px !important;
 }
+/* Phones: iOS Safari zooms the whole page into any focused field whose text is under 16px (and leaves it
+   zoomed, pushing the panel and buttons off screen). Form fields are 16px there. */
+@media (max-width: 639.98px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 /* Markers (search pin, live position dot) above the deck.gl canvas, which comes later in the DOM. */
 .maplibregl-canvas-container .maplibregl-marker { z-index: 2; }
 

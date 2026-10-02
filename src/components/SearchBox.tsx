@@ -17,7 +17,8 @@ import {
   zoneProj4,
 } from '@/lib/geo';
 import CoordCard, { type ZoneChoice } from './CoordCard';
-import { IconChevron, IconFile, IconGlobe, IconPen, IconPin, IconSearch, IconSpinner, IconX } from './icons';
+import { useIsPhone } from './useIsPhone';
+import { IconArrowLeft, IconChevron, IconFile, IconGlobe, IconPen, IconPin, IconSearch, IconSpinner, IconX } from './icons';
 
 /** The search bar's VN-2000 zone (remembered on this device). */
 const ZONE_KEY = 'ledat-gis:search-zone:v1';
@@ -81,6 +82,7 @@ export default function SearchBox({
   const [open, setOpen] = useState(false);
   /** Phones: the field is a button until tapped. */
   const [expanded, setExpanded] = useState(false);
+  const phone = useIsPhone();
   const [active, setActive] = useState(0);
   const [osm, setOsm] = useState<{ q: string; items: OsmPlace[] } | null>(null);
   const [osmBusy, setOsmBusy] = useState(false);
@@ -328,7 +330,9 @@ export default function SearchBox({
   let lastGroup = '';
 
   return (
-    <div ref={boxRef} className={`relative ${expanded ? 'w-[min(22rem,calc(100vw-80px))]' : ''} sm:w-96`}>
+    // Phones: the opened search takes the whole top row (over the panel button and the basemap pill), like a
+    // search page; ← closes it. Larger screens: a fixed-width field next to the panel button.
+    <div ref={boxRef} className={phone && expanded ? 'fixed inset-x-3 top-3 z-40' : 'relative sm:w-96'}>
       {!expanded && (
         <button
           className="ui-floating flex h-10 w-10 items-center justify-center text-zinc-700 sm:hidden"
@@ -343,7 +347,22 @@ export default function SearchBox({
         </button>
       )}
       <div className={`ui-floating ${expanded ? 'flex' : 'hidden sm:flex'} h-10 items-center gap-2 pl-3 pr-1.5`}>
-        <IconSearch className="shrink-0 text-zinc-400" width={16} height={16} />
+        {phone ? (
+          <button
+            className="ui-icon-btn -ml-1.5 !h-8 !w-8 shrink-0"
+            aria-label="Đóng tìm kiếm"
+            onClick={() => {
+              setOpen(false);
+              setExpanded(false);
+              setCard(null);
+              inputRef.current?.blur();
+            }}
+          >
+            <IconArrowLeft width={18} height={18} />
+          </button>
+        ) : (
+          <IconSearch className="shrink-0 text-zinc-400" width={16} height={16} />
+        )}
         <input
           ref={inputRef}
           value={q}
@@ -404,7 +423,7 @@ export default function SearchBox({
         )}
       </div>
 
-      {!showList && card && (
+      {!showList && card && (!phone || expanded) && (
         <CoordCard
           key={card.seq}
           lngLat={card.lngLat}

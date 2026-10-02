@@ -255,7 +255,7 @@ export default function Landing({
             <div
               role="button"
               tabIndex={0}
-              aria-label="Chọn hoặc kéo thả file DWG, DXF, KMZ, KML"
+              aria-label="Chọn hoặc kéo thả file DWG, DXF, KMZ, KML hoặc phiên làm việc LDG"
               onClick={open}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') open();
@@ -295,14 +295,14 @@ export default function Landing({
                   </span>
                   <span className="text-base font-medium text-zinc-900">Thả file vào đây để bắt đầu</span>
                   <span className="text-sm text-zinc-500">
-                    hoặc <span className="font-medium text-blue-600">chọn file</span> · .dwg .dxf .kmz .kml
+                    hoặc <span className="font-medium text-blue-600">chọn file</span> · .dwg .dxf .kmz .kml .ldg
                   </span>
                 </>
               )}
               <input
                 ref={inputRef}
                 type="file"
-                accept=".dwg,.dxf,.kmz,.kml"
+                accept=".dwg,.dxf,.kmz,.kml,.ldg"
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files?.[0];

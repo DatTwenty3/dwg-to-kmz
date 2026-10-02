@@ -2,7 +2,7 @@
 // Floating control panel of the map page: header, file chip, tabs (Layer · Vẽ · Tọa độ · Xuất).
 import { useState, type ReactNode } from 'react';
 import Tagline from './Tagline';
-import { IconAlert, IconCheck, IconDownload, IconFile, IconGlobe, IconHome, IconLayers, IconPanel, IconPen, Logo } from './icons';
+import { IconAlert, IconCheck, IconDownload, IconFile, IconGlobe, IconHome, IconLayers, IconPanel, IconPen, IconSave, IconSpinner, Logo } from './icons';
 
 export type PanelTab = 'layers' | 'draw' | 'crs' | 'export';
 
@@ -29,6 +29,8 @@ export default function MapPanel({
   drawTab,
   crsTab,
   exportTab,
+  onSaveSession,
+  savingSession,
 }: {
   open: boolean;
   onCollapse: () => void;
@@ -48,6 +50,9 @@ export default function MapPanel({
   drawTab: ReactNode;
   crsTab: ReactNode;
   exportTab: ReactNode;
+  /** Save the whole session as a .ldg file. */
+  onSaveSession?: () => void;
+  savingSession?: boolean;
 }) {
   // A request made before the panel mounted (e.g. "Tạo bản đồ mới" → Vẽ) picks the first tab.
   const [tab, setTab] = useState<PanelTab>(focusTab?.tab ?? 'layers');
@@ -82,6 +87,17 @@ export default function MapPanel({
             <Tagline className="pl-px text-[7px] leading-tight" />
           </span>
         </span>
+        {onSaveSession && (
+          <button
+            className="ui-icon-btn"
+            aria-label="Lưu phiên làm việc"
+            title="Lưu phiên làm việc (.ldg) — Ctrl+S"
+            onClick={onSaveSession}
+            disabled={savingSession}
+          >
+            {savingSession ? <IconSpinner width={17} height={17} /> : <IconSave width={17} height={17} />}
+          </button>
+        )}
         <button className="ui-icon-btn" aria-label="Về trang chủ" title="Về trang chủ" onClick={onHome}>
           <IconHome width={17} height={17} />
         </button>

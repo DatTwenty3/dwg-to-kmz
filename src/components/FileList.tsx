@@ -210,7 +210,7 @@ export default function FileList({
           ref={inputRef}
           type="file"
           multiple
-          accept=".dwg,.dxf,.kmz,.kml"
+          accept=".dwg,.dxf,.kmz,.kml,.ldg"
           className="hidden"
           aria-label="Thêm file bản vẽ"
           data-testid="add-file-input"

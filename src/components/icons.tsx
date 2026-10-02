@@ -171,6 +171,18 @@ export const IconTrash = (p: P) => (
     <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
   </svg>
 );
+export const IconSave = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M5 4h11l3 3v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4z" />
+    <path d="M8 4v5h7V4M8 20v-6h8v6" />
+  </svg>
+);
+export const IconFolderOpen = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M4 19V6a1 1 0 0 1 1-1h4l2 2h7a1 1 0 0 1 1 1v2" />
+    <path d="M4 19l2.6-7.2a1 1 0 0 1 .9-.8H20a1 1 0 0 1 .95 1.3L19 19H4z" />
+  </svg>
+);
 export const IconPlus = (p: P) => (
   <svg {...base(p)}>
     <path d="M12 5v14M5 12h14" />

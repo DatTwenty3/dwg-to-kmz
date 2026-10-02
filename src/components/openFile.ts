@@ -36,6 +36,8 @@ export interface OpenFile {
   /** A file added later got its CRS automatically: the user should confirm (note says how it was chosen). */
   needsConfirm: boolean;
   crsNote: string | null;
+  /** The original file, kept so a session (.ldg) can store and re-open it exactly. */
+  source: File | null;
 }
 
 export function createOpenFile(id: string, fileName: string, tag: string): OpenFile {
@@ -60,6 +62,7 @@ export function createOpenFile(id: string, fileName: string, tag: string): OpenF
     progress: { stage: 'Đọc file', percent: 0 },
     needsConfirm: false,
     crsNote: null,
+    source: null,
   };
 }
 

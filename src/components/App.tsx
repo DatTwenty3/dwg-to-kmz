@@ -1,6 +1,6 @@
 'use client';
 import dynamic from 'next/dynamic';
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import type { CadDocument, CrsOptions, LayerStyle, Vec2 } from '@/lib/cad/types';
 import { applyLayerStyles, isEmptyStyle, type LayerStyles } from '@/lib/cad/style';
@@ -36,7 +36,7 @@ import CrsPanel from './CrsPanel';
 import CrsStep from './CrsStep';
 import { DEFAULT_FORM, crsFromForm, formFromCrs, sameBaseCrs, type CrsForm } from './crsForm';
 import EntityPopup from './EntityPopup';
-import ExportPanel, { baseName, buildExport } from './ExportPanel';
+import ExportPanel, { baseName, buildExport, download } from './ExportPanel';
 import { ACCEPTED_EXT } from './FileDropzone';
 import FileList, { type FileRowData } from './FileList';
 import Landing from './Landing';
@@ -44,10 +44,11 @@ import LayerPanel from './LayerPanel';
 import MapPanel, { type PanelTab } from './MapPanel';
 import type { MapPick } from './MapView';
 import { createOpenFile, drawingCrsLabel, type OpenFile } from './openFile';
-import NewMapDialog from './NewMapDialog';
+import ChoiceDialog, { type Choice } from './ChoiceDialog';
 import ShareDialog from './ShareDialog';
 import SketchPanel from './SketchPanel';
-import { IconAlert, IconSpinner, IconUpload, Logo } from './icons';
+import { IconAlert, IconFolderOpen, IconPen, IconPlus, IconSave, IconSpinner, IconUpload, Logo } from './icons';
+import { readSession, SESSION_EXT, SessionError, writeSession, type Session, type SessionFile } from '@/lib/cad/session';
 
 const MapView = dynamic(() => import('./MapView'), {
   ssr: false,
@@ -182,9 +183,13 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     typeof window === 'undefined' || fromShare ? { title: DEFAULT_MAP_TITLE, description: '' } : loadMeta(),
   );
   const [shareMap, setShareMap] = useState<SharedMap | null>(null);
-  /** "Tạo bản đồ mới" while this device already holds a map: ask continue / overwrite / cancel. */
-  const [newMapPrompt, setNewMapPrompt] = useState<{ title: string; count: number } | null>(null);
+  /** Decision dialog ("Tạo bản đồ mới" over an existing map, opening a .ldg session…). */
+  const [choice, setChoice] = useState<{ title: string; description: ReactNode; choices: Choice[]; hint?: ReactNode } | null>(null);
+  const [sessionBusy, setSessionBusy] = useState<'saving' | 'opening' | null>(null);
   const sketchesRef = useRef(sketches);
+  /** Session (.ldg) actions, defined further down; refs so earlier callbacks (handleFile) can use them. */
+  const openSessionRef = useRef<(file: File) => Promise<void>>(async () => {});
+  const saveSessionRef = useRef<() => Promise<void>>(async () => {});
   useEffect(() => {
     sketchesRef.current = sketches;
   }, [sketches]);
@@ -225,6 +230,15 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
 
   /** Page change wrapped in a View Transition (cross-fade + hero morph) where the browser supports it. */
   const go = useCallback((next: Stage) => {
+    // The home page is always plain "/": leaving a shared map (/s/<id>, ?t=…#m=…) must not keep its link in the
+    // address bar. (A shared map still on screen stays non-persisted: `sharedView` is unchanged.)
+    if (next === 'landing' && (window.location.pathname !== '/' || window.location.search || window.location.hash)) {
+      try {
+        window.history.replaceState(null, '', '/');
+      } catch {
+        /* ignore */
+      }
+    }
     type VT = { ready: Promise<unknown>; finished: Promise<unknown>; updateCallbackDone: Promise<unknown> };
     const d = document as Document & { startViewTransition?: (cb: () => void) => VT };
     if (!d.startViewTransition || document.visibilityState !== 'visible') {
@@ -367,8 +381,12 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   /** `replace`: the first file (landing / CRS step) discards everything open; otherwise the file is stacked on top. */
   const handleFile = useCallback(
     async (file: File, opts: { replace?: boolean; provOverride?: string } = {}) => {
+      if (file.name.toLowerCase().endsWith(SESSION_EXT)) {
+        void openSessionRef.current(file);
+        return;
+      }
       if (!ACCEPTED_EXT.test(file.name)) {
-        setGlobalError('Chỉ hỗ trợ file .dwg, .dxf, .kmz hoặc .kml.');
+        setGlobalError('Chỉ hỗ trợ file .dwg, .dxf, .kmz, .kml hoặc phiên làm việc .ldg.');
         return;
       }
       setGlobalError(null);
@@ -377,7 +395,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       const base = replace ? undefined : (prev.find((f) => f.id === activeIdRef.current) ?? prev[0]);
       const id = `f${++idSeq.current}`;
       if (replace) prev.forEach((f) => dropFileResources(f.id));
-      const entry = createOpenFile(id, file.name, nextTagColor(replace ? [] : prev.map((f) => f.tag)));
+      const entry = { ...createOpenFile(id, file.name, nextTagColor(replace ? [] : prev.map((f) => f.tag))), source: file };
       commitFiles(replace ? [entry] : [entry, ...prev]);
       setActive(id);
       setPick(null);
@@ -528,7 +546,35 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     // While a shared link is shown, the device's own map is still in storage, untouched — that is what is at stake.
     const own = sharedView ? loadSketches() : sketches;
     if (own.length > 0) {
-      setNewMapPrompt({ title: sharedView ? loadMeta().title : mapMeta.title, count: own.length });
+      const title = sharedView ? loadMeta().title : mapMeta.title;
+      setChoice({
+        title: 'Tạo bản đồ mới?',
+        description: (
+          <>
+            Máy này đang lưu bản đồ <b className="font-semibold text-zinc-800">“{title}”</b> với {own.length} nét vẽ. Mỗi máy
+            lưu một bản đồ — tạo mới sẽ thay thế bản đồ này.
+          </>
+        ),
+        choices: [
+          {
+            key: 'continue',
+            tone: 'primary',
+            icon: <IconPen width={16} height={16} />,
+            title: 'Tiếp tục vẽ',
+            subtitle: `Mở lại “${title}” để vẽ tiếp`,
+            onSelect: continueOwnMap,
+          },
+          {
+            key: 'overwrite',
+            tone: 'danger',
+            icon: <IconPlus width={16} height={16} />,
+            title: 'Ghi đè — tạo bản đồ mới',
+            subtitle: `Xóa ${own.length} nét vẽ hiện có và bắt đầu từ bản đồ trống`,
+            onSelect: startBlankMap,
+          },
+        ],
+        hint: 'Muốn giữ bản cũ? Lưu phiên làm việc (.ldg) hoặc xuất KMZ trước khi ghi đè.',
+      });
       return;
     }
     startBlankMap();
@@ -883,6 +929,215 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     />
   );
 
+
+  // ---- session files (.ldg) ---------------------------------------------------------------------
+  // The whole working session in one file: open drawings (original bytes) with their CRS / layers / styles,
+  // sketches, map name and basemap. Save it to continue later or send it to someone (src/lib/cad/session.ts).
+
+  const saveSession = async () => {
+    const ready = filesRef.current.filter((f) => f.source && f.rawDoc);
+    if (ready.length === 0 && sketchesRef.current.length === 0) {
+      setGlobalError('Chưa có gì để lưu — hãy mở bản vẽ hoặc vẽ thêm trước.');
+      return;
+    }
+    setSessionBusy('saving');
+    try {
+      const files: SessionFile[] = await Promise.all(
+        ready.map(async (f) => ({
+          name: f.fileName,
+          bytes: new Uint8Array(await f.source!.arrayBuffer()),
+          crs: f.rawDoc?.crs ? null : f.activeCrs, // KML/KMZ are WGS84 already
+          provinceId: f.provinceId,
+          visible: [...f.visible],
+          styles: f.styles,
+          opacity: f.opacity,
+          shown: f.shown,
+        })),
+      );
+      const title = mapMeta.title.trim() || DEFAULT_MAP_TITLE;
+      const blob = await writeSession({
+        map: { title, description: mapMeta.description.trim() || undefined, basemap: basemapId, features: sketchesRef.current },
+        sketchLayer: { shown: sketchShown, opacity: sketchOpacity },
+        files,
+        active: Math.max(0, ready.findIndex((f) => f.id === activeIdRef.current)),
+        savedAt: new Date().toISOString(),
+      });
+      download(blob, `${fileSafe(title)}${SESSION_EXT}`);
+    } catch (err) {
+      setGlobalError(`Không lưu được phiên làm việc: ${errMsg(err)}`);
+    } finally {
+      setSessionBusy(null);
+    }
+  };
+
+  /** Re-opens one drawing of a session with its saved CRS, layers and styles (its entry is already listed). */
+  const restoreFile = async (id: string, sf: SessionFile, file: File) => {
+    try {
+      const raw = await pipeline().parse(file, (stage, percent) => patch(id, { progress: { stage, percent } }), id);
+      if (!filesRef.current.some((f) => f.id === id)) {
+        dropFileResources(id);
+        return;
+      }
+      const names = new Set(raw.layers.map((l) => l.name));
+      patch(id, {
+        rawDoc: raw,
+        visible: new Set(sf.visible.filter((n) => names.has(n))),
+        provinceId: sf.provinceId,
+        progress: null,
+        status: 'transforming',
+        ...(raw.crs ? { form: targetFormFor(sf.provinceId) } : {}),
+      });
+      if (raw.crs) await applyCrs(id, { proj4: raw.crs, swapXY: false, unitScale: 1 }, { fit: false, provinceId: sf.provinceId, syncForm: false });
+      else if (sf.crs) await applyCrs(id, sf.crs, { fit: false, provinceId: sf.provinceId });
+      else await autoApply(id, raw, sf.provinceId);
+    } catch (err) {
+      patch(id, { error: `Không đọc được bản vẽ: ${errMsg(err)}`, status: 'error', progress: null });
+    }
+  };
+
+  const restoreSession = async (session: Session, mode: 'replace' | 'add') => {
+    if (mode === 'replace') {
+      filesRef.current.forEach((f) => dropFileResources(f.id));
+      commitFiles([]);
+      setActive(null);
+      setPick(null);
+      if (sharedView) keepSharedMap();
+      sketchesRef.current = session.map.features;
+      setSketches(session.map.features);
+      setMapMeta({ title: session.map.title, description: session.map.description ?? '' });
+      if (session.map.basemap) setBasemapId(session.map.basemap);
+      setSketchShown(session.sketchLayer.shown);
+      setSketchOpacity(session.sketchLayer.opacity);
+    } else {
+      const names = sketchesRef.current.map((f) => f.name);
+      const added = session.map.features.map((f) => {
+        const name = uniqueName(f.name, names);
+        names.push(name);
+        return { ...f, id: `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`, name };
+      });
+      const next = [...sketchesRef.current, ...added];
+      sketchesRef.current = next;
+      setSketches(next);
+      if (added.length) setSketchShown(true);
+    }
+    setSketchSel(null);
+
+    // All entries first (the list keeps the saved order: first = on top), then read them one by one.
+    const jobs = [...session.files].reverse().map((sf) => {
+      const id = `f${++idSeq.current}`;
+      const file = new File([sf.bytes as BlobPart], sf.name);
+      const entry: OpenFile = {
+        ...createOpenFile(id, sf.name, nextTagColor(filesRef.current.map((f) => f.tag))),
+        source: file,
+        styles: sf.styles,
+        opacity: sf.opacity,
+        shown: sf.shown,
+      };
+      commitFiles([entry, ...filesRef.current]);
+      return { id, sf, file };
+    });
+    const ids = jobs.map((j) => j.id).reverse();
+    if (ids.length) setActive(ids[session.active] ?? ids[0]);
+    go('map');
+    setFocusTab((t) => ({ tab: ids.length ? 'layers' : 'draw', seq: (t?.seq ?? 0) + 1 }));
+    if (!ids.length) requestFit(sketchToDocument(sketchesRef.current).bbox);
+    for (const j of jobs) await restoreFile(j.id, j.sf, j.file);
+    if (ids.length) {
+      const sk = sketchToDocument(sketchesRef.current);
+      requestFit(unionBounds([shownBounds(filesRef.current), sk.layers.length ? sk.bbox : null]));
+    }
+  };
+
+  const openSession = async (file: File) => {
+    setSessionBusy('opening');
+    let session: Session;
+    try {
+      session = await readSession(file);
+    } catch (err) {
+      setGlobalError(err instanceof SessionError ? err.message : `Không mở được file .ldg: ${errMsg(err)}`);
+      return;
+    } finally {
+      setSessionBusy(null);
+    }
+    setGlobalError(null);
+    if (filesRef.current.length === 0 && sketchesRef.current.length === 0) {
+      void restoreSession(session, 'replace');
+      return;
+    }
+    const nFiles = session.files.length;
+    const nSketches = session.map.features.length;
+    const content = [nFiles ? `${nFiles} bản vẽ` : '', nSketches ? `${nSketches} nét vẽ` : ''].filter(Boolean).join(' và ') || 'không có nội dung';
+    setChoice({
+      title: `Mở phiên “${session.map.title}”?`,
+      description: (
+        <>
+          Phiên làm việc gồm <b className="font-semibold text-zinc-800">{content}</b>
+          {session.savedAt ? `, lưu lúc ${new Date(session.savedAt).toLocaleString('vi-VN')}` : ''}. Bản đồ đang mở có{' '}
+          {filesRef.current.length} bản vẽ và {sketchesRef.current.length} nét vẽ.
+        </>
+      ),
+      choices: [
+        {
+          key: 'add',
+          tone: 'primary',
+          icon: <IconPlus width={16} height={16} />,
+          title: 'Thêm vào bản đồ hiện tại',
+          subtitle: 'Giữ mọi thứ đang mở, thêm bản vẽ và nét vẽ của phiên',
+          onSelect: () => void restoreSession(session, 'add'),
+        },
+        {
+          key: 'replace',
+          tone: 'danger',
+          icon: <IconFolderOpen width={16} height={16} />,
+          title: 'Thay thế bản đồ hiện tại',
+          subtitle: 'Đóng bản vẽ đang mở, thay nét vẽ bằng của phiên',
+          onSelect: () => void restoreSession(session, 'replace'),
+        },
+      ],
+      hint: 'Muốn giữ bản đồ hiện tại? Lưu phiên làm việc (Ctrl+S) trước.',
+    });
+  };
+  // handleFile (declared above) and the Ctrl+S shortcut reach the latest versions through these refs.
+  useEffect(() => {
+    openSessionRef.current = openSession;
+    saveSessionRef.current = saveSession;
+  });
+
+  // Ctrl/⌘+S on the map page saves the session instead of the browser's "save page".
+  useEffect(() => {
+    if (stage !== 'map') return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        void saveSessionRef.current();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [stage]);
+
+  const choiceDialog = choice && (
+    <ChoiceDialog
+      title={choice.title}
+      description={choice.description}
+      hint={choice.hint}
+      choices={choice.choices.map((c) => ({
+        ...c,
+        onSelect: () => {
+          setChoice(null);
+          c.onSelect();
+        },
+      }))}
+      onClose={() => setChoice(null)}
+    />
+  );
+  const sessionPill = sessionBusy && (
+    <div className="ui-floating ui-fade-up fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2 text-xs font-medium text-zinc-700">
+      <IconSpinner className="text-blue-600" />
+      {sessionBusy === 'saving' ? 'Đang lưu phiên làm việc…' : 'Đang mở phiên làm việc…'}
+    </div>
+  );
+
   // Landing and the CRS step share one <Landing> so the hero (and its animation) stays put.
   if (stage === 'landing' || stage === 'crs') {
     return (
@@ -921,21 +1176,8 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
           </div>
         )}
         {dragOverlay}
-        {newMapPrompt && (
-          <NewMapDialog
-            title={newMapPrompt.title}
-            count={newMapPrompt.count}
-            onContinue={() => {
-              setNewMapPrompt(null);
-              continueOwnMap();
-            }}
-            onOverwrite={() => {
-              setNewMapPrompt(null);
-              startBlankMap();
-            }}
-            onClose={() => setNewMapPrompt(null)}
-          />
-        )}
+        {choiceDialog}
+        {sessionPill}
       </div>
     );
   }
@@ -1098,8 +1340,31 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
           </>
           )
         }
+        onSaveSession={() => void saveSession()}
+        savingSession={sessionBusy === 'saving'}
         exportTab={
           <>
+            <div className="mb-4 flex items-start gap-3 rounded-xl bg-zinc-50 p-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-blue-600 shadow-sm ring-1 ring-zinc-900/5">
+                <IconSave width={16} height={16} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-semibold text-zinc-900">Phiên làm việc (.ldg)</p>
+                <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-500">
+                  Lưu mọi bản vẽ đang mở cùng hệ tọa độ, layer, kiểu nét và nét vẽ vào một file — mở lại sau hoặc gửi cho người khác
+                  (kéo thả file .ldg vào trang).
+                </p>
+                <button
+                  className="ui-btn-primary mt-2 !px-3 !py-1.5 !text-xs"
+                  onClick={() => void saveSession()}
+                  disabled={sessionBusy !== null}
+                  title="Ctrl+S"
+                >
+                  {sessionBusy === 'saving' ? <IconSpinner width={14} height={14} /> : <IconSave width={14} height={14} />}
+                  Lưu phiên làm việc
+                </button>
+              </div>
+            </div>
             {af && files.length > 1 && mergedExport.sketches === 0 && (
               <p className="mb-3 flex items-center gap-2 rounded-lg bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: af.tag }} />
@@ -1138,6 +1403,8 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       {dragOverlay}
 
       {shareMap && <ShareDialog map={shareMap} onClose={() => setShareMap(null)} />}
+      {choiceDialog}
+      {sessionPill}
 
       {/* Status pill */}
       {busyFile && (

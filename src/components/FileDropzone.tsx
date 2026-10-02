@@ -2,7 +2,7 @@
 import { useRef, useState } from 'react';
 import { IconFile, IconUpload } from './icons';
 
-export const ACCEPTED_EXT = /\.(dwg|dxf|kmz|kml)$/i;
+export const ACCEPTED_EXT = /\.(dwg|dxf|kmz|kml|ldg)$/i;
 
 export default function FileDropzone({
   onFile,
@@ -26,7 +26,7 @@ export default function FileDropzone({
     <input
       ref={inputRef}
       type="file"
-      accept=".dwg,.dxf,.kmz,.kml"
+      accept=".dwg,.dxf,.kmz,.kml,.ldg"
       className="hidden"
       onChange={(e) => {
         const f = e.target.files?.[0];

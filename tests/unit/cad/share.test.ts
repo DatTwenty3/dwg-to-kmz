@@ -6,6 +6,8 @@ import {
   fromWire,
   sharePayloadOf,
   SHARE_HASH_PREFIX,
+  SHARE_TITLE_PARAM,
+  cleanShareTitle,
   type SharedMap,
 } from '@/lib/cad/share';
 import type { SketchFeature } from '@/lib/cad/sketch';
@@ -68,8 +70,10 @@ describe('shared map links', () => {
   });
 
   it('stays short: a few features give a link of a few hundred characters', async () => {
-    const url = await buildShareUrl('https://ledat-gis.vercel.app/#old', map);
-    expect(url.startsWith(`https://ledat-gis.vercel.app/${SHARE_HASH_PREFIX}`)).toBe(true);
+    const url = await buildShareUrl('https://ledat-gis.vercel.app/?t=cũ#old', map);
+    // Title in the query (for link previews), map in the fragment.
+    expect(new URL(url).searchParams.get(SHARE_TITLE_PARAM)).toBe(map.title);
+    expect(url).toContain(`#${SHARE_HASH_PREFIX.slice(1)}`);
     expect(url.length).toBeLessThan(700);
     expect(sharePayloadOf(new URL(url).hash)).toBe(await encodeSharedMap(map));
     expect(sharePayloadOf('#other')).toBeNull();
@@ -108,5 +112,13 @@ describe('shared map links', () => {
     expect(cleaned.basemap).toBeUndefined();
     expect(cleaned.features.map((f) => f.name)).toEqual(['ok', 'ok (2)']);
     expect(cleaned.features[0].style).toEqual({ color: '#ff0000', width: 20 });
+  });
+
+  it('cleans the title taken from the query string', () => {
+    expect(cleanShareTitle('  Tuyến\u0000 ống   cấp nước ')).toBe('Tuyến ống cấp nước');
+    expect(cleanShareTitle('Chu\u0300a')).toBe('Ch\u00f9a'); // decomposed -> NFC
+    expect(cleanShareTitle('x'.repeat(200))).toHaveLength(80);
+    expect(cleanShareTitle('   ')).toBeNull();
+    expect(cleanShareTitle(['a'])).toBeNull();
   });
 });

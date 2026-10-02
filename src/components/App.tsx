@@ -529,7 +529,7 @@ export default function App() {
     // Becomes this device's own map: persisted from now on, and the link is dropped from the address bar.
     setSharedView(false);
     try {
-      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      window.history.replaceState(null, '', window.location.pathname); // drops ?t= and #m= of the link
     } catch {
       /* ignore */
     }

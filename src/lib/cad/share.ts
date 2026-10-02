@@ -179,8 +179,34 @@ export async function decodeSharedMap(payload: string): Promise<SharedMap | null
 }
 
 /** Full share URL for the current page origin + path. */
+/**
+ * Query parameter carrying the map title in plain text. The map itself lives in the fragment, which chat apps
+ * never send to the server — the title in the query is what lets the server put it in the link preview
+ * (page metadata + /og image). The app ignores it; the fragment stays the source of truth.
+ */
+export const SHARE_TITLE_PARAM = 't';
+const TITLE_IN_URL_MAX = 80;
+
+/** Title from the query string, made safe for metadata (untrusted: anyone can edit the link). */
+export function cleanShareTitle(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const t = v
+    .normalize('NFC')
+    .replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, TITLE_IN_URL_MAX)
+    .trim();
+  return t || null;
+}
+
 export async function buildShareUrl(base: string, map: SharedMap): Promise<string> {
-  return `${base.split('#')[0]}${SHARE_HASH_PREFIX}${await encodeSharedMap(map)}`;
+  const u = new URL(base);
+  u.hash = '';
+  u.search = '';
+  const title = cleanShareTitle(map.title);
+  if (title) u.searchParams.set(SHARE_TITLE_PARAM, title);
+  return `${u.toString()}${SHARE_HASH_PREFIX}${await encodeSharedMap(map)}`;
 }
 
 /** Payload from a location hash, or null when the hash is not a shared map. */

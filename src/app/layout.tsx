@@ -31,6 +31,16 @@ export const metadata: Metadata = {
   applicationName: "LEDAT-GIS",
   // Home-screen web app on iOS (Add to Home Screen); icons come from app/apple-icon.png and app/manifest.ts.
   appleWebApp: { capable: true, title: "LEDAT-GIS", statusBarStyle: "default" },
+  // Link previews (Zalo, Messenger, Facebook…). Shared map links override title/image in app/page.tsx.
+  openGraph: {
+    type: "website",
+    siteName: "LEDAT-GIS",
+    locale: "vi_VN",
+    title: "LEDAT-GIS — Geospatial Solutions",
+    description: "Đưa bản vẽ DWG, DXF, KMZ, KML lên bản đồ Google Hybrid, vẽ, đo đạc và chia sẻ bản đồ.",
+    images: [{ url: "/og", width: 1200, height: 630, alt: "LEDAT-GIS" }],
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export const viewport: Viewport = {

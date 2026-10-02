@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Tagline from './Tagline';
 import { IconAlert, IconArrowRight, IconCheck, IconPen, IconUpload, Logo } from './icons';
+import { useFileAccept } from './useFileAccept';
 
 /** Formats cycled in the headline, in the order the app reads them. */
 const FORMATS = ['.dwg', '.dxf', '.kmz', '.kml'];
@@ -195,6 +196,7 @@ export default function Landing({
   /** Shown in place of the drop zone (e.g. the coordinate-system step) while keeping the hero. */
   panel?: ReactNode;
 }) {
+  const fileAccept = useFileAccept();
   const inputRef = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const open = () => !busy && inputRef.current?.click();
@@ -302,7 +304,7 @@ export default function Landing({
               <input
                 ref={inputRef}
                 type="file"
-                accept=".dwg,.dxf,.kmz,.kml,.ldg"
+                accept={fileAccept}
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files?.[0];

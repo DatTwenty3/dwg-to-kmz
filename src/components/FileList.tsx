@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ACCEPTED_EXT } from './FileDropzone';
 import { IconAlert, IconArrowDown, IconArrowUp, IconExpand, IconEye, IconEyeOff, IconMore, IconPlus, IconTarget, IconTrash } from './icons';
+import { toast } from './toast';
+import { useFileAccept } from './useFileAccept';
 
 export interface FileRowData {
   id: string;
@@ -171,6 +173,7 @@ export default function FileList({
   onAdd: (files: File[]) => void;
   onFitAll: () => void;
 }) {
+  const fileAccept = useFileAccept();
   const inputRef = useRef<HTMLInputElement>(null);
   const [leaving, setLeaving] = useState<Set<string>>(new Set());
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -210,12 +213,15 @@ export default function FileList({
           ref={inputRef}
           type="file"
           multiple
-          accept=".dwg,.dxf,.kmz,.kml,.ldg"
+          accept={fileAccept}
           className="hidden"
           aria-label="Thêm file bản vẽ"
           data-testid="add-file-input"
           onChange={(e) => {
-            const fs = Array.from(e.target.files ?? []).filter((f) => ACCEPTED_EXT.test(f.name));
+            const all = Array.from(e.target.files ?? []);
+            const fs = all.filter((f) => ACCEPTED_EXT.test(f.name));
+            // Phones pick any file (see useFileAccept): say why the others were skipped.
+            if (fs.length < all.length) toast.error('Chỉ hỗ trợ file .dwg, .dxf, .kmz, .kml hoặc phiên làm việc .ldg.');
             if (fs.length) onAdd(fs);
             e.target.value = '';
           }}

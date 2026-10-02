@@ -1,6 +1,7 @@
 'use client';
 import { useRef, useState } from 'react';
 import { IconFile, IconUpload } from './icons';
+import { useFileAccept } from './useFileAccept';
 
 export const ACCEPTED_EXT = /\.(dwg|dxf|kmz|kml|ldg)$/i;
 
@@ -18,6 +19,7 @@ export default function FileDropzone({
   stats?: string[];
   progress?: { stage: string; percent: number } | null;
 }) {
+  const fileAccept = useFileAccept();
   const inputRef = useRef<HTMLInputElement>(null);
   const [over, setOver] = useState(false);
   const open = () => inputRef.current?.click();
@@ -26,7 +28,7 @@ export default function FileDropzone({
     <input
       ref={inputRef}
       type="file"
-      accept=".dwg,.dxf,.kmz,.kml,.ldg"
+      accept={fileAccept}
       className="hidden"
       onChange={(e) => {
         const f = e.target.files?.[0];

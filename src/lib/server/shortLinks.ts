@@ -1,6 +1,7 @@
 // Short share links (/s/<id>) stored in Upstash Redis through its REST API (no SDK). Server-only.
-// Vercel's Upstash integration exposes KV_REST_API_URL / KV_REST_API_TOKEN (older) or
-// UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN; either pair works.
+// Vercel's Upstash integration exposes KV_REST_API_URL / KV_REST_API_TOKEN, or UPSTASH_REDIS_REST_URL /
+// UPSTASH_REDIS_REST_TOKEN — possibly with a custom prefix chosen when connecting the store
+// (e.g. STORAGE_REST_API_URL). Any of these pairs works.
 import { createHash } from 'node:crypto';
 
 export interface ShortLinkRecord {
@@ -13,10 +14,31 @@ export interface ShortLinkRecord {
 export const SHORT_ID_RE = /^[A-Za-z0-9]{8,16}$/;
 const KEY = (id: string) => `share:${id}`;
 
+// <prefix>_REST_API_URL / <prefix>_REST_API_TOKEN (Vercel names them after the prefix typed when connecting:
+// KV_…, STORAGE_…), and Upstash's own UPSTASH_REDIS_REST_URL / _TOKEN.
+const PAIRS: [url: RegExp, token: string][] = [
+  [/^(.*_)?REST_API_URL$/, 'REST_API_TOKEN'],
+  [/^(.*_)?UPSTASH_REDIS_REST_URL$/, 'UPSTASH_REDIS_REST_TOKEN'],
+];
+
 function config(): { url: string; token: string } | null {
-  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
-  return url && token ? { url: url.replace(/\/+$/, ''), token } : null;
+  for (const [urlRe, tokenName] of PAIRS) {
+    for (const key of Object.keys(process.env)) {
+      const m = urlRe.exec(key);
+      if (!m) continue;
+      const url = process.env[key];
+      const token = process.env[`${m[1] ?? ''}${tokenName}`];
+      if (url && token) return { url: url.replace(/\/+$/, ''), token };
+    }
+  }
+  return null;
+}
+
+/** Names (never values) of storage-looking variables this deployment sees — to diagnose a missing setup. */
+export function storageEnvNames(): string[] {
+  return Object.keys(process.env)
+    .filter((k) => /KV_|REDIS|UPSTASH/.test(k))
+    .sort();
 }
 
 export const shortLinksEnabled = () => config() !== null;

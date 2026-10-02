@@ -1,12 +1,15 @@
 // POST /api/share { payload, title } → { id, url }: stores a shared map and returns its short link.
 import { cleanShareTitle, decodeSharedMap } from '@/lib/cad/share';
-import { saveShortLink, shortLinksEnabled, underRateLimit } from '@/lib/server/shortLinks';
+import { saveShortLink, shortLinksEnabled, storageEnvNames, underRateLimit } from '@/lib/server/shortLinks';
 
 /** Largest stored map (base64url chars). Long links are rarely above ~50 k; this leaves room for big drawings. */
 const MAX_PAYLOAD = 400_000;
 
 export async function POST(req: Request) {
-  if (!shortLinksEnabled()) return Response.json({ error: 'not-configured' }, { status: 503 });
+  if (!shortLinksEnabled()) {
+    // Variable names only (no values), so a half-done Vercel setup can be diagnosed from the browser.
+    return Response.json({ error: 'not-configured', seen: storageEnvNames() }, { status: 503 });
+  }
 
   const body = (await req.json().catch(() => null)) as { payload?: unknown; title?: unknown } | null;
   const payload = body?.payload;

@@ -36,6 +36,13 @@ describe('short share links', () => {
     vi.unstubAllGlobals();
   });
 
+  it('accepts a custom prefix chosen when connecting the store', () => {
+    vi.stubEnv('KV_REST_API_URL', '');
+    vi.stubEnv('STORAGE_REST_API_URL', 'https://x.upstash.io');
+    vi.stubEnv('STORAGE_REST_API_TOKEN', 't');
+    expect(shortLinksEnabled()).toBe(true);
+  });
+
   it('is off without credentials', () => {
     vi.stubEnv('KV_REST_API_URL', '');
     expect(shortLinksEnabled()).toBe(false);

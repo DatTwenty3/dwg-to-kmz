@@ -81,6 +81,16 @@ export interface MapViewProps {
 
 const DRAW_LABEL: Record<SketchKind, string> = { line: 'đường', polygon: 'vùng', point: 'điểm' };
 
+/**
+ * fitBounds padding. MapLibre refuses to fit at all when padding leaves no room, so on small screens the
+ * margins shrink and the panel inset is dropped (there the panel covers the whole map anyway).
+ */
+function fitPadding(width: number, height: number, inset: number) {
+  const m = Math.min(48, Math.round(Math.min(width, height) * 0.08));
+  const left = width - inset - 2 * m >= 240 ? m + inset : m;
+  return { top: m, bottom: m, right: m, left };
+}
+
 /** Short labels for the basemap switcher. */
 const SHORT_LABEL: Record<string, string> = {
   'google-hybrid': 'Hybrid',
@@ -325,7 +335,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
           [e, n],
         ],
         {
-          padding: { top: 48, bottom: 48, right: 48, left: 48 + insetRef.current },
+          padding: fitPadding(map.getContainer().clientWidth, map.getContainer().clientHeight, insetRef.current),
           maxZoom: 19,
           // First fit after the map opens: a slow fly-in from the Vietnam overview; later fits are quick.
           duration: first ? 2600 : 700,
@@ -366,7 +376,10 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
       {/* maplibre's CSS forces position:relative on the container, so size it with h/w-full. */}
       <div ref={containerRef} className="h-full w-full" />
 
-      <div className="ui-floating ui-drop-in absolute right-3 top-3 z-10 rounded-xl p-1" style={{ animationDelay: '0.3s' }}>
+      <div
+        className="ui-floating ui-drop-in ui-scroll absolute right-3 top-3 z-10 max-w-[calc(100%-76px)] overflow-x-auto rounded-xl p-1 sm:max-w-none"
+        style={{ animationDelay: '0.3s' }}
+      >
         <div className="flex gap-0.5" role="group" aria-label="Chọn bản đồ nền">
           {BASEMAPS.map((b) => {
             const active = b.id === basemapId;
@@ -379,7 +392,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
                   setNotice(null);
                   onBasemapChange(b.id);
                 }}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                className={`shrink-0 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-xs font-medium transition sm:px-3 ${
                   active ? 'bg-zinc-900 text-white shadow-sm' : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'
                 }`}
               >

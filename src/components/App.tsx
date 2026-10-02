@@ -144,7 +144,8 @@ export default function App() {
   const [fit, setFit] = useState<{ bounds: [Vec2, Vec2]; seq: number }>();
   const [pick, setPick] = useState<MapPick | null>(null);
   const [font, setFont] = useState<{ family: string; ready: boolean }>({ family: DEFAULT_FONT_FAMILY, ready: false });
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // The map opens full-screen; the panel stays behind the "Bảng điều khiển" button until asked for.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dragDepth, setDragDepth] = useState(0);
   // Safety net for the drag overlay: any drop, a drag that leaves the window, or a cancelled drag (Esc) resets it.
   useEffect(() => {
@@ -1057,11 +1058,14 @@ export default function App() {
 
       {!sidebarOpen && (
         <button
-          className="ui-floating absolute left-3 top-3 z-30 flex items-center gap-2.5 py-2 pl-2 pr-4 text-sm font-medium text-zinc-900 transition hover:bg-white"
+          className="ui-floating absolute left-3 top-3 z-30 flex items-center gap-2.5 p-2 text-sm font-medium text-zinc-900 transition hover:bg-white sm:pr-4"
           onClick={() => setSidebarOpen(true)}
+          aria-label="Mở bảng điều khiển"
+          title="Bảng điều khiển"
         >
           <Logo width={24} height={24} />
-          Bảng điều khiển
+          {/* Phones: logo only, so the button stays clear of the basemap pill. */}
+          <span className="hidden sm:inline">Bảng điều khiển</span>
         </button>
       )}
 

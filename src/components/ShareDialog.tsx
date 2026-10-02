@@ -2,7 +2,7 @@
 // Share dialog: the whole custom map is packed into the link (URL fragment), so nothing is uploaded.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { buildShareUrl, SHARE_LINK_SOFT_LIMIT, SHARE_TITLE_PARAM, type SharedMap } from '@/lib/cad/share';
+import { buildShareUrl, cleanShareTitle, sharePayloadOf, SHARE_LINK_SOFT_LIMIT, SHARE_TITLE_PARAM, type SharedMap } from '@/lib/cad/share';
 import { BRAND_NAVY } from './brand';
 import { brandedQr } from './qr';
 import { IconAlert, IconCheck, IconCopy, IconDownload, IconSpinner, IconX } from './icons';
@@ -11,26 +11,44 @@ import { IconAlert, IconCheck, IconCopy, IconDownload, IconSpinner, IconX } from
 const QR_MAX = 2900;
 
 /**
- * Ask the server for the link-preview image (/og?t=…) now, so it is rendered and cached at the CDN
- * before a chat app's crawler asks for them — a cold render (~2 s) can exceed the crawler's patience and the
- * preview then shows without image or title. Fire and forget.
+ * Ask the server for the link-preview image (/og?t=…) now, so it is rendered and cached at the CDN before a
+ * chat app's crawler asks for it — a cold render (~2 s) can exceed the crawler's patience and the preview then
+ * shows without image or title. Fire and forget. The URL must match `sharedMapMetadata` exactly.
  */
-function prewarmPreview(shareUrl: string) {
+function prewarmPreview(title: string | null) {
+  if (!title) return;
+  void fetch(`/og?${new URLSearchParams({ [SHARE_TITLE_PARAM]: title })}`, { priority: 'low' }).catch(() => {});
+}
+
+/**
+ * Short link /s/<id> from the server (the map is stored there). Null when the server has no storage configured
+ * or does not answer — the long link (map in the fragment) is used then.
+ */
+async function shorten(longUrl: string, title: string): Promise<string | null> {
   try {
-    const u = new URL(shareUrl);
-    if (u.origin !== window.location.origin) return;
-    const title = u.searchParams.get(SHARE_TITLE_PARAM);
-    if (!title) return;
-    const og = new URL('/og', u.origin);
-    og.searchParams.set(SHARE_TITLE_PARAM, title);
-    void fetch(og, { priority: 'low' }).catch(() => {});
+    const payload = sharePayloadOf(new URL(longUrl).hash);
+    if (!payload) return null;
+    const res = await fetch('/api/share', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payload, title }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const { id } = (await res.json()) as { id?: unknown };
+    return typeof id === 'string' && /^[A-Za-z0-9]+$/.test(id) ? `${window.location.origin}/s/${id}` : null;
   } catch {
-    /* ignore */
+    return null;
   }
 }
 
+/** Above this length chat apps (Zalo…) stop showing a preview card. */
+const PREVIEW_SAFE_LENGTH = 1000;
+
 export default function ShareDialog({ map, onClose }: { map: SharedMap; onClose: () => void }) {
   const [url, setUrl] = useState<string | null>(null);
+  /** The link is a short /s/<id> link (map stored on the server) rather than the map-in-the-link one. */
+  const [isShort, setIsShort] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -38,10 +56,14 @@ export default function ShareDialog({ map, onClose }: { map: SharedMap; onClose:
 
   useEffect(() => {
     let alive = true;
-    buildShareUrl(window.location.href, map)
-      .then((u) => {
-        if (alive) setUrl(u);
-        prewarmPreview(u);
+    // Always from the app root, also when opened from a short link /s/<id>.
+    buildShareUrl(`${window.location.origin}/`, map)
+      .then(async (long) => {
+        prewarmPreview(cleanShareTitle(map.title));
+        const short = await shorten(long, map.title);
+        if (!alive) return;
+        setIsShort(!!short);
+        setUrl(short ?? long);
       })
       .catch((e: unknown) => alive && setError(e instanceof Error ? e.message : String(e)));
     return () => {
@@ -236,7 +258,14 @@ export default function ShareDialog({ map, onClose }: { map: SharedMap; onClose:
                 <p className="rounded-xl bg-zinc-50 px-3 py-2 text-xs text-zinc-500">Bản đồ nhiều nét nên link quá dài để tạo mã QR — hãy gửi link.</p>
               )}
 
-              {url.length > SHARE_LINK_SOFT_LIMIT && (
+              {!isShort && url.length > PREVIEW_SAFE_LENGTH && url.length <= SHARE_LINK_SOFT_LIMIT && (
+                <p className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
+                  <IconAlert className="mt-px shrink-0" width={14} height={14} />
+                  Chưa tạo được link ngắn nên link dài {url.length.toLocaleString('vi-VN')} ký tự — Zalo/Messenger có thể không hiện khung xem trước, nhưng link vẫn mở được.
+                </p>
+              )}
+
+              {!isShort && url.length > SHARE_LINK_SOFT_LIMIT && (
                 <p className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-800">
                   <IconAlert className="mt-px shrink-0" width={14} height={14} />
                   Link dài {url.length.toLocaleString('vi-VN')} ký tự — một số ứng dụng chat có thể cắt mất. Nếu người nhận mở không được, hãy gửi file KMZ (tab Xuất).
@@ -244,7 +273,10 @@ export default function ShareDialog({ map, onClose }: { map: SharedMap; onClose:
               )}
 
               <p className="text-[11px] leading-relaxed text-zinc-400">
-                Toàn bộ nét vẽ nằm ngay trong link, không lưu lên máy chủ. Ai có link đều xem được; link là bản chụp tại lúc tạo — sửa xong hãy chia sẻ link mới. Bản vẽ DWG/DXF/KMZ đã mở không được gửi kèm.
+                {isShort
+                  ? 'Nét vẽ được lưu trên máy chủ LEDAT-GIS để link ngắn gọn. '
+                  : 'Toàn bộ nét vẽ nằm ngay trong link, không lưu lên máy chủ. '}
+                Ai có link đều xem được; link là bản chụp tại lúc tạo — sửa xong hãy chia sẻ link mới. Bản vẽ DWG/DXF/KMZ đã mở không được gửi kèm.
               </p>
             </>
           )}

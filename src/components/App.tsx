@@ -131,7 +131,12 @@ function loadSketches(): SketchFeature[] {
 
 const errMsg = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-export default function App() {
+/**
+ * `sharedPayload`: set by the short-link page /s/<id> — the stored map's payload (as in `#m=`), or null when the
+ * link does not exist. Left undefined on the normal page.
+ */
+export default function App({ sharedPayload }: { sharedPayload?: string | null } = {}) {
+  const fromShare = openedFromShare() || typeof sharedPayload === 'string';
   const pipelineRef = useRef<CadPipeline | null>(null);
   const transformSeq = useRef(new Map<string, number>());
   const idSeq = useRef(0);
@@ -171,10 +176,10 @@ export default function App() {
   // ---- sketches (user drawings) ----
   // Restored from this browser; sketches only render on the map page, so the server's empty list never mismatches.
   // A shared link starts empty and is filled by the decoder below (local sketches stay untouched in storage).
-  const [sharedView, setSharedView] = useState(openedFromShare);
-  const [sketches, setSketches] = useState<SketchFeature[]>(() => (typeof window === 'undefined' || openedFromShare() ? [] : loadSketches()));
+  const [sharedView, setSharedView] = useState(fromShare);
+  const [sketches, setSketches] = useState<SketchFeature[]>(() => (typeof window === 'undefined' || fromShare ? [] : loadSketches()));
   const [mapMeta, setMapMeta] = useState(() =>
-    typeof window === 'undefined' || openedFromShare() ? { title: DEFAULT_MAP_TITLE, description: '' } : loadMeta(),
+    typeof window === 'undefined' || fromShare ? { title: DEFAULT_MAP_TITLE, description: '' } : loadMeta(),
   );
   const [shareMap, setShareMap] = useState<SharedMap | null>(null);
   /** "Tạo bản đồ mới" while this device already holds a map: ask continue / overwrite / cancel. */
@@ -467,10 +472,20 @@ export default function App() {
     })();
   }, [handleFile, go]);
 
-  // Shared map links: #m=… holds the whole map (decoded locally, nothing fetched).
+  // Shared map links: #m=… holds the whole map (decoded locally, nothing fetched); a short link /s/<id> hands
+  // the stored payload in as a prop.
+  const sharedPayloadRef = useRef(sharedPayload);
   useEffect(() => {
     const openShared = async () => {
-      const payload = sharePayloadOf(window.location.hash);
+      const fromProp = sharedPayloadRef.current;
+      sharedPayloadRef.current = undefined; // only on first load; later hash changes come from the URL
+      if (fromProp === null) {
+        // (State already started from this device's own map: `fromShare` is false for a missing link.)
+        setGlobalError('Không tìm thấy bản đồ của link chia sẻ này — link có thể sai hoặc bản đồ đã bị xóa.');
+        window.history.replaceState(null, '', '/');
+        return;
+      }
+      const payload = sharePayloadOf(window.location.hash) ?? fromProp ?? null;
       if (payload === null) return;
       const m = await decodeSharedMap(payload);
       if (!m) {
@@ -550,7 +565,7 @@ export default function App() {
     // Becomes this device's own map: persisted from now on, and the link is dropped from the address bar.
     setSharedView(false);
     try {
-      window.history.replaceState(null, '', window.location.pathname); // drops ?t= and #m= of the link
+      window.history.replaceState(null, '', '/'); // drops /s/<id>, ?t= and #m= of the link
     } catch {
       /* ignore */
     }

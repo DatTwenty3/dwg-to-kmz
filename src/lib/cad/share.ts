@@ -178,7 +178,6 @@ export async function decodeSharedMap(payload: string): Promise<SharedMap | null
   }
 }
 
-/** Full share URL for the current page origin + path. */
 /**
  * Query parameter carrying the map title in plain text. The map itself lives in the fragment, which chat apps
  * never send to the server — the title in the query is what lets the server put it in the link preview

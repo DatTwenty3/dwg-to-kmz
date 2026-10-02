@@ -44,6 +44,7 @@ import LayerPanel from './LayerPanel';
 import MapPanel, { type PanelTab } from './MapPanel';
 import type { MapPick } from './MapView';
 import { createOpenFile, drawingCrsLabel, type OpenFile } from './openFile';
+import NewMapDialog from './NewMapDialog';
 import ShareDialog from './ShareDialog';
 import SketchPanel from './SketchPanel';
 import { IconAlert, IconSpinner, IconUpload, Logo } from './icons';
@@ -176,6 +177,8 @@ export default function App() {
     typeof window === 'undefined' || openedFromShare() ? { title: DEFAULT_MAP_TITLE, description: '' } : loadMeta(),
   );
   const [shareMap, setShareMap] = useState<SharedMap | null>(null);
+  /** "Tạo bản đồ mới" while this device already holds a map: ask continue / overwrite / cancel. */
+  const [newMapPrompt, setNewMapPrompt] = useState<{ title: string; count: number } | null>(null);
   const sketchesRef = useRef(sketches);
   useEffect(() => {
     sketchesRef.current = sketches;
@@ -507,14 +510,16 @@ export default function App() {
 
   /** "Tạo bản đồ mới": a fresh, unnamed map. The map saved on this device is replaced (after confirming). */
   const openBlankMap = () => {
-    // While a shared link is shown, the device's own map is still in storage, untouched — that is what goes.
+    // While a shared link is shown, the device's own map is still in storage, untouched — that is what is at stake.
     const own = sharedView ? loadSketches() : sketches;
-    const ownTitle = sharedView ? loadMeta().title : mapMeta.title;
-    if (
-      own.length > 0 &&
-      !window.confirm(`Bản đồ “${ownTitle}” (${own.length} nét vẽ) đang lưu trên máy này sẽ bị thay bằng bản đồ mới. Tiếp tục?`)
-    )
+    if (own.length > 0) {
+      setNewMapPrompt({ title: sharedView ? loadMeta().title : mapMeta.title, count: own.length });
       return;
+    }
+    startBlankMap();
+  };
+
+  const startBlankMap = () => {
     if (sharedView) keepSharedMap();
     sketchesRef.current = [];
     setSketches([]);
@@ -522,6 +527,22 @@ export default function App() {
     setSketchSel(null);
     setSketchShown(true);
     go('map');
+    setFocusTab((t) => ({ tab: 'draw', seq: (t?.seq ?? 0) + 1 }));
+  };
+
+  /** "Tiếp tục vẽ": back to the map saved on this device (leaving a shared link that may be on screen). */
+  const continueOwnMap = () => {
+    if (sharedView) {
+      const own = loadSketches();
+      keepSharedMap();
+      sketchesRef.current = own;
+      setSketches(own);
+      setMapMeta(loadMeta());
+      setSketchSel(null);
+    }
+    setSketchShown(true);
+    go('map');
+    requestFit(sketchToDocument(sketchesRef.current).bbox);
     setFocusTab((t) => ({ tab: 'draw', seq: (t?.seq ?? 0) + 1 }));
   };
 
@@ -885,6 +906,21 @@ export default function App() {
           </div>
         )}
         {dragOverlay}
+        {newMapPrompt && (
+          <NewMapDialog
+            title={newMapPrompt.title}
+            count={newMapPrompt.count}
+            onContinue={() => {
+              setNewMapPrompt(null);
+              continueOwnMap();
+            }}
+            onOverwrite={() => {
+              setNewMapPrompt(null);
+              startBlankMap();
+            }}
+            onClose={() => setNewMapPrompt(null)}
+          />
+        )}
       </div>
     );
   }

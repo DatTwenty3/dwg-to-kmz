@@ -505,7 +505,22 @@ export default function App() {
     document.title = named ? `${mapMeta.title} · LEDAT-GIS` : 'LEDAT-GIS';
   }, [stage, sketches.length, sharedView, files.length, mapMeta.title]);
 
+  /** "Tạo bản đồ mới": a fresh, unnamed map. The map saved on this device is replaced (after confirming). */
   const openBlankMap = () => {
+    // While a shared link is shown, the device's own map is still in storage, untouched — that is what goes.
+    const own = sharedView ? loadSketches() : sketches;
+    const ownTitle = sharedView ? loadMeta().title : mapMeta.title;
+    if (
+      own.length > 0 &&
+      !window.confirm(`Bản đồ “${ownTitle}” (${own.length} nét vẽ) đang lưu trên máy này sẽ bị thay bằng bản đồ mới. Tiếp tục?`)
+    )
+      return;
+    if (sharedView) keepSharedMap();
+    sketchesRef.current = [];
+    setSketches([]);
+    setMapMeta({ title: DEFAULT_MAP_TITLE, description: '' });
+    setSketchSel(null);
+    setSketchShown(true);
     go('map');
     setFocusTab((t) => ({ tab: 'draw', seq: (t?.seq ?? 0) + 1 }));
   };
@@ -841,7 +856,7 @@ export default function App() {
           busy={af?.status === 'parsing'}
           progress={af?.progress ?? null}
           error={stage === 'landing' ? (globalError ?? af?.error ?? null) : null}
-          resumeName={rawDoc ? af?.fileName : undefined}
+          resumeName={rawDoc ? af?.fileName : sketches.length ? mapMeta.title : undefined}
           onResume={rawDoc ? () => go(files.length > 1 || isGeoSource ? 'map' : 'crs') : sketches.length ? () => go('map') : undefined}
           onBlankMap={openBlankMap}
           panel={

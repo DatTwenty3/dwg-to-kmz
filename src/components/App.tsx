@@ -642,11 +642,13 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     return () => window.removeEventListener('hashchange', openShared);
   }, [go, requestFit, resetHistory]);
 
-  // Tab title follows the map name on the map page.
+  // Tab title on the map page: the selected drawing's name while a drawing is open; the map name only for
+  // sketch-only maps (new map, shared map). A map name left over from earlier work must not label a new drawing.
+  const activeFileName = files.find((f) => f.id === activeId)?.fileName ?? files[0]?.fileName;
   useEffect(() => {
-    const named = stage === 'map' && (sketches.length > 0 || sharedView || files.length === 0);
-    document.title = named ? `${mapMeta.title} · LEDAT-GIS` : 'LEDAT-GIS';
-  }, [stage, sketches.length, sharedView, files.length, mapMeta.title]);
+    document.title =
+      stage !== 'map' ? 'LEDAT-GIS' : activeFileName ? `${activeFileName} · LEDAT-GIS` : `${mapMeta.title} · LEDAT-GIS`;
+  }, [stage, activeFileName, mapMeta.title]);
 
   /** "Tạo bản đồ mới": a fresh, unnamed map. The map saved on this device is replaced (after confirming). */
   const openBlankMap = () => {
@@ -1081,10 +1083,8 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
 
   const editSketch = editId && sketchShown ? (sketches.find((f) => f.id === editId && !f.hidden) ?? null) : null;
 
-  /** The user gave the map a name (not the default one). */
-  const mapNamed = !!mapMeta.title.trim() && mapMeta.title.trim() !== DEFAULT_MAP_TITLE;
-  /** File name for the session (.ldg): the map's name when it has one, else the selected drawing's name. */
-  const workName = mapNamed ? fileSafe(mapMeta.title) : af ? baseName(af.fileName) : fileSafe(DEFAULT_MAP_TITLE);
+  /** File name for the session (.ldg): the selected drawing's name, or the map's name for a sketch-only map. */
+  const workName = af ? baseName(af.fileName) : fileSafe(mapMeta.title.trim() || DEFAULT_MAP_TITLE);
 
   // ---- search ----
   const findOnMap = useCallback(
@@ -1688,7 +1688,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
               key={`${af?.id}-${isGeoSource ? 'geo' : 'cad'}`}
               doc={styledActive}
               sourceFileName={af?.fileName ?? fileSafe(mapMeta.title)}
-              mergedName={sketches.length && mapNamed ? fileSafe(mapMeta.title) : undefined}
+              mergedName={!af && sketches.length ? fileSafe(mapMeta.title) : undefined}
               visible={af?.visible ?? new Set()}
               dxfCrs={dxfCrs}
               defaultFormat={isGeoSource ? 'dxf' : 'kmz'}

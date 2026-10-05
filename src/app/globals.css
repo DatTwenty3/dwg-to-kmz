@@ -98,6 +98,11 @@ body {
 
 /* Markers (search pin, live position dot) above the deck.gl canvas, which comes later in the DOM. */
 .maplibregl-canvas-container .maplibregl-marker { z-index: 2; }
+/* Live-position dot + accuracy circle: always on top of the drawing and of other markers. */
+.maplibregl-canvas-container .maplibregl-user-location-dot.maplibregl-marker { z-index: 4; }
+.maplibregl-canvas-container .maplibregl-user-location-accuracy-circle.maplibregl-marker { z-index: 2; }
+/* Compass cone (phones): above the drawing, under the dot. */
+.maplibregl-canvas-container .ui-heading-cone.maplibregl-marker { z-index: 3; pointer-events: none; }
 
 /* Search result pin: navy drop pin + label chip under it. */
 .ui-search-pin {

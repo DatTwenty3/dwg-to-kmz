@@ -18,6 +18,7 @@ import type { CrsOptions, Vec2 } from '@/lib/cad/types';
 import type { SketchFeature, SketchKind } from '@/lib/cad/sketch';
 import { IconRedo, IconUndo } from './icons';
 import { createSurveyPointTransformer, formatDegMin, vn2000At, type InversePointTransformer } from '@/lib/geo';
+import { headingConeElement, startHeading } from './heading';
 import { toast } from './toast';
 import { useEditSketch } from './useEditSketch';
 import {
@@ -244,6 +245,48 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
     map.addControl(geolocate, 'bottom-right');
     map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-right');
 
+    // Phones: a direction cone under the position dot, turned by the compass (like Google Maps). Started from
+    // the geolocate button press (iOS asks for motion permission then); hidden when location is turned off.
+    let cone: Marker | null = null;
+    let stopHeading: (() => void) | null = null;
+    let lastPos: [number, number] | null = null;
+    let heading: number | null = null;
+    let coneRaf = 0;
+    const locating = () => (geolocate as unknown as { _watchState?: string })._watchState !== 'OFF';
+    const updateCone = () => {
+      coneRaf = 0;
+      if (!lastPos || heading === null || !locating()) {
+        cone?.remove();
+        cone = null;
+        return;
+      }
+      if (!cone) {
+        cone = new Marker({ element: headingConeElement(), anchor: 'center', rotationAlignment: 'map', pitchAlignment: 'map' })
+          .setLngLat(lastPos)
+          .addTo(map);
+      }
+      cone.setLngLat(lastPos).setRotation(heading);
+    };
+    const scheduleCone = () => {
+      if (!coneRaf) coneRaf = requestAnimationFrame(updateCone);
+    };
+    geolocate.on('trackuserlocationstart', () => {
+      if (stopHeading || !window.matchMedia('(pointer: coarse)').matches) return;
+      stopHeading = startHeading(
+        (deg) => {
+          if (heading !== null && Math.abs(((deg - heading + 540) % 360) - 180) < 1.5) return; // ignore jitter
+          heading = deg;
+          scheduleCone();
+        },
+        () => toast.info('Chưa có quyền la bàn nên không hiện hướng — bật "Chuyển động & hướng" cho trình duyệt nếu cần.'),
+      );
+    });
+    geolocate.on('geolocate', (p) => {
+      lastPos = [p.coords.longitude, p.coords.latitude];
+      scheduleCone();
+    });
+    geolocate.on('trackuserlocationend', scheduleCone);
+
     map.on('error', (ev) => {
       const sourceId = (ev as unknown as { sourceId?: string }).sourceId;
       if (sourceId !== 'basemap' || !isGoogleBasemap(basemapRef.current)) return;
@@ -353,6 +396,9 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
     // Debug hook for automated verification (not in production builds).
     if (process.env.NODE_ENV !== 'production') (window as unknown as Record<string, unknown>).__dwgMap = map;
     return () => {
+      stopHeading?.();
+      if (coneRaf) cancelAnimationFrame(coneRaf);
+      cone?.remove();
       overlayRef.current = null;
       mapRef.current = null;
       if (raf) cancelAnimationFrame(raf);

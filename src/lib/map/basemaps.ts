@@ -33,6 +33,19 @@ export function getBasemap(id: string): Basemap {
   return BASEMAPS.find((b) => b.id === id) ?? BASEMAPS[0];
 }
 
+/** One tile image of `b` around [lng, lat] at zoom `z` — a thumbnail for the basemap picker. */
+export function basemapThumbUrl(b: Basemap, lng: number, lat: number, z: number): string {
+  const zz = Math.max(0, Math.min(Math.round(z), b.maxzoom));
+  const n = 2 ** zz;
+  const x = Math.min(n - 1, Math.max(0, Math.floor(((lng + 180) / 360) * n)));
+  const latR = (Math.max(-85.0511, Math.min(85.0511, lat)) * Math.PI) / 180;
+  const y = Math.min(n - 1, Math.max(0, Math.floor(((1 - Math.log(Math.tan(latR) + 1 / Math.cos(latR)) / Math.PI) / 2) * n)));
+  return b.tiles[(x + y) % b.tiles.length]
+    .replace('{z}', String(zz))
+    .replace('{x}', String(x))
+    .replace('{y}', String(y));
+}
+
 /** True for basemaps served by Google (subject to auto-fallback). */
 export function isGoogleBasemap(id: string): boolean {
   return id.startsWith('google-');

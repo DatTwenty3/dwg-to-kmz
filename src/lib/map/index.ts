@@ -7,6 +7,7 @@ export {
   getBasemap,
   isGoogleBasemap,
   TileErrorMonitor,
+  basemapThumbUrl,
 } from './basemaps';
 export type {
   BuildLayersOptions,

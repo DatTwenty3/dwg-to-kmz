@@ -19,7 +19,9 @@ import type { SketchFeature, SketchKind } from '@/lib/cad/sketch';
 import { IconRedo, IconUndo } from './icons';
 import { createSurveyPointTransformer, formatDegMin, vn2000At, type InversePointTransformer } from '@/lib/geo';
 import { headingConeElement, startHeading } from './heading';
+import BasemapPicker from './BasemapPicker';
 import { toast } from './toast';
+import { useIsPhone } from './useIsPhone';
 import { useEditSketch } from './useEditSketch';
 import {
   BASEMAPS,
@@ -136,6 +138,12 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
   const onBasemapRef = useRef(onBasemapChange);
   const monitorRef = useRef(new TileErrorMonitor(20, 30_000));
   const [popupXY, setPopupXY] = useState<[number, number] | null>(null);
+  /** Phones: centre crosshair readout, basemap button, bottom info card. */
+  const phone = useIsPhone();
+  const phoneRef = useRef(phone);
+  useEffect(() => {
+    phoneRef.current = phone;
+  });
   const insetRef = useRef(insetLeft);
   const firstFitRef = useRef(true);
   const llRef = useRef<HTMLSpanElement>(null);
@@ -330,9 +338,19 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
       if (!raf) raf = requestAnimationFrame(paint);
     };
     map.on('mousemove', (e) => {
+      if (phoneRef.current) return;
       last = { lng: e.lngLat.lng, lat: e.lngLat.lat };
       schedule();
     });
+    // Phones have no cursor: read the centre of the map (under the crosshair) while it moves.
+    const readCentre = () => {
+      if (!phoneRef.current) return;
+      const c = map.getCenter();
+      last = { lng: c.lng, lat: c.lat };
+      schedule();
+    };
+    map.on('move', readCentre);
+    map.on('load', readCentre);
     map.on('zoom', schedule);
     map.on('load', schedule);
 
@@ -526,8 +544,20 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
       {/* maplibre's CSS forces position:relative on the container, so size it with h/w-full. */}
       <div ref={containerRef} className="h-full w-full" />
 
+      {phone && (
+        <BasemapPicker
+          basemapId={basemapId}
+          onChange={onBasemapChange}
+          view={() => {
+            const m = mapRef.current;
+            if (!m) return null;
+            const c = m.getCenter();
+            return { lng: c.lng, lat: c.lat, zoom: m.getZoom() };
+          }}
+        />
+      )}
       <div
-        className="ui-floating ui-drop-in ui-scroll absolute right-3 top-3 z-10 max-w-[calc(100%-124px)] overflow-x-auto rounded-xl p-1 sm:max-w-none"
+        className={`ui-floating ui-drop-in ui-scroll absolute right-3 top-3 z-10 overflow-x-auto rounded-xl p-1 ${phone ? 'hidden' : ''}`}
         style={{ animationDelay: '0.3s' }}
       >
         <div className="flex gap-0.5" role="group" aria-label="Chọn bản đồ nền">
@@ -648,16 +678,48 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
         </div>
       )}
 
-      {/* Cursor / zoom status pill */}
+      {phone && (
+        // Centre crosshair: the status bar shows the coordinates of this point.
+        <svg
+          className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 drop-shadow"
+          width="26"
+          height="26"
+          viewBox="0 0 26 26"
+          aria-hidden
+        >
+          <path d="M13 2v8M13 16v8M2 13h8M16 13h8" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
+          <path d="M13 2v8M13 16v8M2 13h8M16 13h8" stroke="#0e1f3b" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      )}
+
+      {/* Cursor (phones: map centre) / zoom status pill */}
       <div
-        className="ui-floating ui-fade-up pointer-events-none absolute bottom-3 z-10 flex items-center gap-3 overflow-hidden whitespace-nowrap rounded-full px-4 py-1.5 font-mono text-[11px] tabular-nums text-zinc-600 transition-[left] duration-300 ease-out"
+        className={`ui-floating ui-fade-up absolute bottom-3 z-10 flex items-center overflow-hidden whitespace-nowrap font-mono tabular-nums text-zinc-600 transition-[left] duration-300 ease-out ${
+          phone
+            ? 'pointer-events-auto cursor-pointer flex-wrap gap-x-3 gap-y-0.5 rounded-2xl px-3.5 py-1.5 text-[11.5px] active:bg-zinc-50'
+            : 'pointer-events-none gap-3 rounded-full px-4 py-1.5 text-[11px]'
+        }`}
         style={{ left: insetLeft + 12, maxWidth: `calc(100% - ${insetLeft + 12 + 72}px)` }}
-        aria-label="Tọa độ con trỏ"
+        aria-label={phone ? 'Tọa độ tâm bản đồ — chạm để chép' : 'Tọa độ con trỏ'}
+        role={phone ? 'button' : undefined}
+        onClick={
+          phone
+            ? async () => {
+                const text = [llRef.current?.textContent, xyRef.current?.textContent].filter(Boolean).join('\n');
+                try {
+                  await navigator.clipboard.writeText(text);
+                  toast.success('Đã chép tọa độ tâm bản đồ');
+                } catch {
+                  toast.error('Trình duyệt không cho chép — hãy chụp màn hình tọa độ.');
+                }
+              }
+            : undefined
+        }
       >
         <span ref={llRef} className="min-w-[17ch] text-zinc-800">
-          Di chuột lên bản đồ
+          {phone ? 'Kéo bản đồ để đọc tọa độ' : 'Di chuột lên bản đồ'}
         </span>
-        <span ref={xyRef} className="truncate empty:hidden max-[1100px]:hidden" />
+        <span ref={xyRef} className={`truncate empty:hidden ${phone ? 'order-last basis-full text-zinc-500' : 'max-[1100px]:hidden'}`} />
         <span className="flex items-center gap-1 border-l border-zinc-200 pl-3 text-zinc-400">
           z<span ref={zoomRef} className="text-zinc-700">
             {VIETNAM_ZOOM.toFixed(1)}
@@ -666,7 +728,13 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
       </div>
 
 
-      {popup && popupXY && (
+      {popup && phone && (
+        // Phones: a card along the bottom edge instead of a small popup that can be cut off.
+        <div className="ui-pop-in pointer-events-auto fixed inset-x-3 bottom-3 z-40 max-h-[55dvh] overflow-y-auto rounded-2xl">
+          {popup.content}
+        </div>
+      )}
+      {popup && !phone && popupXY && (
         <div
           className="pointer-events-auto absolute z-20 w-72 max-w-[80vw] -translate-x-1/2 -translate-y-full pb-3"
           style={{ left: popupXY[0], top: popupXY[1] }}

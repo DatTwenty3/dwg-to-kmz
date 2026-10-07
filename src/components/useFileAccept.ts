@@ -5,7 +5,7 @@
 // (ACCEPTED_EXT in handleFile). Desktop browsers keep the filter.
 import { useSyncExternalStore } from 'react';
 
-export const FILE_ACCEPT = '.dwg,.dxf,.kmz,.kml,.ldg';
+export const FILE_ACCEPT = '.dwg,.dxf,.kmz,.kml,.ldg,.zip';
 
 const isTouchDevice = () =>
   /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||

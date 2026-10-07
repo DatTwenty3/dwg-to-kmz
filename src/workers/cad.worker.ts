@@ -24,6 +24,12 @@ self.onmessage = async (ev: MessageEvent<WorkerRequest>) => {
         const { parseKmlFile } = await import('@/lib/kml');
         onProgress('Đọc KML/KMZ', 10);
         doc = await parseKmlFile(req.data, req.fileName);
+      } else if (format === 'gdb') {
+        // File Geodatabase(s) in a zip: coordinates in the geodatabase's own CRS (crs set) → shown like a KMZ.
+        const { gdbEntriesFromZip } = await import('@/lib/gdb');
+        const { gdbToCad } = await import('@/lib/gdb/toCad');
+        onProgress('Đọc geodatabase', 5);
+        doc = await gdbToCad(await gdbEntriesFromZip(req.data, req.fileName), { onProgress });
       } else {
         doc = format === 'dwg' ? await parseDwg(req.data, opts) : await parseDxf(req.data, opts);
       }

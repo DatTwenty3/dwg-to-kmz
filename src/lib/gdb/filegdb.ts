@@ -51,6 +51,16 @@ export interface GdbField {
   /** Max characters for strings, else 0. */
   length: number;
   nullable: boolean;
+  /** Geometry field: coordinate origin / scale used to decode the shapes. */
+  geom?: GeomParams;
+}
+
+export interface GeomParams {
+  xOrigin: number;
+  yOrigin: number;
+  xyScale: number;
+  hasZ: boolean;
+  hasM: boolean;
 }
 
 export type GdbValue = string | number | null;
@@ -61,6 +71,8 @@ export interface GdbTable {
   rowCount: number;
   /** Rows as objects keyed by field name (ObjectID included, geometry/binary/raster omitted). */
   rows(limit?: number): Generator<Record<string, GdbValue>>;
+  /** Rows with the raw shape blob of the geometry field (null when empty). */
+  features(): Generator<{ row: Record<string, GdbValue>; shape: Uint8Array | null }>;
 }
 
 export class GdbFormatError extends Error {}
@@ -179,6 +191,7 @@ function readFields(c: Cursor): GdbField[] {
     if (!type) throw new GdbFormatError(`Kiểu trường ${code} (trường ${name}) chưa hỗ trợ`);
     let length = 0;
     let nullable = true;
+    let geom: GeomParams | undefined;
     if (type === 'string') {
       length = c.i32();
       const flags = c.u8();
@@ -190,7 +203,7 @@ function readFields(c: Cursor): GdbField[] {
     } else if (type === 'geometry') {
       c.u8();
       nullable = (c.u8() & 1) !== 0;
-      skipGeometryDescription(c);
+      geom = readGeometryDescription(c);
     } else if (type === 'raster') {
       c.u8();
       nullable = (c.u8() & 1) !== 0;
@@ -210,17 +223,20 @@ function readFields(c: Cursor): GdbField[] {
       const defLen = c.u8();
       if (flags & 4) c.skip(defLen);
     }
-    fields.push({ name, alias, type, length, nullable });
+    fields.push({ name, alias, type, length, nullable, ...(geom ? { geom } : {}) });
   }
   return fields;
 }
 
-function skipGeometryDescription(c: Cursor) {
+function readGeometryDescription(c: Cursor): GeomParams {
   c.skip(c.u16()); // WKT (UTF-16, length in bytes)
   const flags = c.u8();
   const hasM = (flags & 2) !== 0;
   const hasZ = (flags & 4) !== 0;
-  c.skip(24); // x/y origin, xy scale
+  const xOrigin = c.f64();
+  const yOrigin = c.f64();
+  const xyScale = c.f64();
+  const params: GeomParams = { xOrigin, yOrigin, xyScale, hasZ, hasM };
   if (hasM) c.skip(16);
   if (hasZ) c.skip(16);
   c.skip(8); // xy tolerance
@@ -234,7 +250,7 @@ function skipGeometryDescription(c: Cursor) {
     const n = c.v.getUint32(at + 1, true);
     if (c.v.getUint8(at) === 0 && n >= 1 && n <= 3 && at + 5 + n * 8 <= c.v.byteLength) {
       c.p = at + 5 + n * 8;
-      return;
+      return params;
     }
   }
   throw new GdbFormatError('Không đọc được mô tả trường hình học');
@@ -285,18 +301,16 @@ export function readTable(tableBuf: ArrayBuffer | Uint8Array, tablxBuf: ArrayBuf
   const offsets = readOffsets(view(tablxBuf));
   const nullableCount = fields.filter((f) => f.nullable && f.type !== 'objectid').length;
 
-  function* rows(limit = Infinity): Generator<Record<string, GdbValue>> {
-    let yielded = 0;
-    for (let i = 0; i < offsets.length && yielded < limit; i++) {
-      const off = offsets[i];
-      if (!off) continue;
-      const c = new Cursor(tv, off);
-      c.u32(); // row size
-      const flagsAt = c.p;
-      c.skip(Math.ceil(nullableCount / 8));
-      let bit = 0;
-      const row: Record<string, GdbValue> = {};
-      for (const f of fields) {
+  /** Decodes row #i at `off`; the geometry blob is returned when `wantShape` (a view, not a copy). */
+  function readRow(i: number, off: number, wantShape: boolean): { row: Record<string, GdbValue>; shape: Uint8Array | null } {
+    const c = new Cursor(tv, off);
+    c.u32(); // row size
+    const flagsAt = c.p;
+    c.skip(Math.ceil(nullableCount / 8));
+    let bit = 0;
+    const row: Record<string, GdbValue> = {};
+    let shape: Uint8Array | null = null;
+    for (const f of fields) {
         if (f.type === 'objectid') {
           row[f.name] = i + 1;
           continue;
@@ -305,7 +319,7 @@ export function readTable(tableBuf: ArrayBuffer | Uint8Array, tablxBuf: ArrayBuf
           const isNull = (tv.getUint8(flagsAt + (bit >> 3)) >> (bit & 7)) & 1;
           bit++;
           if (isNull) {
-            row[f.name] = null;
+            if (f.type !== 'geometry') row[f.name] = null;
             continue;
           }
         }
@@ -340,20 +354,39 @@ export function readTable(tableBuf: ArrayBuffer | Uint8Array, tablxBuf: ArrayBuf
           case 'globalid':
             row[f.name] = c.guid();
             break;
-          case 'geometry':
+          case 'geometry': {
+            const n = c.varuint();
+            if (wantShape) {
+              c.need(n);
+              shape = new Uint8Array(tv.buffer, tv.byteOffset + c.p, n);
+            }
+            c.skip(n);
+            break;
+          }
           case 'binary':
             c.skip(c.varuint());
             break;
           case 'raster':
             throw new GdbFormatError('Bảng có trường raster chưa hỗ trợ');
         }
-      }
+    }
+    return { row, shape };
+  }
+
+  function* rows(limit = Infinity): Generator<Record<string, GdbValue>> {
+    let yielded = 0;
+    for (let i = 0; i < offsets.length && yielded < limit; i++) {
+      if (!offsets[i]) continue;
       yielded++;
-      yield row;
+      yield readRow(i, offsets[i], false).row;
     }
   }
 
-  return { fields, rowCount, rows };
+  function* features(): Generator<{ row: Record<string, GdbValue>; shape: Uint8Array | null }> {
+    for (let i = 0; i < offsets.length; i++) if (offsets[i]) yield readRow(i, offsets[i], true);
+  }
+
+  return { fields, rowCount, rows, features };
 }
 
 /** Physical file name of table #id: a00000001, a0000006f… */

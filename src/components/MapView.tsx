@@ -95,6 +95,11 @@ export interface MapViewProps {
   onEditDone?: () => void;
   /** Sketch history (shown in the edit bar). */
   history?: { canUndo: boolean; canRedo: boolean; undo: () => void; redo: () => void };
+  /**
+   * The map is a pane, not the whole screen (e.g. next to the TT16 check): basemap behind one button,
+   * measuring tools as icons, and the object card docked in the top-left corner (never outside the map).
+   */
+  compact?: boolean;
 }
 
 const DRAW_LABEL: Record<SketchKind, string> = { line: 'đường', polygon: 'vùng', point: 'điểm' };
@@ -129,6 +134,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
   onEditCommit,
   onEditDone,
   history,
+  compact = false,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
@@ -544,7 +550,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
       {/* maplibre's CSS forces position:relative on the container, so size it with h/w-full. */}
       <div ref={containerRef} className="h-full w-full" />
 
-      {phone && (
+      {(phone || compact) && (
         <BasemapPicker
           basemapId={basemapId}
           onChange={onBasemapChange}
@@ -557,7 +563,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
         />
       )}
       <div
-        className={`ui-floating ui-drop-in ui-scroll absolute right-3 top-3 z-10 overflow-x-auto rounded-xl p-1 ${phone ? 'hidden' : ''}`}
+        className={`ui-floating ui-drop-in ui-scroll absolute right-3 top-3 z-10 overflow-x-auto rounded-xl p-1 ${phone || compact ? 'hidden' : ''}`}
         style={{ animationDelay: '0.3s' }}
       >
         <div className="flex gap-0.5" role="group" aria-label="Chọn bản đồ nền">
@@ -592,6 +598,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
           }}
           hasMeasurements={measure.finished.length > 0}
           onClear={measure.clear}
+          iconOnly={compact}
         />
         {measure.current && (
           <MeasureCard
@@ -734,7 +741,13 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
           {popup.content}
         </div>
       )}
-      {popup && !phone && popupXY && (
+      {popup && !phone && compact && (
+        // Map pane: docked in the top-left corner, scrolls inside the map instead of spilling over the page.
+        <div className="ui-pop-in pointer-events-auto absolute left-3 top-3 z-20 max-h-[calc(100%-4.5rem)] w-80 max-w-[calc(100%-4.5rem)] overflow-y-auto rounded-2xl">
+          {popup.content}
+        </div>
+      )}
+      {popup && !phone && !compact && popupXY && (
         <div
           className="pointer-events-auto absolute z-20 w-72 max-w-[80vw] -translate-x-1/2 -translate-y-full pb-3"
           style={{ left: popupXY[0], top: popupXY[1] }}

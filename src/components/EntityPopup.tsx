@@ -76,7 +76,9 @@ export default function EntityPopup({
       rows.push(['Nội dung ô', pick.cell.text]);
     }
   }
-  rows.push(['Handle', e.handle ?? '—']);
+  // GIS features (File Geodatabase) carry their attribute table instead of a CAD handle.
+  if (e.attrs?.length) rows.push(...e.attrs);
+  else rows.push(['Handle', e.handle ?? '—']);
 
   return (
     <div className="ui-floating overflow-hidden text-[13px] text-zinc-900 sm:text-xs">

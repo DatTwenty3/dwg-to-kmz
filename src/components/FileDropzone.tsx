@@ -1,9 +1,12 @@
 'use client';
 import { useRef, useState } from 'react';
+import { filesFromDrop } from './dropFiles';
 import { IconFile, IconUpload } from './icons';
 import { useFileAccept } from './useFileAccept';
 
-export const ACCEPTED_EXT = /\.(dwg|dxf|kmz|kml|ldg)$/i;
+/** `.zip` = File Geodatabase folder(s) zipped (a dropped .gdb folder is zipped in the browser, see dropFiles.ts). */
+export const ACCEPTED_EXT = /\.(dwg|dxf|kmz|kml|ldg|zip)$/i;
+export const ACCEPTED_HINT = 'Chỉ hỗ trợ file .dwg, .dxf, .kmz, .kml, thư mục / file .zip geodatabase (.gdb) hoặc phiên làm việc .ldg.';
 
 export default function FileDropzone({
   onFile,
@@ -82,11 +85,11 @@ export default function FileDropzone({
           setOver(true);
         }}
         onDragLeave={() => setOver(false)}
-        onDrop={(e) => {
+        onDrop={async (e) => {
           e.preventDefault();
           e.stopPropagation();
           setOver(false);
-          const f = e.dataTransfer.files?.[0];
+          const [f] = await filesFromDrop(e.dataTransfer);
           if (f) onFile(f);
         }}
         className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-7 text-center transition ${
@@ -98,7 +101,7 @@ export default function FileDropzone({
         </span>
         <span className="text-sm font-medium text-zinc-900">Kéo thả bản vẽ hoặc file KMZ vào đây</span>
         <span className="text-xs text-zinc-500">
-          hoặc <span className="font-medium text-blue-600">chọn file</span> .dwg / .dxf / .kmz / .kml
+          hoặc <span className="font-medium text-blue-600">chọn file</span> .dwg / .dxf / .kmz / .kml / thư mục .gdb
         </span>
         {input}
       </div>

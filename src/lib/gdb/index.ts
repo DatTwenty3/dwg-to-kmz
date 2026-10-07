@@ -17,6 +17,18 @@ export async function entriesFromZip(data: ArrayBuffer | Uint8Array, prefix = ''
   return out;
 }
 
+/**
+ * Entries of a .zip holding geodatabases. A zip made from *inside* a .gdb folder has the tables at its root —
+ * then the zip's own name (minus .zip) becomes the folder name.
+ */
+export async function gdbEntriesFromZip(data: ArrayBuffer | Uint8Array, zipName: string): Promise<GdbEntry[]> {
+  const inner = await entriesFromZip(data);
+  const flat = inner.some((e) => e.path.toLowerCase() === 'a00000001.gdbtable');
+  if (!flat) return inner;
+  const base = zipName.replace(/\.zip$/i, '') || 'geodatabase.gdb';
+  return inner.map((e) => ({ ...e, path: `${base}/${e.path}` }));
+}
+
 /** Checks every geodatabase found in the entries. `onProgress` gets (done, total, current name). */
 export async function runCheck(
   entries: GdbEntry[],

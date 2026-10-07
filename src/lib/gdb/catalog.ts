@@ -40,6 +40,8 @@ export interface GdbClass {
   fields: GdbField[];
   rowCount: number;
   rows: () => Generator<Record<string, GdbValue>>;
+  /** Rows with their shape blob (for drawing the class on the map). */
+  features?: () => Generator<{ row: Record<string, GdbValue>; shape: Uint8Array | null }>;
   /** Set when the class table itself could not be read (fields/rows unavailable). */
   error?: string;
 }
@@ -176,6 +178,7 @@ export async function readCatalog(src: GdbSource): Promise<GdbCatalog> {
           cls.fields = t.fields;
           cls.rowCount = t.rowCount;
           cls.rows = () => t.rows();
+          cls.features = () => t.features();
         }
       } catch (e) {
         cls.error = e instanceof Error ? e.message : String(e);

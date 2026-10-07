@@ -1,12 +1,13 @@
 'use client';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
+import { filesFromDrop } from './dropFiles';
 import Tagline from './Tagline';
 import { IconAlert, IconArrowRight, IconCheck, IconDatabaseCheck, IconPen, IconUpload, Logo } from './icons';
 import { useFileAccept } from './useFileAccept';
 
 /** Formats cycled in the headline, in the order the app reads them. */
-const FORMATS = ['.dwg', '.dxf', '.kmz', '.kml'];
+const FORMATS = ['.dwg', '.dxf', '.kmz', '.kml', '.gdb'];
 const BRAND = 'LEDAT-GIS';
 
 const FEATURES = [
@@ -258,7 +259,7 @@ export default function Landing({
             <div
               role="button"
               tabIndex={0}
-              aria-label="Chọn hoặc kéo thả file DWG, DXF, KMZ, KML hoặc phiên làm việc LDG"
+              aria-label="Chọn hoặc kéo thả file DWG, DXF, KMZ, KML, thư mục geodatabase (.gdb) hoặc phiên làm việc LDG"
               onClick={open}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') open();
@@ -268,12 +269,14 @@ export default function Landing({
                 setOver(true);
               }}
               onDragLeave={() => setOver(false)}
-              onDrop={(e) => {
+              onDrop={async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 setOver(false);
-                const f = e.dataTransfer.files?.[0];
-                if (f && !busy) onFile(f);
+                if (busy) return;
+                // A dropped .gdb / HoSoGIS folder arrives as one zip.
+                const [f] = await filesFromDrop(e.dataTransfer);
+                if (f) onFile(f);
               }}
               className={`group flex flex-col items-center gap-3 rounded-2xl border border-dashed bg-white/80 px-6 py-10 shadow-[0_8px_32px_rgba(15,23,42,0.06)] backdrop-blur transition ${
                 busy
@@ -298,7 +301,7 @@ export default function Landing({
                   </span>
                   <span className="text-base font-medium text-zinc-900">Thả file vào đây để bắt đầu</span>
                   <span className="text-sm text-zinc-500">
-                    hoặc <span className="font-medium text-blue-600">chọn file</span> · .dwg .dxf .kmz .kml .ldg
+                    hoặc <span className="font-medium text-blue-600">chọn file</span> · .dwg .dxf .kmz .kml .ldg · thư mục .gdb hoặc .zip
                   </span>
                 </>
               )}

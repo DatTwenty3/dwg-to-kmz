@@ -1,9 +1,11 @@
 'use client';
 // Kiểm tra cơ sở dữ liệu GIS (File Geodatabase) theo Thông tư 16/2025/TT-BXD. Bố cục kiểu trình duyệt GIS:
 // cây Feature Dataset / Feature Class bên trái, bảng "Lỗi cần sửa & Cảnh báo" đánh số bên phải, bảng thuộc tính của
-// lớp đang chọn ở dưới (cột thiếu/thừa, ô sai tô đỏ). Đọc hoàn toàn trên trình duyệt (worker), không tải lên máy chủ.
+// lớp đang chọn ở dưới bản đồ vệ tinh (cột thiếu/thừa, ô sai tô đỏ), danh sách lỗi ở cột bên phải.
+// Đọc hoàn toàn trên trình duyệt (worker), không tải lên máy chủ.
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { CadDocument } from '@/lib/cad/types';
 import {
   cellProblem,
   RULE_HINT,
@@ -39,6 +41,7 @@ import {
   IconXCircle,
   Logo,
 } from './icons';
+import GdbMap from './GdbMap';
 
 type Picked = { path: string; file: File };
 type Filter = 'all' | 'issues' | 'present';
@@ -576,6 +579,12 @@ export default function GdbChecker() {
   const [toggled, setToggled] = useState<Set<string>>(new Set());
   const [bottomH, setBottomH] = useState(320);
   const [pdfBusy, setPdfBusy] = useState(false);
+  /** The geodatabases drawn on the map (WGS84), built by the worker after the report. */
+  const [mapDoc, setMapDoc] = useState<CadDocument | null>(null);
+  const [mapLoading, setMapLoading] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
+  /** Issue list column width (px) on wide screens; dragged with the splitter. */
+  const [mapW, setMapW] = useState(460);
   /** Province chosen by the user for the KTT check (null = read from maHoSoQH / maThongTinQH). */
   const [province, setProvince] = useState<string | null>(null);
   /** Province question, asked once right after each upload (and from the top-bar chip). */
@@ -603,10 +612,18 @@ export default function GdbChecker() {
     workerRef.current = w;
     // The worker stays alive with the picked files so a province change re-checks without picking them again.
     let fresh = true;
+    setMapDoc(null);
+    setMapError(null);
+    setMapLoading(true);
     w.onmessage = (ev: MessageEvent<GdbWorkerResponse>) => {
       const m = ev.data;
       if (m.type === 'progress') setProgress(m);
-      else {
+      else if (m.type === 'map') {
+        setMapLoading(false);
+        setMapDoc(m.doc);
+        setMapError(m.error ?? null);
+      } else {
+        if (m.type === 'error' || !m.report.gdbs.length) setMapLoading(false);
         setBusy(false);
         if (m.type === 'error') setError(`Không đọc được dữ liệu: ${m.message}`);
         else if (!m.report.gdbs.length)
@@ -830,6 +847,17 @@ export default function GdbChecker() {
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
   };
+  /** Vertical splitter between the map and the issue list. */
+  const startMapResize = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const move = (ev: PointerEvent) => setMapW(Math.max(320, Math.min(window.innerWidth - 700, window.innerWidth - ev.clientX)));
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
 
   return (
     <div className="flex min-h-dvh flex-col bg-zinc-100 md:h-dvh" {...dropHandlers}>
@@ -982,9 +1010,64 @@ export default function GdbChecker() {
           </ul>
         </aside>
 
-        {/* Right: issues (top) + attribute table (bottom) */}
+        {/* Centre: summary, the satellite map, and the attribute table of the selected class under it. */}
         <div ref={mainRef} className="flex min-w-0 flex-1 flex-col bg-white md:min-h-0">
           {!sel.ds && !sel.cls && <SummaryBar rep={rep} g={g} />}
+          <div className="relative h-[60dvh] min-h-[240px] shrink-0 md:h-auto md:flex-1">
+            <GdbMap
+              doc={mapDoc}
+              gdbName={g.fileName}
+              focusClass={selectedClass ? (selectedClass.actualName ?? selectedClass.name) : null}
+              loading={mapLoading}
+              error={mapError}
+              onSelectClass={(name) => {
+                const lower = name.toLowerCase();
+                const hit = (list: ClassReport[]) => list.find((c) => (c.actualName ?? c.name).toLowerCase() === lower);
+                for (const d of g.datasets) {
+                  const c = hit(d.classes);
+                  if (c) return select({ ds: d.actualName ?? d.name, cls: c.name });
+                }
+                const r = hit(g.rootClasses);
+                if (r) select({ ds: ROOT, cls: r.name });
+              }}
+            />
+          </div>
+
+          {selectedClass && (
+            <>
+              <div
+                role="separator"
+                aria-orientation="horizontal"
+                aria-label="Kéo để đổi chiều cao bảng thuộc tính"
+                onPointerDown={startResize}
+                className="hidden h-2 shrink-0 cursor-row-resize touch-none items-center justify-center border-y border-zinc-200 bg-emerald-50 hover:bg-emerald-100 md:flex"
+              >
+                <span className="h-0.5 w-10 rounded-full bg-emerald-400" />
+              </div>
+              <div
+                className="h-[65dvh] shrink-0 border-t border-zinc-200 md:h-[var(--bh)] md:border-t-0"
+                style={{ '--bh': `${bottomH}px` } as React.CSSProperties}
+              >
+                <AttributeTable c={selectedClass} focusField={focusField} />
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Right: the numbered issues of what is selected (drag the splitter to widen). */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Kéo để đổi độ rộng danh sách lỗi"
+          onPointerDown={startMapResize}
+          className="hidden w-2 shrink-0 cursor-col-resize touch-none items-center justify-center border-x border-zinc-200 bg-emerald-50 hover:bg-emerald-100 md:flex"
+        >
+          <span className="h-10 w-0.5 rounded-full bg-emerald-400" />
+        </div>
+        <div
+          className="flex min-w-0 shrink-0 flex-col border-t border-zinc-200 bg-white md:min-h-0 md:w-[min(var(--iw),45vw)] md:border-t-0"
+          style={{ '--iw': `${mapW}px` } as React.CSSProperties}
+        >
           <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 px-3 py-1.5">
             <span className="min-w-0 truncate text-[12.5px] text-zinc-500">
               {sel.cls ? (
@@ -1042,26 +1125,6 @@ export default function GdbChecker() {
               </p>
             )}
           </div>
-
-          {selectedClass && (
-            <>
-              <div
-                role="separator"
-                aria-orientation="horizontal"
-                aria-label="Kéo để đổi chiều cao bảng thuộc tính"
-                onPointerDown={startResize}
-                className="hidden h-2 shrink-0 cursor-row-resize touch-none items-center md:flex justify-center border-y border-zinc-200 bg-emerald-50 hover:bg-emerald-100"
-              >
-                <span className="h-0.5 w-10 rounded-full bg-emerald-400" />
-              </div>
-              <div
-                className="h-[65dvh] shrink-0 border-t border-zinc-200 md:h-[var(--bh)] md:border-t-0"
-                style={{ '--bh': `${bottomH}px` } as React.CSSProperties}
-              >
-                <AttributeTable c={selectedClass} focusField={focusField} />
-              </div>
-            </>
-          )}
         </div>
       </div>
 

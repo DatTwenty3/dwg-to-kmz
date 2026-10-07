@@ -31,13 +31,14 @@ import {
   type FileRender,
 } from '@/lib/map';
 import { CadPipeline } from '@/lib/pipeline';
-import { VIETNAMESE_CHARSET } from '@/lib/text';
+import { loadTextFont } from './mapFont';
 import CrsPanel from './CrsPanel';
 import CrsStep from './CrsStep';
 import { DEFAULT_FORM, crsFromForm, formFromCrs, sameBaseCrs, type CrsForm } from './crsForm';
 import EntityPopup from './EntityPopup';
 import ExportPanel, { baseName, buildExport, download } from './ExportPanel';
-import { ACCEPTED_EXT } from './FileDropzone';
+import { filesFromDrop } from './dropFiles';
+import { ACCEPTED_EXT, ACCEPTED_HINT } from './FileDropzone';
 import FileList, { type FileRowData } from './FileList';
 import Landing from './Landing';
 import LayerPanel from './LayerPanel';
@@ -86,19 +87,6 @@ function targetFormFor(provinceId: string): CrsForm {
 
 const fmtMs = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${Math.round(ms)} ms`);
 
-/** Resolve the real (hashed) family name next/font gives Roboto and wait until its glyphs are loaded. */
-async function loadTextFont(): Promise<string> {
-  const v = getComputedStyle(document.documentElement).getPropertyValue('--font-roboto').trim();
-  const family = v || 'Roboto';
-  try {
-    // Requesting the Vietnamese characters forces the unicode-range subsets to download.
-    await document.fonts.load(`500 64px ${family}`, VIETNAMESE_CHARSET.join(''));
-    await document.fonts.ready;
-  } catch {
-    /* fall back to whatever is available */
-  }
-  return v ? `${v}, Arial, sans-serif` : DEFAULT_FONT_FAMILY;
-}
 
 /** Pseudo file id of the sketch layer (deck layer-id prefix, pick routing). */
 const SKETCH_ID = 'sketch';
@@ -480,7 +468,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
         return;
       }
       if (!ACCEPTED_EXT.test(file.name)) {
-        setGlobalError('Chỉ hỗ trợ file .dwg, .dxf, .kmz, .kml hoặc phiên làm việc .ldg.');
+        setGlobalError(ACCEPTED_HINT);
         return;
       }
       setGlobalError(null);
@@ -1144,10 +1132,11 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     onDragOver: (e: React.DragEvent) => e.preventDefault(),
     // Capture phase: runs even when a child drop zone (Landing, CRS step) handles the drop and stops propagation.
     onDropCapture: () => setDragDepth(0),
-    onDrop: (e: React.DragEvent) => {
+    onDrop: async (e: React.DragEvent) => {
       e.preventDefault();
       setDragDepth(0);
-      const list = Array.from(e.dataTransfer.files ?? []);
+      // Folders holding a File Geodatabase arrive zipped (filesFromDrop).
+      const list = await filesFromDrop(e.dataTransfer);
       if (list.length === 0) return;
       if (stage === 'map') void addFiles(list);
       else if (!busy) void handleFile(list[0], { replace: true });

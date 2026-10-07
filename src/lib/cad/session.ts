@@ -13,7 +13,8 @@ export const SESSION_EXT = '.ldg';
 export const SESSION_FORMAT = 'ledat-gis-session';
 export const SESSION_VERSION = 1;
 const MANIFEST = 'manifest.json';
-const SOURCE_EXT = /\.(dwg|dxf|kmz|kml)$/i;
+/** `.zip` = File Geodatabase folder(s), zipped. */
+const SOURCE_EXT = /\.(dwg|dxf|kmz|kml|zip)$/i;
 const MAX_FILES = 50;
 
 export interface SessionFile {

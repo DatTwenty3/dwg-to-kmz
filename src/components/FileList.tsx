@@ -1,7 +1,7 @@
 'use client';
 // Open files stacked on the map: select, show/hide, opacity, zoom, order, remove.
 import { useEffect, useRef, useState } from 'react';
-import { ACCEPTED_EXT } from './FileDropzone';
+import { ACCEPTED_EXT, ACCEPTED_HINT } from './FileDropzone';
 import { IconAlert, IconArrowDown, IconArrowUp, IconExpand, IconEye, IconEyeOff, IconMore, IconPlus, IconTarget, IconTrash } from './icons';
 import { toast } from './toast';
 import { useFileAccept } from './useFileAccept';
@@ -221,7 +221,7 @@ export default function FileList({
             const all = Array.from(e.target.files ?? []);
             const fs = all.filter((f) => ACCEPTED_EXT.test(f.name));
             // Phones pick any file (see useFileAccept): say why the others were skipped.
-            if (fs.length < all.length) toast.error('Chỉ hỗ trợ file .dwg, .dxf, .kmz, .kml hoặc phiên làm việc .ldg.');
+            if (fs.length < all.length) toast.error(ACCEPTED_HINT);
             if (fs.length) onAdd(fs);
             e.target.value = '';
           }}

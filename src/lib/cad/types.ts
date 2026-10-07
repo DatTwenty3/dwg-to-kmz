@@ -35,6 +35,8 @@ interface EntityBase {
   color: string;
   /** Source object handle (hex), for property popups. */
   handle?: string;
+  /** Attribute table of a GIS feature (File Geodatabase), [field, value] — shown in the property popup. */
+  attrs?: [string, string][];
 }
 
 export interface PolylineEntity extends EntityBase {
@@ -126,7 +128,8 @@ export interface CrsOptions {
   offset?: Vec2;
 }
 
-export type InputFormat = 'dwg' | 'dxf' | 'kmz' | 'kml';
+/** `gdb` = a .zip holding one or more Esri File Geodatabase folders. */
+export type InputFormat = 'dwg' | 'dxf' | 'kmz' | 'kml' | 'gdb';
 
 // ---- Worker protocol ----
 

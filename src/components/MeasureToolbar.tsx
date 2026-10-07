@@ -14,11 +14,14 @@ export default function MeasureToolbar({
   onTool,
   hasMeasurements,
   onClear,
+  iconOnly = false,
 }: {
   tool: MeasureTool | null;
   onTool: (t: MeasureTool | null) => void;
   hasMeasurements: boolean;
   onClear: () => void;
+  /** Labels hidden (narrow map panes). */
+  iconOnly?: boolean;
 }) {
   const index = TOOLS.findIndex((t) => t.id === tool);
   return (
@@ -39,7 +42,7 @@ export default function MeasureToolbar({
             className="!px-2.5 !py-1.5"
           >
             <t.icon width={15} height={15} />
-            <span className="max-[1180px]:hidden">{t.label}</span>
+            <span className={iconOnly ? 'sr-only' : 'max-[1180px]:hidden'}>{t.label}</span>
           </button>
         ))}
       </div>

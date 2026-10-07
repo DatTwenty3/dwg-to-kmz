@@ -18,6 +18,8 @@ export interface CrsCheck {
   status: 'ok' | 'warn' | 'error';
   /** One-line verdict shown next to the coordinate system. */
   text: string;
+  /** Longer explanation (tooltip / report). */
+  detail?: string;
   /** Extent centre in WGS84 with the file's own coordinate system (null when it cannot be computed). */
   center: { lng: number; lat: number } | null;
   /** Former province(s) containing the data. */
@@ -101,8 +103,36 @@ export function assessCrs(sr: SrInfo | null, extent: Extent | null, provinceCode
   const others = fits.filter((f) => f.lon0 !== sr.lon0);
   const mine = fits.find((f) => f.lon0 === sr.lon0)!;
   if (!others.length) return out('ok', `Đúng KTT ${ktt(sr.lon0)} của ${mine.province}`);
-  return out(
-    'warn',
-    `KTT ${ktt(sr.lon0)} đúng nếu đồ án ở ${mine.province}; nếu đồ án ở ${others.map((f) => f.province).join(' / ')} thì phải là ${others.map((f) => ktt(f.lon0)).join(' / ')} — mã hồ sơ chưa cho biết tỉnh, hãy chọn tỉnh của đồ án`,
-  );
+  return {
+    ...out('warn', `KTT ${ktt(sr.lon0)} khớp ${mine.province}, nhưng KTT khác cũng khớp vị trí — chọn tỉnh của đồ án để kết luận`),
+    detail: `Đúng nếu đồ án ở ${mine.province}. Nếu đồ án ở ${others.map((f) => `${f.province} thì phải là ${ktt(f.lon0)}`).join('; ')}.`,
+  };
+}
+
+/** 2-digit code of a current (2025) province. */
+export function codeForProvince(p: Province): string | null {
+  const f = foldVietnamese(p.name);
+  return Object.entries(PROVINCE_CODES).find(([, name]) => f.includes(foldVietnamese(name)))?.[0] ?? null;
+}
+
+export interface ProvinceSuggestion {
+  code: string;
+  source: 'maHoSoQH' | 'maThongTinQH' | 'location';
+}
+
+/**
+ * Province to pre-select when asking the user: the planning codes first, else the province containing the data
+ * (read with the file's own KTT — only a hint, the user confirms).
+ */
+export function suggestProvince(gdbs: { province: { code: string; source: string } | null; crs: CrsCheck | null }[]): ProvinceSuggestion | null {
+  for (const g of gdbs)
+    if (g.province && g.province.source !== 'user') return { code: g.province.code, source: g.province.source as 'maHoSoQH' | 'maThongTinQH' };
+  for (const g of gdbs) {
+    const first = g.crs?.place?.split(', ')[0];
+    if (!first) continue;
+    const p = PROVINCES.find((x) => (x.formerUnits ?? []).some((u) => foldVietnamese(u.name) === foldVietnamese(first)));
+    const code = p ? codeForProvince(p) : null;
+    if (code) return { code, source: 'location' };
+  }
+  return null;
 }

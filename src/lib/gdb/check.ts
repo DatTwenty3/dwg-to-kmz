@@ -16,8 +16,24 @@ import {
 export type Level = 'error' | 'warn' | 'info';
 export interface Issue {
   level: Level;
+  /** Short statement (one line in the UI). */
   text: string;
+  /** Field the issue is about (class-level issues such as "trường dư"). */
+  field?: string;
+  /** A sample offending value. */
+  example?: string;
+  /** Longer explanation / the rule (tooltip, report notes). */
+  hint?: string;
 }
+
+/** The rules behind the code checks, shown as hints and in the report notes. */
+export const RULE_HINT = {
+  maHoSoQH: 'maHoSoQH = <mã tỉnh 2 số><QHC|QPK|QCT><x 1 số><xx 2 số><xxxx 4 số>, vd. 04QHC0010001 (Thông tư 16/2025/TT-BXD, Phụ lục II, Phần 3 mục 4).',
+  maThongTinQH:
+    'maThongTinQH = 12 chữ số <mã tỉnh 2><năm trình duyệt 2><cấp độ 1–4><loại QH 1–5><điều chỉnh 0–2><5 số>, vd. 012511012345 (NĐ 111/2024/NĐ-CP, Điều 4 TT 24/2025/TT-BXD).',
+  maDoiTuong: 'maDoiTuong = <maHoSoQH>-<Tên lớp>-<ObjectID>; maHoSoQH sai thì maDoiTuong cũng sai.',
+  extra: 'Ngoài 6 trường quy định (maThongTinQH, maHoSoQH, maDoiTuong, tenDoiTuong, phanLoai, ghiChu) — không tính OBJECTID, Shape, Shape_Length, Shape_Area.',
+};
 
 /**
  * ok      — có, đúng
@@ -226,6 +242,7 @@ function checkClass(cls: GdbClass, stats: ValueStats): { fields: FieldReport[]; 
   let badMaHoSo = 0;
   let badMaHoSoSample = '';
   let badMaDoiTuong = 0;
+  let badMaDoiTuongReason = '';
   let badMaThongTin = 0;
   let badMaThongTinSample = '';
   let badMaDoiTuongSample = '';
@@ -269,7 +286,10 @@ function checkClass(cls: GdbClass, stats: ValueStats): { fields: FieldReport[]; 
       const problem = cellProblem('maDoiTuong', v, { oid: Object.values(row)[0], ma, className: cls.name });
       if (problem) {
         badMaDoiTuong++;
-        badMaDoiTuongSample ||= `"${String(v)}" (${problem})`;
+        if (!badMaDoiTuongSample) {
+          badMaDoiTuongSample = String(v);
+          badMaDoiTuongReason = problem;
+        }
       }
     }
   }
@@ -277,28 +297,25 @@ function checkClass(cls: GdbClass, stats: ValueStats): { fields: FieldReport[]; 
   const fields: FieldReport[] = wanted.map(({ spec, field }) => {
     const fi: Issue[] = [];
     if (!field) {
-      return { name: spec.name, alias: spec.alias, status: 'missing', actual: null, filled: null, issues: [{ level: 'error', text: 'Thiếu trường bắt buộc' }] };
+      return { name: spec.name, alias: spec.alias, status: 'missing', actual: null, filled: null, issues: [{ level: 'error', text: `Thiếu trường bắt buộc (TEXT ${spec.length})` }] };
     }
-    if (field.name !== spec.name) fi.push({ level: 'warn', text: `Tên trường "${field.name}" khác chữ hoa/thường — đúng là "${spec.name}"` });
-    if (field.type !== 'string') fi.push({ level: 'error', text: `Kiểu dữ liệu ${field.type} — phải là TEXT (String)` });
-    else if (field.length < spec.length) fi.push({ level: 'error', text: `Độ dài ${field.length} — quy định ${spec.length} ký tự` });
-    else if (field.length > spec.length) fi.push({ level: 'warn', text: `Độ dài ${field.length} — quy định ${spec.length} ký tự` });
+    if (field.name !== spec.name) fi.push({ level: 'warn', text: `Sai chữ hoa/thường — đúng là "${spec.name}"` });
+    if (field.type !== 'string') fi.push({ level: 'error', text: `Kiểu ${field.type} — phải là TEXT (String)` });
+    else if (field.length < spec.length) fi.push({ level: 'error', text: `Độ dài ${field.length} — quy định ${spec.length}` });
+    else if (field.length > spec.length) fi.push({ level: 'warn', text: `Độ dài ${field.length} — quy định ${spec.length}` });
     const n = filled.get(spec.name) ?? 0;
-    if (spec.valueRequired && total > 0 && n < total) fi.push({ level: 'error', text: `${(total - n).toLocaleString('vi-VN')}/${total.toLocaleString('vi-VN')} đối tượng chưa nhập giá trị` });
+    const of = (k: number) => `${k.toLocaleString('vi-VN')}/${total.toLocaleString('vi-VN')} đối tượng`;
+    if (spec.valueRequired && total > 0 && n < total) fi.push({ level: 'error', text: `Chưa nhập — ${of(total - n)}` });
     if (spec.name === 'maThongTinQH' && badMaThongTin)
-      fi.push({
-        level: 'error',
-        text: `${badMaThongTin.toLocaleString('vi-VN')} giá trị sai mẫu 12 chữ số <mã tỉnh 2><năm 2><cấp độ 1–4><loại QH 1–5><điều chỉnh 0–2><5 số> (NĐ 111/2024, TT 24/2025/TT-BXD; vd. 012511012345), như "${badMaThongTinSample}"`,
-      });
+      fi.push({ level: 'error', text: `Sai mẫu mã thông tin quy hoạch — ${of(badMaThongTin)}`, example: badMaThongTinSample, hint: RULE_HINT.maThongTinQH });
     if (spec.name === 'maHoSoQH' && badMaHoSo)
-      fi.push({
-        level: 'error',
-        text: `${badMaHoSo.toLocaleString('vi-VN')} giá trị sai mẫu <Mã tỉnh 2 số><QHC|QPK|QCT><x><xx><xxxx> (vd. 04QHC0010001), như "${badMaHoSoSample}"`,
-      });
+      fi.push({ level: 'error', text: `Sai mẫu mã hồ sơ — ${of(badMaHoSo)}`, example: badMaHoSoSample, hint: RULE_HINT.maHoSoQH });
     if (spec.name === 'maDoiTuong' && badMaDoiTuong)
       fi.push({
         level: 'error',
-        text: `${badMaDoiTuong.toLocaleString('vi-VN')} giá trị sai — mẫu <maHoSoQH hợp lệ>-${cls.name}-<ObjectID>, như ${badMaDoiTuongSample}`,
+        text: `${/maHoSoQH sai/.test(badMaDoiTuongReason) ? 'Sai vì maHoSoQH sai' : badMaDoiTuongReason} — ${of(badMaDoiTuong)}`,
+        example: badMaDoiTuongSample,
+        hint: RULE_HINT.maDoiTuong,
       });
     const worst = fi.some((i) => i.level === 'error') ? 'error' : fi.some((i) => i.level === 'warn') ? 'warn' : 'ok';
     return {
@@ -316,7 +333,7 @@ function checkClass(cls: GdbClass, stats: ValueStats): { fields: FieldReport[]; 
     .filter((f) => f.type !== 'objectid' && f.type !== 'geometry' && !required.has(f.name.toLowerCase()) && !SYSTEM_FIELDS.has(f.name.toLowerCase()))
     .map((f) => f.name);
   if (cls.rowCount === 0) issues.push({ level: 'warn', text: 'Lớp rỗng (0 đối tượng)' });
-  for (const f of extraFields) issues.push({ level: 'warn', text: `Thừa trường "${f}" — ngoài 6 trường thuộc tính quy định (trường dư)` });
+  for (const f of extraFields) issues.push({ level: 'warn', field: f, text: 'Trường dư — ngoài 6 trường quy định', hint: RULE_HINT.extra });
   return { fields, extraFields, issues, sample: { columns, rows: sampleRows, total } };
 }
 
@@ -416,7 +433,7 @@ export function checkGdb(src: Pick<GdbSource, 'name' | 'dir'>, cat: GdbCatalog, 
     if (actual) datasetsLeft.delete(ds.name.toLowerCase());
     const dIssues: Issue[] = [];
     let status: Status = actual ? 'ok' : 'missing';
-    if (!actual) dIssues.push({ level: 'error', text: 'Thiếu nhóm dữ liệu chuyên đề (bắt buộc theo Phụ lục II, Phần 2)' });
+    if (!actual) dIssues.push({ level: 'error', text: 'Thiếu nhóm dữ liệu bắt buộc', hint: 'Phụ lục II, Phần 2 — mỗi CSDL phải có đủ các nhóm dữ liệu chuyên đề.' });
     else if (!literalOk(actual, ds.name)) {
       status = 'warn';
       dIssues.push({ level: 'warn', text: `Tên khác chữ hoa/thường — đúng là "${ds.name}"` });
@@ -498,7 +515,19 @@ export function checkGdb(src: Pick<GdbSource, 'name' | 'dir'>, cat: GdbCatalog, 
   const provinceCode = province?.code ?? null;
   const sameSr = (a: SrInfo | null, b: SrInfo | null) => !!a && !!b && a.lon0 === b.lon0 && a.zone === b.zone && a.vn2000 === b.vn2000;
   const crsIssue = (c: CrsCheck): Issue | null =>
-    c.status === 'ok' ? null : { level: c.status === 'error' ? 'error' : 'warn', text: `Hệ tọa độ: ${c.text}` };
+    c.status === 'ok' ? null : { level: c.status === 'error' ? 'error' : 'warn', text: `Hệ tọa độ: ${c.text}`, hint: c.detail };
+  const srCount = new Map<string, { sr: SrInfo; n: number }>();
+  for (const c of cat.classes) {
+    const sr = parseSr(c.wkt);
+    if (!sr) continue;
+    const k = `${sr.name}|${sr.lon0}|${sr.zone}`;
+    srCount.set(k, { sr, n: (srCount.get(k)?.n ?? 0) + 1 });
+  }
+  const mainSr = [...srCount.values()].sort((a, b) => b.n - a.n)[0]?.sr ?? null;
+  const gdbCrs = cat.classes.length ? assessCrs(mainSr, unionExtent(cat.classes.map((c) => c.extent)), provinceCode) : null;
+  // Reported once for the geodatabase; a group repeats it only when its coordinate system differs.
+  const gdbCrsIssue = gdbCrs ? crsIssue(gdbCrs) : null;
+  if (gdbCrsIssue) issues.push(gdbCrsIssue);
   for (const d of datasets) {
     if (!d.actualName) {
       d.crs = null;
@@ -507,7 +536,7 @@ export function checkGdb(src: Pick<GdbSource, 'name' | 'dir'>, cat: GdbCatalog, 
     const members = cat.classes.filter((c) => c.dataset?.toLowerCase() === d.actualName!.toLowerCase());
     const sr = d.sr ?? parseSr(members.find((m) => m.wkt)?.wkt);
     d.crs = assessCrs(sr, unionExtent(members.map((m) => m.extent)), provinceCode);
-    const issue = crsIssue(d.crs);
+    const issue = sameSr(sr, mainSr) && d.crs.status === gdbCrs?.status ? null : crsIssue(d.crs);
     if (issue) {
       d.issues.unshift(issue);
       if (issue.level === 'error' && d.status !== 'missing') d.status = 'error';
@@ -529,15 +558,6 @@ export function checkGdb(src: Pick<GdbSource, 'name' | 'dir'>, cat: GdbCatalog, 
       if (issue.level === 'error') r.status = 'error';
     }
   }
-  const srCount = new Map<string, { sr: SrInfo; n: number }>();
-  for (const c of cat.classes) {
-    const sr = parseSr(c.wkt);
-    if (!sr) continue;
-    const k = `${sr.name}|${sr.lon0}|${sr.zone}`;
-    srCount.set(k, { sr, n: (srCount.get(k)?.n ?? 0) + 1 });
-  }
-  const mainSr = [...srCount.values()].sort((a, b) => b.n - a.n)[0]?.sr ?? null;
-  const gdbCrs = cat.classes.length ? assessCrs(mainSr, unionExtent(cat.classes.map((c) => c.extent)), provinceCode) : null;
 
   const all = [...datasets.flatMap((d) => d.classes), ...rootClasses];
   const countIssues = (lvl: Level) =>

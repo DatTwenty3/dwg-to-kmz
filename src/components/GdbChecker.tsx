@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   cellProblem,
+  RULE_HINT,
   type ClassReport,
   type DatasetReport,
   type GdbReport,
@@ -14,7 +15,8 @@ import {
   type Status,
   type SubmissionReport,
 } from '@/lib/gdb/check';
-import { ROOT, rowsFor, type Selection } from '@/lib/gdb/rows';
+import { suggestProvince, type ProvinceSuggestion } from '@/lib/gdb/crs';
+import { ROOT, rowsFor, type Row, type Selection } from '@/lib/gdb/rows';
 import { describeMaThongTin, parseMaHoSo, parseMaThongTin, PROVINCE_CODES, TT16_FIELDS } from '@/lib/gdb/tt16';
 import type { GdbWorkerRequest, GdbWorkerResponse } from '@/workers/gdb.worker';
 import {
@@ -132,7 +134,7 @@ function toCsv(rep: SubmissionReport): string {
   const LV: Record<Level, string> = { error: 'Lỗi', warn: 'Cảnh báo', info: 'Ghi chú' };
   for (const g of rep.gdbs)
     for (const r of rowsFor(rep, g, { ds: null, cls: null }))
-      rows.push([String(rows.length), g.fileName, r.ds ?? '', r.kind === 'Feature Class' ? r.name : '', r.field ?? '', LV[r.level], r.text]);
+      rows.push([String(rows.length), g.fileName, r.ds ?? '', r.kind === 'Feature Class' ? r.name : '', r.field ?? '', LV[r.level], r.example ? `${r.text}, vd. "${r.example}"` : r.text]);
   const esc = (s: string) => (/[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
   return '﻿' + rows.map((r) => r.map(esc).join(',')).join('\r\n');
 }
@@ -341,118 +343,208 @@ function AttributeTable({ c, focusField }: { c: ClassReport; focusField: string 
   );
 }
 
-// ---- Overview (gdb selected, nothing else) ----------------------------------------------------------------
+// ---- Summary (gdb selected, nothing else) -----------------------------------------------------------------
 
-function OverviewStrip({
-  rep,
-  g,
-  province,
-  onProvince,
-  busy,
-}: {
-  rep: SubmissionReport;
-  g: GdbReport;
-  province: string | null;
-  onProvince: (code: string | null) => void;
-  busy: boolean;
-}) {
-  const ma = rep.maHoSo[0]?.[0];
-  const parsed = ma ? parseMaHoSo(ma) : null;
-  const mtt = rep.maThongTin[0]?.[0];
-  const mttParsed = mtt ? parseMaThongTin(mtt) : null;
+function Stat({ label, value, status, title }: { label: string; value: ReactNode; status?: Status; title?: string }) {
+  return (
+    <span className="flex min-w-0 items-center gap-1.5" title={title}>
+      {status && <StatusIcon status={status} size={13} />}
+      <span className="whitespace-nowrap text-zinc-400">{label}</span>
+      <span className="truncate font-medium text-zinc-900">{value}</span>
+    </span>
+  );
+}
+
+/** One compact line: the facts that matter for the whole geodatabase. */
+function SummaryBar({ rep, g }: { rep: SubmissionReport; g: GdbReport }) {
   const c = g.counts;
-  const item = (label: string, value: ReactNode, status?: Status) => (
-    <div className="min-w-0 rounded-lg bg-zinc-50 px-3 py-2">
-      <div className="text-[11px] text-zinc-400">{label}</div>
-      <div className="flex items-center gap-1.5 truncate text-[13px] font-medium text-zinc-900">
-        {status && <StatusIcon status={status} size={13} />}
-        {value}
+  const ma = rep.maHoSo[0]?.[0];
+  const pMa = ma ? parseMaHoSo(ma) : null;
+  const mtt = rep.maThongTin[0]?.[0];
+  const pMtt = mtt ? parseMaThongTin(mtt) : null;
+  const classCount = [...g.datasets.flatMap((d) => d.classes), ...g.rootClasses].filter((x) => x.status !== 'absent').length;
+  return (
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 border-b border-zinc-200 bg-white px-3 py-2 text-[12.5px]">
+      <Stat label="Tên" value={g.fileName} status={g.nameStatus} />
+      {c.datasets.expected > 0 ? (
+        <Stat label="Nhóm dữ liệu" value={`${c.datasets.present}/${c.datasets.expected}`} status={c.datasets.present === c.datasets.expected ? 'ok' : 'missing'} />
+      ) : (
+        <Stat label="Nhóm dữ liệu" value={g.datasets.filter((d) => d.actualName).length} />
+      )}
+      <Stat
+        label="Lớp"
+        value={c.classes.reference ? `${c.classes.present}/${c.classes.reference}${c.classes.extra ? ` +${c.classes.extra}` : ''}` : classCount}
+        title={c.classes.reference ? 'Có / danh mục tham khảo (+ lớp bổ sung)' : undefined}
+      />
+      <Stat
+        label="maHoSoQH"
+        value={<span className="font-mono">{ma ?? '—'}</span>}
+        status={!ma ? 'missing' : pMa && rep.maHoSo.length === 1 ? 'ok' : 'error'}
+        title={pMa ? `${pMa.provinceName ?? 'mã tỉnh ' + pMa.province} · ${pMa.kind}` : RULE_HINT.maHoSoQH}
+      />
+      <Stat
+        label="maThongTinQH"
+        value={<span className="font-mono">{mtt ?? '—'}</span>}
+        status={!mtt ? 'missing' : pMtt && rep.maThongTin.length === 1 ? 'ok' : 'error'}
+        title={pMtt ? describeMaThongTin(pMtt) : RULE_HINT.maThongTinQH}
+      />
+      {rep.folder && (
+        <Stat
+          label="Tệp tổng hợp"
+          value={rep.folder.projectFiles.join(', ') || 'chưa có'}
+          status={rep.folder.projectFiles.length ? 'ok' : 'missing'}
+        />
+      )}
+      {g.crs && (
+        <span className={`flex min-w-0 basis-full items-center gap-1.5 ${CRS_TONE[g.crs.status]}`} title={[g.srNames.join(', '), g.crs.detail].filter(Boolean).join(' · ')}>
+          <StatusIcon status={g.crs.status} size={13} />
+          <span className="whitespace-nowrap text-zinc-400">Hệ tọa độ</span>
+          <span className="truncate font-medium">{g.crs.text}</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Asked right after the upload: the province decides which central meridian (KTT) is right. */
+function ProvinceDialog({
+  suggestion,
+  current,
+  onConfirm,
+  onClose,
+}: {
+  suggestion: ProvinceSuggestion | null;
+  current: string | null;
+  onConfirm: (code: string) => void;
+  onClose: () => void;
+}) {
+  const [code, setCode] = useState(current ?? suggestion?.code ?? '');
+  const SOURCE = { maHoSoQH: 'theo mã hồ sơ (maHoSoQH)', maThongTinQH: 'theo mã thông tin quy hoạch', location: 'theo vị trí dữ liệu — hãy kiểm tra lại' };
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/30 p-4 backdrop-blur-[2px]" role="dialog" aria-modal aria-label="Tỉnh của đồ án">
+      <div className="ui-floating ui-pop-in w-full max-w-md p-5">
+        <h2 className="text-[16px] font-semibold text-zinc-900">Đồ án thuộc tỉnh nào?</h2>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-500">
+          Mỗi tỉnh có kinh tuyến trục (KTT) VN-2000 riêng. Chọn tỉnh để kiểm tra hệ tọa độ của dữ liệu cho chính xác — chỉ dựa vào tọa độ thì tỉnh láng
+          giềng dùng KTT khác cũng có thể &quot;khớp&quot;.
+        </p>
+        <select className="ui-input mt-4 w-full" value={code} onChange={(e) => setCode(e.target.value)} autoFocus>
+          <option value="">— Chọn tỉnh / thành phố —</option>
+          {Object.entries(PROVINCE_CODES)
+            .sort((x, y) => x[1].localeCompare(y[1], 'vi'))
+            .map(([k, name]) => (
+              <option key={k} value={k}>
+                {name} ({k})
+                {suggestion?.code === k ? ` — ${SOURCE[suggestion.source]}` : ''}
+              </option>
+            ))}
+        </select>
+        {suggestion && (
+          <p className="mt-2 text-[12px] text-zinc-500">
+            Gợi ý: <b className="font-medium text-zinc-700">{PROVINCE_CODES[suggestion.code]}</b> {SOURCE[suggestion.source]}.
+          </p>
+        )}
+        <div className="mt-5 flex justify-end gap-2">
+          <button className="ui-btn-ghost" onClick={onClose}>
+            Để sau
+          </button>
+          <button className="ui-btn-primary" disabled={!code} onClick={() => onConfirm(code)}>
+            Kiểm tra với tỉnh này
+          </button>
+        </div>
       </div>
     </div>
   );
-  return (
-    <div className="grid grid-cols-2 gap-2 border-b border-zinc-200 bg-white p-3 lg:grid-cols-6">
-      {item('Tên geodatabase', g.fileName, g.nameStatus)}
-      {c.datasets.expected > 0
-        ? item('Nhóm dữ liệu (bắt buộc)', `${c.datasets.present}/${c.datasets.expected}`, c.datasets.present === c.datasets.expected ? 'ok' : 'missing')
-        : item('Nhóm dữ liệu', `${g.datasets.filter((d) => d.actualName).length} · không có danh mục bắt buộc`)}
-      {c.classes.reference > 0
-        ? item('Lớp theo danh mục tham khảo', `${c.classes.present}/${c.classes.reference} · bổ sung ${c.classes.extra}`)
-        : item('Lớp dữ liệu', `${[...g.datasets.flatMap((d) => d.classes), ...g.rootClasses].filter((x) => x.status !== 'absent').length}`)}
-      {item(
-        'maHoSoQH',
-        ma ? (
-          <span className="truncate" title={parsed ? `${parsed.provinceName ?? 'mã tỉnh ' + parsed.province} · ${parsed.kind}` : 'Sai mẫu'}>
-            {ma}
-            {parsed && <span className="font-normal text-zinc-500"> · {parsed.provinceName ?? parsed.province}</span>}
-            {rep.maHoSo.length > 1 && <span className="font-normal text-amber-700"> +{rep.maHoSo.length - 1}</span>}
-          </span>
-        ) : (
-          '— chưa nhập —'
-        ),
-        !ma ? 'missing' : parsed && rep.maHoSo.length === 1 ? 'ok' : 'error',
-      )}
-      {item(
-        'maThongTinQH',
-        mtt ? (
-          <span className="truncate" title={mttParsed ? describeMaThongTin(mttParsed) : 'Sai mẫu 12 chữ số (NĐ 111/2024, TT 24/2025/TT-BXD)'}>
-            {mtt}
-            {mttParsed && <span className="font-normal text-zinc-500"> · {mttParsed.provinceName ?? mttParsed.province} {mttParsed.year}</span>}
-            {rep.maThongTin.length > 1 && <span className="font-normal text-amber-700"> +{rep.maThongTin.length - 1}</span>}
-          </span>
-        ) : (
-          '— chưa nhập —'
-        ),
-        !mtt ? 'missing' : mttParsed && rep.maThongTin.length === 1 ? 'ok' : 'error',
-      )}
-      {rep.folder
-        ? item('Tệp tổng hợp', rep.folder.projectFiles.join(', ') || '— chưa có —', rep.folder.projectFiles.length ? 'ok' : 'missing')
-        : item('Hệ tọa độ', g.srNames.join(', ') || '—')}
+}
 
-      {/* Coordinate system vs. the location of the data; the province decides which KTT is right. */}
-      <div className="col-span-2 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-zinc-50 px-3 py-2 lg:col-span-6">
-        <div className="min-w-0 flex-1">
-          <div className="text-[11px] text-zinc-400">Hệ tọa độ {g.srNames.length ? `· ${g.srNames.join(', ')}` : ''}</div>
-          {g.crs ? (
-            <div className={`flex items-start gap-1.5 text-[13px] font-medium ${CRS_TONE[g.crs.status]}`}>
-              <StatusIcon status={g.crs.status} size={13} />
-              <span>
-                {g.crs.text}
-                {g.crs.center && (
-                  <span className="font-normal text-zinc-400">
-                    {' '}
-                    · tâm dữ liệu {g.crs.center.lat.toFixed(4)}, {g.crs.center.lng.toFixed(4)}
-                  </span>
-                )}
+// ---- Issues, grouped by object (right) ----------------------------------------------------------------------
+
+const KIND_LABEL: Record<string, string> = {
+  'Feature Class': 'Feature Class',
+  'Feature Dataset': 'Feature Dataset',
+  Geodatabase: 'Geodatabase',
+  'Hồ sơ': 'Hồ sơ',
+};
+
+function LevelIcon({ level }: { level: Level }) {
+  if (level === 'error') return <IconXCircle width={14} height={14} className="mt-px shrink-0 text-red-600" />;
+  if (level === 'warn') return <IconAlert width={14} height={14} className="mt-px shrink-0 text-amber-500" />;
+  return <IconCircleDashed width={14} height={14} className="mt-px shrink-0 text-zinc-400" />;
+}
+
+function IssueGroups({
+  rows,
+  lookup,
+  active,
+  onPick,
+}: {
+  rows: Row[];
+  lookup: (ds: string | null, cls: string) => ClassReport | undefined;
+  active: { cls: string | null; field: string | null };
+  onPick: (r: Row, field: string | null) => void;
+}) {
+  // Consecutive rows about the same object form one block (rowsFor already lists them object by object).
+  const groups: { key: string; head: Row; rows: { r: Row; n: number }[] }[] = [];
+  rows.forEach((r, i) => {
+    const key = `${r.kind}|${r.ds ?? ''}|${r.name}`;
+    const last = groups[groups.length - 1];
+    if (last?.key === key) last.rows.push({ r, n: i + 1 });
+    else groups.push({ key, head: r, rows: [{ r, n: i + 1 }] });
+  });
+  return (
+    <div className="divide-y divide-zinc-100">
+      {groups.map(({ key, head, rows: list }) => {
+        const cls = head.cls ? lookup(head.ds, head.cls) : undefined;
+        const errors = list.filter((x) => x.r.level === 'error').length;
+        const warns = list.filter((x) => x.r.level === 'warn').length;
+        const selected = !!head.cls && active.cls === head.cls;
+        return (
+          <section key={key} className={selected ? 'bg-amber-50/40' : ''}>
+            <button
+              className="flex w-full items-center gap-2 px-3 pb-1 pt-2.5 text-left hover:bg-zinc-50"
+              onClick={() => onPick(head, null)}
+              title={head.ds && head.kind === 'Feature Class' ? `Nhóm ${head.ds}` : undefined}
+            >
+              {cls ? <GeomIcon geom={cls.actualGeom ?? cls.expectedGeom} /> : <IconDatabaseCheck width={14} height={14} className="shrink-0 text-zinc-400" />}
+              <span className="text-[10.5px] font-medium uppercase tracking-wide text-zinc-400">{KIND_LABEL[head.kind] ?? head.kind}</span>
+              <span className="truncate font-mono text-[13px] font-semibold text-zinc-900">{head.name}</span>
+              {cls?.rowCount != null && <span className="shrink-0 text-[12px] text-zinc-400">{fmt(cls.rowCount)} đối tượng</span>}
+              <span className="ml-auto flex shrink-0 gap-1">
+                {errors > 0 && <span className="rounded-full bg-red-50 px-2 py-px text-[11px] font-medium text-red-700">{errors} lỗi</span>}
+                {warns > 0 && <span className="rounded-full bg-amber-50 px-2 py-px text-[11px] font-medium text-amber-800">{warns} cảnh báo</span>}
               </span>
-            </div>
-          ) : (
-            <div className="text-[13px] text-zinc-400">—</div>
-          )}
-        </div>
-        <label className="flex shrink-0 items-center gap-2 text-[12px] text-zinc-500">
-          Tỉnh của đồ án
-          <select
-            className="ui-input w-56 py-1 text-[13px]"
-            value={province ?? ''}
-            disabled={busy}
-            onChange={(e) => onProvince(e.target.value || null)}
-          >
-            <option value="">
-              {g.province && g.province.source !== 'user'
-                ? `Theo ${g.province.source} (${PROVINCE_CODES[g.province.code] ?? g.province.code})`
-                : 'Chưa biết — mã hồ sơ sai/trống'}
-            </option>
-            {Object.entries(PROVINCE_CODES)
-              .sort((a, b) => a[1].localeCompare(b[1], 'vi'))
-              .map(([code, name]) => (
-                <option key={code} value={code}>
-                  {name} ({code})
-                </option>
-              ))}
-          </select>
-        </label>
-      </div>
+            </button>
+            <ul className="pb-1.5">
+              {list.map(({ r, n }) => {
+                const on = selected && (r.field ?? null) === active.field;
+                return (
+                  <li key={n}>
+                    <button
+                      onClick={() => onPick(r, r.field ?? null)}
+                      title={r.hint}
+                      className={`grid w-full grid-cols-[1.75rem_1rem_minmax(0,6.5rem)_minmax(0,1fr)] sm:grid-cols-[2.25rem_1rem_minmax(0,9.5rem)_minmax(0,1fr)] items-start gap-x-2 px-3 py-[3px] text-left text-[12.5px] hover:bg-blue-50/50 ${
+                        on ? 'bg-amber-100/60' : ''
+                      }`}
+                    >
+                      <span className="text-right tabular-nums text-zinc-400">{n}</span>
+                      <LevelIcon level={r.level} />
+                      {r.field && <span className="truncate font-mono text-[12px] text-zinc-600">{r.field}</span>}
+                      <span className={`min-w-0 ${r.field ? '' : 'col-span-2'} ${r.level === 'info' ? 'text-zinc-500' : 'text-zinc-800'}`}>
+                        {r.text}
+                        {r.example && (
+                          <span className="ml-1.5 inline-block max-w-full truncate rounded bg-zinc-100 px-1.5 align-bottom font-mono text-[11.5px] text-zinc-600">
+                            vd. {r.example}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        );
+      })}
     </div>
   );
 }
@@ -479,13 +571,15 @@ export default function GdbChecker() {
   const [focusField, setFocusField] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
-  const [levels, setLevels] = useState<Record<Level, boolean>>({ error: true, warn: true, info: true });
+  const [levels, setLevels] = useState<Record<Level, boolean>>({ error: true, warn: true, info: false });
   /** Toggled datasets: present ones start open, missing ones closed. */
   const [toggled, setToggled] = useState<Set<string>>(new Set());
   const [bottomH, setBottomH] = useState(320);
   const [pdfBusy, setPdfBusy] = useState(false);
   /** Province chosen by the user for the KTT check (null = read from maHoSoQH / maThongTinQH). */
   const [province, setProvince] = useState<string | null>(null);
+  /** Province question, asked once right after each upload (and from the top-bar chip). */
+  const [askProvince, setAskProvince] = useState(false);
   const workerRef = useRef<Worker | null>(null);
   const folderRef = useRef<HTMLInputElement>(null);
   const zipRef = useRef<HTMLInputElement>(null);
@@ -524,6 +618,7 @@ export default function GdbChecker() {
         else {
           setRep(m.report);
           if (fresh) {
+            setAskProvince(true);
             setGi(0);
             setSel({ ds: null, cls: null });
             setFocusField(null);
@@ -708,6 +803,7 @@ export default function GdbChecker() {
   }
 
   // ---------- Workspace ----------
+  const provinceCode = province ?? rep.gdbs.find((x) => x.province)?.province?.code ?? null;
   const q = query.trim().toLowerCase();
   const datasets = g.datasets.filter((d) => {
     if (filter === 'present' && d.status === 'missing') return false;
@@ -773,6 +869,18 @@ export default function GdbChecker() {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-1.5">
+          <button
+            onClick={() => setAskProvince(true)}
+            disabled={busy}
+            title="Tỉnh dùng để kiểm tra kinh tuyến trục (KTT) của hệ tọa độ"
+            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] ring-1 ring-inset transition ${
+              provinceCode ? 'text-zinc-700 ring-zinc-200 hover:bg-zinc-50' : 'bg-amber-50 text-amber-800 ring-amber-300 hover:bg-amber-100'
+            }`}
+          >
+            <span className="text-zinc-400">Tỉnh</span>
+            <b className="font-medium">{provinceCode ? PROVINCE_CODES[provinceCode] : 'chưa chọn'}</b>
+            <IconChevron width={12} height={12} className="rotate-90 text-zinc-400" />
+          </button>
           {busy ? (
             <span className="text-[12px] text-zinc-500">{progress?.name ? `Đang kiểm tra ${progress.name}…` : 'Đang đọc…'}</span>
           ) : (
@@ -876,7 +984,7 @@ export default function GdbChecker() {
 
         {/* Right: issues (top) + attribute table (bottom) */}
         <div ref={mainRef} className="flex min-w-0 flex-1 flex-col bg-white md:min-h-0">
-          {!sel.ds && !sel.cls && <OverviewStrip rep={rep} g={g} province={province} onProvince={recheck} busy={busy} />}
+          {!sel.ds && !sel.cls && <SummaryBar rep={rep} g={g} />}
           <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 px-3 py-1.5">
             <span className="min-w-0 truncate text-[12.5px] text-zinc-500">
               {sel.cls ? (
@@ -916,54 +1024,17 @@ export default function GdbChecker() {
           </div>
 
           <div className="ui-scroll max-h-[55dvh] min-h-[120px] flex-1 overflow-auto md:max-h-none">
-            <table className="w-full border-separate border-spacing-0 text-[12.5px]">
-              <thead className="sticky top-0 z-10 bg-zinc-50">
-                <tr>
-                  <th className="w-14 border-b border-r border-zinc-200 px-2 py-1.5 text-center font-medium text-zinc-500">STT</th>
-                  <th className="border-b border-zinc-200 px-3 py-1.5 text-center font-medium text-zinc-700">Lỗi cần sửa &amp; Cảnh báo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shown.map((r, i) => {
-                  const active = !!r.cls && sel.cls === r.cls && (r.field ?? null) === focusField;
-                  return (
-                    <tr
-                      key={i}
-                      onClick={() => {
-                        if (r.cls) {
-                          setSel({ ds: r.ds, cls: r.cls });
-                          setFocusField(r.field ?? null);
-                        } else if (r.ds) select({ ds: r.ds, cls: null });
-                      }}
-                      className={`cursor-pointer ${active ? 'bg-amber-50' : i % 2 ? 'bg-zinc-50/50 hover:bg-blue-50/50' : 'hover:bg-blue-50/50'}`}
-                    >
-                      <td className="border-b border-r border-zinc-100 px-2 py-1.5 text-center tabular-nums text-zinc-500">{i + 1}</td>
-                      <td className="border-b border-zinc-100 px-3 py-1.5">
-                        <span className="flex items-start gap-2">
-                          {r.level === 'error' ? (
-                            <IconXCircle width={14} height={14} className="mt-px shrink-0 text-red-600" />
-                          ) : r.level === 'warn' ? (
-                            <IconAlert width={14} height={14} className="mt-px shrink-0 text-amber-500" />
-                          ) : (
-                            <IconCircleDashed width={14} height={14} className="mt-px shrink-0 text-zinc-400" />
-                          )}
-                          <span className={r.level === 'info' ? 'text-zinc-500' : 'text-zinc-800'}>
-                            {r.kind} <b className="font-semibold text-zinc-900">{r.name}</b>
-                            {r.field && (
-                              <>
-                                {' '}
-                                – Field <b className="font-semibold text-zinc-900">{r.field}</b>
-                              </>
-                            )}
-                            : {r.text}
-                          </span>
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <IssueGroups
+              rows={shown}
+              lookup={(ds, name) => (ds === ROOT ? g.rootClasses : (g.datasets.find((d) => (d.actualName ?? d.name) === ds)?.classes ?? [])).find((c) => c.name === name)}
+              active={{ cls: sel.cls, field: focusField }}
+              onPick={(r, field) => {
+                if (r.cls) {
+                  setSel({ ds: r.ds, cls: r.cls });
+                  setFocusField(field);
+                } else if (r.ds) select({ ds: r.ds, cls: null });
+              }}
+            />
             {!shown.length && (
               <p className="flex items-center justify-center gap-2 p-6 text-[13px] text-emerald-700">
                 <IconCheckCircle width={16} height={16} />
@@ -993,6 +1064,18 @@ export default function GdbChecker() {
           )}
         </div>
       </div>
+
+      {askProvince && (
+        <ProvinceDialog
+          suggestion={suggestProvince(rep.gdbs)}
+          current={province}
+          onClose={() => setAskProvince(false)}
+          onConfirm={(code) => {
+            setAskProvince(false);
+            recheck(code);
+          }}
+        />
+      )}
 
       {over && (
         <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-blue-600/10 ring-8 ring-inset ring-blue-500/30">

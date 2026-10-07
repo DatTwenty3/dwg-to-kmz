@@ -340,7 +340,7 @@ ${d.crs.text}` : d.crs ? ' — đúng vị trí' : ''}`,
         ...tableDefaults,
         startY: y,
         head: [['STT', 'Mức', 'Đối tượng', 'Nội dung']],
-        body: rows.map((r, i) => [String(i + 1), LEVEL[r.level].text, `${r.kind} ${r.name}${r.field ? `\nField ${r.field}` : ''}`, r.text]),
+        body: rows.map((r, i) => [String(i + 1), LEVEL[r.level].text, `${r.kind} ${r.name}${r.field ? `\nField ${r.field}` : ''}`, r.example ? `${r.text}, vd. "${r.example}"` : r.text]),
         columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 17 }, 2: { cellWidth: 52 } },
         didParseCell: (d) => {
           if (d.section === 'body' && d.column.index === 1) d.cell.styles.textColor = LEVEL[rows[d.row.index].level].tone;

@@ -43,3 +43,15 @@ describe('assessCrs', () => {
     expect(unionExtent([null, [1, 2, 3, 4], [0, 5, 2, 6]])).toEqual([0, 2, 3, 6]);
   });
 });
+
+describe('suggestProvince', () => {
+  it('prefers the planning code, then the data location', async () => {
+    const { suggestProvince, codeForProvince, assessCrs } = await import('@/lib/gdb/crs');
+    const { getProvince } = await import('@/lib/geo/provinces');
+    expect(codeForProvince(getProvince('vinh-long')!)).toBe('86');
+    expect(codeForProvince(getProvince('ho-chi-minh')!)).toBe('79');
+    expect(suggestProvince([{ province: { code: '92', source: 'maHoSoQH' }, crs: null }])).toEqual({ code: '92', source: 'maHoSoQH' });
+    const crs = assessCrs({ name: 'VN_2000', vn2000: true, lon0: 105.5, zone: 3 }, [578404, 1102658, 589679, 1115014]);
+    expect(suggestProvince([{ province: null, crs }])).toEqual({ code: '86', source: 'location' });
+  });
+});

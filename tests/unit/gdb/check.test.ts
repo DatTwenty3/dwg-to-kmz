@@ -116,7 +116,7 @@ describe('checkGdb (synthetic catalog)', () => {
     const pv = c('HienTrangSuDungDat', 'PhanVungSDDkhac_A');
     expect(pv.status).toBe('error');
     expect(pv.fields.filter((f) => f.status === 'missing').map((f) => f.name)).toEqual(['maDoiTuong', 'tenDoiTuong', 'phanLoai', 'ghiChu']);
-    expect(pv.fields.find((f) => f.name === 'maHoSoQH')!.issues[0].text).toMatch(/chưa nhập/);
+    expect(pv.fields.find((f) => f.name === 'maHoSoQH')!.issues[0].text).toMatch(/chưa nhập/i);
     expect(c('HienTrangSuDungDat', 'Cây_xanh_P').status).toBe('error');
     expect(r.rootClasses.map((x) => [x.name, x.status])).toEqual([['TenRieng_P', 'extra']]);
     expect(r.counts.classes.extra).toBe(2);
@@ -131,7 +131,7 @@ describe('checkGdb (synthetic catalog)', () => {
     const m = r.datasets[0].classes[0];
     expect(m.extraFields).toEqual(['loaiDiaDanh']);
     expect(m.status).toBe('warn');
-    expect(m.issues.some((i) => /trường dư/.test(i.text))).toBe(true);
+    expect(m.issues.some((i) => /trường dư/i.test(i.text))).toBe(true);
   });
 
   it('flags a wrong file name and guesses the database from its datasets', () => {

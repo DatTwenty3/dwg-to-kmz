@@ -40,6 +40,8 @@ export interface SketchPanelProps {
   /** Viewing a map opened from a shared link: edits are not saved on this device. */
   sharedView: boolean;
   onKeepShared: () => void;
+  /** What `sharedView` shows: a shared link or a .ldg session opened in place of the map. */
+  sharedKind: 'link' | 'session';
   /** Sketch whose shape is being edited on the map. */
   editingId: string | null;
   onEdit: (id: string | null) => void;
@@ -60,8 +62,19 @@ export default function SketchPanel(p: SketchPanelProps) {
         <div className="ui-pop-in flex items-start gap-2.5 rounded-xl bg-blue-50 px-3 py-2.5 text-xs leading-relaxed text-blue-900">
           <IconAlert className="mt-0.5 shrink-0 text-blue-600" width={14} height={14} />
           <div className="min-w-0 flex-1">
-            <p className="font-medium">Bản đồ được chia sẻ</p>
-            <p className="text-blue-800/80">Thay đổi không được lưu trên máy này. Sửa xong hãy bấm Chia sẻ để gửi link mới.</p>
+            {p.sharedKind === 'session' ? (
+              <>
+                <p className="font-medium">Đang xem phiên làm việc (.ldg)</p>
+                <p className="text-blue-800/80">
+                  Bản đồ riêng trên máy này được giữ nguyên. Thay đổi trong phiên được lưu khi bạn lưu lại file .ldg (Ctrl+S).
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-medium">Bản đồ được chia sẻ</p>
+                <p className="text-blue-800/80">Thay đổi không được lưu trên máy này. Sửa xong hãy bấm Chia sẻ để gửi link mới.</p>
+              </>
+            )}
             <button className="ui-btn mt-2 !px-2.5 !py-1 !text-xs" onClick={p.onKeepShared}>
               Lưu vào máy này
             </button>
@@ -311,7 +324,11 @@ export default function SketchPanel(p: SketchPanelProps) {
           <button className="ui-icon-btn !h-7 !w-7" onClick={p.history.redo} disabled={!p.history.canRedo} aria-label="Làm lại" title="Làm lại (Ctrl+Y)">
             <IconRedo width={15} height={15} />
           </button>
-          <span className="ml-1 mr-auto truncate">{p.sharedView ? 'Bản đồ chia sẻ — chưa lưu trên máy này' : 'Lưu tự động trên trình duyệt này'}</span>
+          <span className="ml-1 mr-auto truncate">{p.sharedView
+            ? p.sharedKind === 'session'
+              ? 'Phiên .ldg — chưa lưu trên máy này'
+              : 'Bản đồ chia sẻ — chưa lưu trên máy này'
+            : 'Lưu tự động trên trình duyệt này'}</span>
           {confirmClear ? (
             <span className="flex items-center gap-1">
               <button className="ui-btn-ghost !text-red-600 hover:!bg-red-50" onClick={() => (p.onClearAll(), setConfirmClear(false))}>

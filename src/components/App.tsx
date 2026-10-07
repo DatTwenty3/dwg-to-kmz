@@ -201,7 +201,10 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   // ---- sketches (user drawings) ----
   // Restored from this browser; sketches only render on the map page, so the server's empty list never mismatches.
   // A shared link starts empty and is filled by the decoder below (local sketches stay untouched in storage).
+  // `sharedView`: the map on screen is someone else's (a shared link, or a .ldg session opened in place of the
+  // map) — it is never written to this device's storage until "Lưu vào máy này". `sharedKind` says which.
   const [sharedView, setSharedView] = useState(fromShare);
+  const [sharedKind, setSharedKind] = useState<'link' | 'session'>('link');
   const [sketches, setSketches] = useState<SketchFeature[]>(() => (typeof window === 'undefined' || fromShare ? [] : loadSketches()));
   const [mapMeta, setMapMeta] = useState(() =>
     typeof window === 'undefined' || fromShare ? { title: DEFAULT_MAP_TITLE, description: '' } : loadMeta(),
@@ -626,6 +629,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
         return;
       }
       setSharedView(true);
+      setSharedKind('link');
       resetHistory();
       sketchesRef.current = m.features;
       setSketches(m.features);
@@ -690,7 +694,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   };
 
   const startBlankMap = () => {
-    if (sharedView) keepSharedMap();
+    if (sharedView) leaveSharedMap();
     resetHistory();
     sketchesRef.current = [];
     setSketches([]);
@@ -705,7 +709,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   const continueOwnMap = () => {
     if (sharedView) {
       const own = loadSketches();
-      keepSharedMap();
+      leaveSharedMap();
       resetHistory();
       sketchesRef.current = own;
       setSketches(own);
@@ -718,15 +722,19 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     setFocusTab((t) => ({ tab: 'draw', seq: (t?.seq ?? 0) + 1 }));
   };
 
-  const keepSharedMap = () => {
-    // Becomes this device's own map: persisted from now on, and the link is dropped from the address bar.
-    if (sharedView) toast.success('Bản đồ đã được lưu vào máy này.');
+  /** Back to persisting (the shared map is replaced or left); the link is dropped from the address bar. */
+  const leaveSharedMap = () => {
     setSharedView(false);
     try {
       window.history.replaceState(null, '', '/'); // drops /s/<id>, ?t= and #m= of the link
     } catch {
       /* ignore */
     }
+  };
+  /** "Lưu vào máy này": the shared map / session on screen becomes this device's own map, persisted from now on. */
+  const keepSharedMap = () => {
+    if (sharedView) toast.success('Bản đồ đã được lưu vào máy này.');
+    leaveSharedMap();
   };
 
   // ---- active-file actions ------------------------------------------------------------------------
@@ -1264,7 +1272,10 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       commitFiles([]);
       setActive(null);
       setPick(null);
-      if (sharedView) keepSharedMap();
+      // A session is someone's saved work (often another person's): show it, but do not let it replace the map
+      // saved on this device — that only happens with "Lưu vào máy này" (as for a shared link).
+      setSharedView(true);
+      setSharedKind('session');
       resetHistory();
       sketchesRef.current = session.map.features;
       setSketches(session.map.features);
@@ -1625,6 +1636,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
             }
             sharedView={sharedView}
             onKeepShared={keepSharedMap}
+            sharedKind={sharedKind}
           />
         }
         crsTab={

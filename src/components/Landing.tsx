@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import Tagline from './Tagline';
-import { IconAlert, IconArrowRight, IconCheck, IconPen, IconUpload, Logo } from './icons';
+import { IconAlert, IconArrowRight, IconCheck, IconDatabaseCheck, IconPen, IconUpload, Logo } from './icons';
 import { useFileAccept } from './useFileAccept';
 
 /** Formats cycled in the headline, in the order the app reads them. */
@@ -346,6 +347,14 @@ export default function Landing({
                 </span>
                 <IconArrowRight width={16} height={16} className="transition-transform duration-300 group-hover:translate-x-1" />
               </button>
+            )}
+
+            {!busy && (
+              <Link href="/kiem-tra-gdb" className="ui-btn-ghost mx-auto mt-3 text-[13px]">
+                <IconDatabaseCheck width={15} height={15} />
+                Kiểm tra CSDL GIS (.gdb) theo Thông tư 16/2025/TT-BXD
+                <IconArrowRight width={14} height={14} />
+              </Link>
             )}
 
             <p className="mt-4 text-xs text-zinc-400">File được xử lý ngay trên trình duyệt — không tải lên máy chủ.</p>

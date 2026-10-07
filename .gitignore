@@ -55,3 +55,6 @@ next-env.d.ts
 /*.dxf
 /*.kmz
 /*.kml
+
+# GIS geodatabases + regulation PDF for the TT16 checker (user data)
+/gdb/

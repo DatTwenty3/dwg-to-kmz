@@ -262,3 +262,52 @@ export const IconShare = (p: P) => (
     <path d="m8.2 10.8 7.6-4.4M8.2 13.2l7.6 4.4" />
   </svg>
 );
+export const IconDatabaseCheck = (p: P) => (
+  <svg {...base(p)}>
+    <ellipse cx="11" cy="5.5" rx="7" ry="2.5" />
+    <path d="M4 5.5v12c0 1.4 3.1 2.5 7 2.5M18 5.5V11M4 11.5c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5" />
+    <path d="m14.5 18 2 2 4-4" />
+  </svg>
+);
+export const IconCheckCircle = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="m8 12.5 2.8 2.8L16.5 9.5" />
+  </svg>
+);
+export const IconXCircle = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="m9 9 6 6M15 9l-6 6" />
+  </svg>
+);
+export const IconPlusCircle = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 8v8M8 12h8" />
+  </svg>
+);
+export const IconCircleDashed = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="9" strokeDasharray="3 3" />
+  </svg>
+);
+/** Feature class geometry glyphs (point / line / polygon). */
+export const IconGeomPoint = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M12 21s-6-5.4-6-10.5a6 6 0 0 1 12 0C18 15.6 12 21 12 21z" />
+    <circle cx="12" cy="10.5" r="2" />
+  </svg>
+);
+export const IconGeomLine = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M5 18 10 9l4 6 5-9" />
+    <circle cx="5" cy="18" r="1.6" fill="currentColor" stroke="none" />
+    <circle cx="19" cy="6" r="1.6" fill="currentColor" stroke="none" />
+  </svg>
+);
+export const IconGeomPolygon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M5 7 12 4l7 4-1.5 10L7 20z" fill="currentColor" fillOpacity="0.15" />
+  </svg>
+);

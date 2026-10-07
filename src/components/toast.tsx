@@ -53,7 +53,8 @@ const subscribe = (l: () => void) => {
   return () => listeners.delete(l);
 };
 const snapshot = () => toasts;
-const serverSnapshot = (): Toast[] => [];
+const NO_TOASTS: Toast[] = [];
+const serverSnapshot = () => NO_TOASTS;
 
 const TONE = {
   success: { icon: IconCheck, dot: 'bg-emerald-50 text-emerald-600' },

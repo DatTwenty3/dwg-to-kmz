@@ -5,3 +5,6 @@ export const FIXTURE_DWG = fileURLToPath(new URL('../../dwg/10-QHPK Ninh Kieu - 
 
 /** Directory holding libredwg-web.wasm for Node-side tests. */
 export const WASM_DIR = fileURLToPath(new URL('../../node_modules/@mlightcad/libredwg-web/wasm/', import.meta.url));
+
+/** HoSoGIS sample (Thông tư 16/2025/TT-BXD checker) — user data in /gdb, not committed. */
+export const FIXTURE_HOSOGIS = fileURLToPath(new URL('../../gdb/HoSoGIS', import.meta.url));

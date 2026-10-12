@@ -22,6 +22,7 @@
     "@mlightcad/libredwg-web": "^0.7.14",
     "@tarikjabiri/dxf": "^2.9.0",
     "dxf-parser": "^1.1.2",
+    "gdal3.js": "^2.8.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "jszip": "^3.10.2",

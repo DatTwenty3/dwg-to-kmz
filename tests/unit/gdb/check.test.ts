@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { cellProblem, checkGdb, collectGdbs, describeMaThongTin, parseMaHoSo, parseMaThongTin, parseSr, runCheck, TT16_DATABASES, type GdbCatalog, type GdbEntry, type GdbField } from '@/lib/gdb';
+import { cellProblem, checkGdb, collectGdbs, describeMaThongTin, parseMaHoSo, parseMaThongTin, parseSr, sampleCodes, runCheck, TT16_DATABASES, type GdbCatalog, type GdbEntry, type GdbField } from '@/lib/gdb';
 import { FIXTURE_HOSOGIS } from '../fixtures';
 
 function walk(dir: string, root: string, out: GdbEntry[] = []): GdbEntry[] {
@@ -49,6 +49,13 @@ describe('TT16 rules', () => {
     expect(parseMaThongTin('012511312345')).toBeNull(); // điều chỉnh chỉ 0–2
     expect(cellProblem('maThongTinQH', '11111_', { oid: 1, ma: '', className: 'X_A' })).toMatch(/Sai mẫu/);
     expect(cellProblem('maThongTinQH', '862613000001', { oid: 1, ma: '', className: 'X_A' })).toBeNull();
+  });
+
+  it('sample codes are valid and share the province', () => {
+    const s = sampleCodes('86', 2026);
+    expect(s).toEqual({ maHoSoQH: '86QHC1000001', maThongTinQH: '862611000001' });
+    expect(parseMaHoSo(s.maHoSoQH)?.province).toBe('86');
+    expect(parseMaThongTin(s.maThongTinQH)).toMatchObject({ province: '86', year: 2026 });
   });
 
   it('parses maHoSoQH', () => {

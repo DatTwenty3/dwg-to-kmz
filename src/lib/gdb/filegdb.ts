@@ -61,6 +61,8 @@ export interface GeomParams {
   xyScale: number;
   hasZ: boolean;
   hasM: boolean;
+  /** Extent stored in the field description [xmin, ymin, xmax, ymax] (GDAL-written tables leave the XML one nil). */
+  extent?: [number, number, number, number];
 }
 
 export type GdbValue = string | number | null;
@@ -242,7 +244,8 @@ function readGeometryDescription(c: Cursor): GeomParams {
   c.skip(8); // xy tolerance
   if (hasM) c.skip(8);
   if (hasZ) c.skip(8);
-  c.skip(32); // extent
+  const ext = [c.f64(), c.f64(), c.f64(), c.f64()] as [number, number, number, number];
+  if (ext.every(Number.isFinite) && ext[2] > ext[0] && ext[3] > ext[1]) params.extent = ext;
   // Optional z/m ranges, then a 0 byte and 1–3 spatial-grid sizes. Probe instead of trusting the flags.
   for (const extra of [0, 16, 32]) {
     const at = c.p + extra;

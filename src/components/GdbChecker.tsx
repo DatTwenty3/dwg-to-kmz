@@ -42,6 +42,7 @@ import {
   Logo,
 } from './icons';
 import GdbMap from './GdbMap';
+import GdbNormalizeDialog from './GdbNormalizeDialog';
 
 type Picked = { path: string; file: File };
 type Filter = 'all' | 'issues' | 'present';
@@ -589,6 +590,9 @@ export default function GdbChecker() {
   const [province, setProvince] = useState<string | null>(null);
   /** Province question, asked once right after each upload (and from the top-bar chip). */
   const [askProvince, setAskProvince] = useState(false);
+  const [normalizeOpen, setNormalizeOpen] = useState(false);
+  /** Files of the current check (the normalisation reads the original bytes again). */
+  const [picked, setPicked] = useState<Picked[]>([]);
   const workerRef = useRef<Worker | null>(null);
   const folderRef = useRef<HTMLInputElement>(null);
   const zipRef = useRef<HTMLInputElement>(null);
@@ -603,6 +607,7 @@ export default function GdbChecker() {
 
   const run = (files: Picked[]) => {
     if (!files.length) return;
+    setPicked(files);
     setBusy(true);
     setError(null);
     setProgress(null);
@@ -922,9 +927,16 @@ export default function GdbChecker() {
               <button className="ui-btn" onClick={download} title="Tải báo cáo CSV (mở bằng Excel)">
                 CSV
               </button>
-              <button className="ui-btn-primary" onClick={downloadPdf} disabled={pdfBusy} title="Tải báo cáo PDF">
+              <button className="ui-btn" onClick={downloadPdf} disabled={pdfBusy} title="Tải báo cáo PDF">
                 {pdfBusy ? <IconSpinner width={15} height={15} /> : <IconDownload width={15} height={15} />}
-                <span className="hidden md:inline">{pdfBusy ? 'Đang tạo PDF…' : 'Báo cáo PDF'}</span>
+                <span className="hidden md:inline">{pdfBusy ? 'Đang tạo PDF…' : 'PDF'}</span>
+              </button>
+              <button
+                className="ui-btn-primary"
+                onClick={() => setNormalizeOpen(true)}
+                title="Dựng lại các geodatabase đúng chuẩn Thông tư 16 (giữ nguyên hình học) và tải về"
+              >
+                <IconDatabaseCheck width={15} height={15} /> Chuẩn hóa TT16
               </button>
             </>
           )}
@@ -1127,6 +1139,19 @@ export default function GdbChecker() {
           </div>
         </div>
       </div>
+
+      {normalizeOpen && (
+        <GdbNormalizeDialog
+          rep={rep}
+          files={picked}
+          provinceCode={provinceCode}
+          onClose={() => setNormalizeOpen(false)}
+          onOpenResult={(file) => {
+            setNormalizeOpen(false);
+            run([{ path: file.name, file }]);
+          }}
+        />
+      )}
 
       {askProvince && (
         <ProvinceDialog

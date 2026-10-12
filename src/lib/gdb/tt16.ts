@@ -348,3 +348,49 @@ export function parseMaThongTin(v: string): MaThongTinParts | null {
 /** "Hà Nội · 2025 · QH chung đô thị · lập lần đầu". */
 export const describeMaThongTin = (p: MaThongTinParts) =>
   `${p.provinceName ?? `mã tỉnh ${p.province}`} · ${p.year} · ${QH_LEVEL[p.level]} ${QH_KIND[p.kind]} · ${QH_ADJUST[p.adjust]}`;
+
+/**
+ * Sample codes in the right format for a province, to try "Chuẩn hóa TT16" before the real codes are issued:
+ * maHoSoQH <tỉnh>QHC1000001 (quy hoạch chung, lần đầu, hồ sơ 0001), maThongTinQH <tỉnh><năm>11000001.
+ */
+export function sampleCodes(province: string, year = new Date().getFullYear()): { maHoSoQH: string; maThongTinQH: string } {
+  const yy = String(year % 100).padStart(2, '0');
+  return { maHoSoQH: `${province}QHC1000001`, maThongTinQH: `${province}${yy}11000001` };
+}
+
+/**
+ * NenDiaHinh has no list in Thông tư 16 (it is the base map supplied by the agriculture & environment sector).
+ * When it was not uploaded, "Chuẩn hóa TT16" creates an EMPTY NenDiaHinh.gdb with this structure, taken from the
+ * NenDiaHinh.gdb of the xã Hàm Giang (Vĩnh Long) submission chosen by the project owner: 6 groups, 25 classes.
+ */
+export const NENDIAHINH_TEMPLATE: Tt16Dataset[] = [
+  d('BienGioiDiaGioi', 'Biên giới, địa giới', [c('DiaPhan_A', 'Địa phận'), c('DuongDiaGioi_L', 'Đường địa giới')]),
+  d('DanCuCoSoHaTang', 'Dân cư, cơ sở hạ tầng', [
+    c('Nha_A', 'Nhà'),
+    c('KhuChucNang_P', 'Khu chức năng'),
+    c('TramDien_P', 'Trạm điện'),
+    c('DuongDayTaiDien_L', 'Đường dây tải điện'),
+    c('CongTrinhKienTrucDacBiet_P', 'Công trình kiến trúc đặc biệt'),
+    c('RanhGioiKhuChucNang_L', 'Ranh giới khu chức năng'),
+  ]),
+  d('GiaoThong', 'Giao thông', [
+    c('BenBai_P', 'Bến bãi'),
+    c('CauGiaoThong_A', 'Cầu giao thông dạng vùng'),
+    c('MatDuongBo_A', 'Mặt đường bộ'),
+    c('CauGiaoThong_L', 'Cầu giao thông dạng đường'),
+    c('RanhGioiDuongBo_L', 'Ranh giới đường bộ'),
+    c('CongGiaoThong_P', 'Cống giao thông'),
+    c('DoanTimDuongBo_L', 'Đoạn tim đường bộ'),
+    c('CauGiaoThong_P', 'Cầu giao thông dạng điểm'),
+  ]),
+  d('DiaHinh', 'Địa hình', [c('DiemDoCao_P', 'Điểm độ cao')]),
+  d('ThuyHe', 'Thủy hệ', [
+    c('DuongBoNuoc_L', 'Đường bờ nước'),
+    c('KenhMuong_L', 'Kênh mương dạng đường'),
+    c('SongSuoi_L', 'Sông suối dạng đường'),
+    c('KenhMuong_A', 'Kênh mương dạng vùng'),
+    c('MatNuocTinh_A', 'Mặt nước tĩnh'),
+    c('SongSuoi_A', 'Sông suối dạng vùng'),
+  ]),
+  d('PhuBeMat', 'Phủ bề mặt', [c('PhuBeMat_A', 'Phủ bề mặt'), c('RanhGioiPhuBeMat_L', 'Ranh giới phủ bề mặt')]),
+];

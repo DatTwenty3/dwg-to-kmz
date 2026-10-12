@@ -176,6 +176,8 @@ export async function readCatalog(src: GdbSource): Promise<GdbCatalog> {
         if (!t) cls.error = 'Không tìm thấy bảng dữ liệu của lớp';
         else {
           cls.fields = t.fields;
+          // Tables written by GDAL leave the XML extent nil: fall back to the geometry field's own extent.
+          cls.extent ??= t.fields.find((f) => f.geom?.extent)?.geom?.extent ?? null;
           cls.rowCount = t.rowCount;
           cls.rows = () => t.rows();
           cls.features = () => t.features();

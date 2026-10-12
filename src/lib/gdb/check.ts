@@ -332,7 +332,8 @@ function checkClass(cls: GdbClass, stats: ValueStats): { fields: FieldReport[]; 
   const extraFields = cls.fields
     .filter((f) => f.type !== 'objectid' && f.type !== 'geometry' && !required.has(f.name.toLowerCase()) && !SYSTEM_FIELDS.has(f.name.toLowerCase()))
     .map((f) => f.name);
-  if (cls.rowCount === 0) issues.push({ level: 'warn', text: 'Lớp rỗng (0 đối tượng)' });
+  // Reference classes may legitimately be empty (Chuẩn hóa TT16 creates them so): a note, not a warning.
+  if (cls.rowCount === 0) issues.push({ level: 'info', text: 'Lớp rỗng (0 đối tượng)' });
   for (const f of extraFields) issues.push({ level: 'warn', field: f, text: 'Trường dư — ngoài 6 trường quy định', hint: RULE_HINT.extra });
   return { fields, extraFields, issues, sample: { columns, rows: sampleRows, total } };
 }
@@ -526,7 +527,7 @@ export function checkGdb(src: Pick<GdbSource, 'name' | 'dir'>, cat: GdbCatalog, 
   const mainSr = [...srCount.values()].sort((a, b) => b.n - a.n)[0]?.sr ?? null;
   const gdbCrs = cat.classes.length ? assessCrs(mainSr, unionExtent(cat.classes.map((c) => c.extent)), provinceCode) : null;
   // Reported once for the geodatabase; a group repeats it only when its coordinate system differs.
-  const gdbCrsIssue = gdbCrs ? crsIssue(gdbCrs) : null;
+  const gdbCrsIssue = gdbCrs && unionExtent(cat.classes.map((c) => c.extent)) ? crsIssue(gdbCrs) : null;
   if (gdbCrsIssue) issues.push(gdbCrsIssue);
   for (const d of datasets) {
     if (!d.actualName) {
@@ -535,8 +536,10 @@ export function checkGdb(src: Pick<GdbSource, 'name' | 'dir'>, cat: GdbCatalog, 
     }
     const members = cat.classes.filter((c) => c.dataset?.toLowerCase() === d.actualName!.toLowerCase());
     const sr = d.sr ?? parseSr(members.find((m) => m.wkt)?.wkt);
-    d.crs = assessCrs(sr, unionExtent(members.map((m) => m.extent)), provinceCode);
-    const issue = sameSr(sr, mainSr) && d.crs.status === gdbCrs?.status ? null : crsIssue(d.crs);
+    const extent = unionExtent(members.map((m) => m.extent));
+    d.crs = assessCrs(sr, extent, provinceCode);
+    // A group without data has nothing to place: only its coordinate system name is shown, no issue.
+    const issue = !extent || (sameSr(sr, mainSr) && d.crs.status === gdbCrs?.status) ? null : crsIssue(d.crs);
     if (issue) {
       d.issues.unshift(issue);
       if (issue.level === 'error' && d.status !== 'missing') d.status = 'error';

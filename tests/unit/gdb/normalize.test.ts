@@ -119,6 +119,11 @@ for (const [tag, dir] of [
             expect(out?.rowCount, `${g.fileName} ${c.name}`).toBe(c.rowCount);
           }
       }
+      // Every group (empty ones created by the normalisation included) has the "đúng hệ tọa độ" verdict.
+      for (const g of after.gdbs) {
+        expect(g.crs?.status, g.fileName).toBe('ok');
+        for (const d of g.datasets) if (d.actualName) expect(d.crs?.status, `${g.fileName} ${d.name}`).toBe('ok');
+      }
       expect(after.maHoSo.map(([v]) => v)).toEqual([OPTS.maHoSoQH]);
       expect(after.maThongTin.map(([v]) => v)).toEqual([OPTS.maThongTinQH]);
     }, 300_000);

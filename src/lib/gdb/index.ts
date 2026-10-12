@@ -56,6 +56,7 @@ export async function runCheck(
         maHoSo: [],
         maThongTin: [],
         srNames: [],
+        sr: null,
         crs: null,
         province: null,
       });

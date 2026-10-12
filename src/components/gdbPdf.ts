@@ -88,7 +88,12 @@ export async function buildGdbPdf(rep: SubmissionReport, opts: PdfOptions = {}):
   const now = new Date();
   const stamp = now.toLocaleString('vi-VN', { dateStyle: 'short', timeStyle: 'short' });
   const TOP = 28; // content starts below the page header
-  const lastY = () => (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? TOP;
+  /** Bottom of the last thing drawn: the last table, or a line of text written after it (on the same page). */
+  let textBottom = { page: 0, y: 0 };
+  const lastY = () => {
+    const table = (doc as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? TOP;
+    return textBottom.page === doc.getNumberOfPages() ? Math.max(table, textBottom.y) : table;
+  };
 
   const header = () => {
     doc.addImage(logo, 'PNG', M, 8, 11, 11);
@@ -295,7 +300,7 @@ export async function buildGdbPdf(rep: SubmissionReport, opts: PdfOptions = {}):
           d.status === 'missing'
             ? 'Chưa có nhóm dữ liệu'
             : `${srText(d) || 'Chưa xác định hệ tọa độ'}${d.crs && d.crs.status !== 'ok' ? `
-${d.crs.text}` : d.crs ? ' — đúng vị trí' : ''}`,
+${d.crs.text}` : d.crs ? ' — đúng hệ tọa độ' : ''}`,
           '',
           '',
           '',
@@ -350,7 +355,9 @@ ${d.crs.text}` : d.crs ? ' — đúng vị trí' : ''}`,
       doc.setFont(FONT, 'normal');
       doc.setFontSize(9);
       doc.setTextColor(...TONE.ok);
-      doc.text('Không có lỗi hay cảnh báo.', M, lastY() + 6);
+      const ty = lastY() + 6;
+      doc.text('Không có lỗi hay cảnh báo.', M, ty);
+      textBottom = { page: doc.getNumberOfPages(), y: ty + 2 };
     }
   });
 

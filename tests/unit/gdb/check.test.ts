@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { cellProblem, checkGdb, collectGdbs, describeMaThongTin, parseMaHoSo, parseMaThongTin, parseSr, sampleCodes, runCheck, TT16_DATABASES, type GdbCatalog, type GdbEntry, type GdbField } from '@/lib/gdb';
+import { cellProblem, checkGdb, checkSubmission, collectGdbs, describeMaThongTin, parseMaHoSo, parseMaThongTin, parseSr, sampleCodes, runCheck, TT16_DATABASES, type GdbCatalog, type GdbEntry, type GdbField } from '@/lib/gdb';
 import { FIXTURE_HOSOGIS } from '../fixtures';
 
 function walk(dir: string, root: string, out: GdbEntry[] = []): GdbEntry[] {
@@ -148,6 +148,51 @@ describe('checkGdb (synthetic catalog)', () => {
   });
 });
 
+describe('coordinate verdict of groups / geodatabases without data', () => {
+  const W = (lon0: number) =>
+    `PROJCS["VN_2000_x",GEOGCS["GCS_VN_2000",DATUM["D_Vietnam_2000"]],PROJECTION["Transverse_Mercator"],PARAMETER["Central_Meridian",${lon0}],PARAMETER["Scale_Factor",0.9999]]`;
+  const NHI_LONG: [number, number, number, number] = [578404, 1102658, 589679, 1115014];
+  const cls = (name: string, dataset: string, lon0: number, extent: typeof NHI_LONG | null, n: number) => ({
+    name, path: '', dataset, alias: name, shapeType: 'esriGeometryPolygon', geom: 'A' as const, srName: 'VN_2000_x', wkt: W(lon0), extent,
+    fields: [], rowCount: n, rows: function* () {},
+  });
+  const cat = (classes: ReturnType<typeof cls>[]): GdbCatalog => ({
+    datasets: [...new Set(classes.map((c) => c.dataset))],
+    datasetWkts: Object.fromEntries(classes.map((c) => [c.dataset, c.wkt])),
+    classes,
+    tables: [],
+  });
+
+  it('empty groups and empty geodatabases inherit the verdict of the data in the same coordinate system', () => {
+    const ht = checkGdb(
+      { name: 'HienTrang.gdb', dir: 'HienTrang.gdb' },
+      cat([cls('ChucNangSuDungDat_A', 'HienTrangSuDungDat', 105.5, NHI_LONG, 10), cls('CongTrinh_A', 'HienTrangKhongGianKienTrucCanhQuan', 105.5, null, 0)]),
+      { provinceCode: '86' },
+    );
+    const qh = checkGdb({ name: 'QuyHoach.gdb', dir: 'QuyHoach.gdb' }, cat([cls('PhanKhuQuyHoach_A', 'QuyHoachSuDungDat', 105.5, null, 0)]), { provinceCode: '86' });
+    const sub = checkSubmission([ht, qh], [{ parent: '' }, { parent: '' }], []);
+    const empty = ht.datasets.find((d) => d.name === 'HienTrangKhongGianKienTrucCanhQuan')!;
+    expect(ht.crs?.status).toBe('ok');
+    expect(empty.crs?.status).toBe('ok');
+    expect(empty.crs?.text).toMatch(/cùng hệ tọa độ với dữ liệu của geodatabase/);
+    const q = sub.gdbs.find((g) => g.fileName === 'QuyHoach.gdb')!;
+    expect(q.crs?.status).toBe('ok');
+    expect(q.crs?.text).toMatch(/cùng hệ tọa độ với HienTrang.gdb/);
+    expect(q.datasets.find((d) => d.name === 'QuyHoachSuDungDat')!.crs?.status).toBe('ok');
+  });
+
+  it('an empty group in another coordinate system is flagged, not inherited', () => {
+    const ht = checkGdb(
+      { name: 'HienTrang.gdb', dir: 'HienTrang.gdb' },
+      cat([cls('ChucNangSuDungDat_A', 'HienTrangSuDungDat', 105.5, NHI_LONG, 10), cls('ChucNangSuDungDat_B_A', 'HienTrangSuDungDat', 105.5, NHI_LONG, 1), cls('CongTrinh_A', 'HienTrangKhongGianKienTrucCanhQuan', 107, null, 0)]),
+      { provinceCode: '86' },
+    );
+    const d = ht.datasets.find((x) => x.name === 'HienTrangKhongGianKienTrucCanhQuan')!;
+    expect(d.crs).toBeNull();
+    expect(d.issues.some((i) => /khác hệ tọa độ của geodatabase/.test(i.text))).toBe(true);
+  });
+});
+
 describe.skipIf(!existsSync(FIXTURE_HOSOGIS))('real HoSoGIS (Xã Nhị Long)', () => {
   it('reads the four geodatabases and checks them', async () => {
     const entries = walk(FIXTURE_HOSOGIS, join(FIXTURE_HOSOGIS, '..'));
@@ -178,6 +223,10 @@ describe.skipIf(!existsSync(FIXTURE_HOSOGIS))('real HoSoGIS (Xã Nhị Long)', (
     expect(qh.datasets.flatMap((d) => d.classes).find((c) => c.name === 'TenRieng_P')?.inReference).toBe(false);
     const nen = rep.gdbs.find((g) => g.database === 'NenDiaHinh')!;
     expect(nen.datasets.map((d) => d.name).sort()).toEqual(['BienGioiDiaGioi', 'CoSoDoDac', 'DanCuCoSoHaTang', 'DiaHinh']);
+    // No list in the circular for NenDiaHinh: well-named groups/classes are "Đạt", not "Bổ sung".
+    expect(nen.datasets.every((d) => d.status !== 'extra' && d.classes.every((c) => c.status !== 'extra'))).toBe(true);
+    // Groups that are not there carry no coordinate verdict.
+    for (const d of ht.datasets) if (d.status === 'missing') expect(d.crs).toBeNull();
     expect(rep.maHoSo[0][0]).toBe('00000_');
   });
 });

@@ -172,7 +172,9 @@ export interface GdbReport {
   /** Giá trị maThongTinQH gặp được → số đối tượng. */
   maThongTin: [string, number][];
   srNames: string[];
-  /** Hệ tọa độ chung của geodatabase, đối chiếu với vị trí dữ liệu. */
+  /** Hệ tọa độ chủ đạo của geodatabase (của nhiều lớp nhất). */
+  sr: SrInfo | null;
+  /** Hệ tọa độ chung của geodatabase, đối chiếu với vị trí dữ liệu (hoặc kế thừa — xem `inheritCrs`). */
   crs: CrsCheck | null;
   /** Tỉnh dùng để đối chiếu KTT: từ mã hồ sơ / mã thông tin, hoặc người dùng chọn; null = chưa biết. */
   province: { code: string; source: 'maHoSoQH' | 'maThongTinQH' | 'user' } | null;
@@ -342,6 +344,8 @@ function classReport(
   cls: GdbClass,
   stats: ValueStats,
   expected: { name: string; alias: string; dataset: string | null } | null,
+  /** The database has no list in the circular (NenDiaHinh): a class named by the rule is simply "Đạt". */
+  free = false,
 ): ClassReport {
   const r = checkClass(cls, stats);
   const issues = [...r.issues];
@@ -355,10 +359,10 @@ function classReport(
         text: cls.dataset ? `Đang nằm trong nhóm "${cls.dataset}" — đúng ra thuộc nhóm "${expected.dataset}"` : `Nằm ngoài nhóm dữ liệu — đúng ra thuộc nhóm "${expected.dataset}"`,
       });
   } else {
-    base = 'extra';
+    base = free ? 'ok' : 'extra';
     const rule = nameRuleIssues(cls.name, 'class');
     if (rule.length) issues.unshift(...rule);
-    else issues.unshift({ level: 'info', text: 'Lớp bổ sung ngoài danh mục tham khảo — tên đúng nguyên tắc' });
+    else if (!free) issues.unshift({ level: 'info', text: 'Lớp bổ sung ngoài danh mục tham khảo — tên đúng nguyên tắc' });
     if (!cls.dataset) issues.unshift({ level: 'warn', text: 'Nằm ngoài nhóm dữ liệu (Feature Dataset)' });
   }
   if (suffix && cls.geom && suffix !== cls.geom)
@@ -478,18 +482,23 @@ export function checkGdb(src: Pick<GdbSource, 'name' | 'dir'>, cat: GdbCatalog, 
   }
 
   // Datasets outside the list (all of them for NenDiaHinh / unknown databases).
+  // NenDiaHinh has no list in the circular: its groups/classes are judged by the naming rule only ("Đạt"),
+  // not shown as "Bổ sung" (which means "outside the list" for the databases that have one).
+  const free = !!db && db.datasets.length === 0;
   for (const actual of datasetsLeft.values()) {
     const rule = nameRuleIssues(actual, 'dataset');
     const classes = [...classesLeft.values()].filter((c) => c.dataset?.toLowerCase() === actual.toLowerCase());
     for (const c of classes) classesLeft.delete(c.name.toLowerCase());
     const dIssues: Issue[] = rule.length
       ? rule
-      : [{ level: 'info', text: db?.datasets.length ? 'Nhóm bổ sung ngoài danh mục — tên đúng nguyên tắc' : 'Tên đúng nguyên tắc đặt tên nhóm dữ liệu' }];
-    const reports = classes.map((c) => classReport(c, stats, null));
+      : free
+        ? []
+        : [{ level: 'info', text: db ? 'Nhóm bổ sung ngoài danh mục — tên đúng nguyên tắc' : 'Tên đúng nguyên tắc đặt tên nhóm dữ liệu' }];
+    const reports = classes.map((c) => classReport(c, stats, null, free));
     datasets.push({
       name: actual,
       title: '',
-      status: rule.length ? 'error' : withChildren('extra', reports),
+      status: rule.length ? 'error' : withChildren(free ? 'ok' : 'extra', reports),
       inReference: false,
       actualName: actual,
       sr: parseSr(cat.datasetWkts?.[actual]),
@@ -499,7 +508,7 @@ export function checkGdb(src: Pick<GdbSource, 'name' | 'dir'>, cat: GdbCatalog, 
     });
   }
 
-  const rootClasses = [...classesLeft.values()].map((c) => classReport(c, stats, null));
+  const rootClasses = [...classesLeft.values()].map((c) => classReport(c, stats, null, free));
 
   // ---- Coordinate system vs. where the data actually is (no province choice needed) ----
   const validCode = (vals: Map<string, number>, parse: (v: string) => { province: string } | null) =>
@@ -525,9 +534,12 @@ export function checkGdb(src: Pick<GdbSource, 'name' | 'dir'>, cat: GdbCatalog, 
     srCount.set(k, { sr, n: (srCount.get(k)?.n ?? 0) + 1 });
   }
   const mainSr = [...srCount.values()].sort((a, b) => b.n - a.n)[0]?.sr ?? null;
-  const gdbCrs = cat.classes.length ? assessCrs(mainSr, unionExtent(cat.classes.map((c) => c.extent)), provinceCode) : null;
+  const gdbExtent = unionExtent(cat.classes.map((c) => c.extent));
+  // No data at all (e.g. a geodatabase created empty by Chuẩn hóa TT16): the verdict may be inherited from another
+  // geodatabase of the submission with the same coordinate system (checkSubmission).
+  const gdbCrs = gdbExtent ? assessCrs(mainSr, gdbExtent, provinceCode) : null;
   // Reported once for the geodatabase; a group repeats it only when its coordinate system differs.
-  const gdbCrsIssue = gdbCrs && unionExtent(cat.classes.map((c) => c.extent)) ? crsIssue(gdbCrs) : null;
+  const gdbCrsIssue = gdbCrs ? crsIssue(gdbCrs) : null;
   if (gdbCrsIssue) issues.push(gdbCrsIssue);
   for (const d of datasets) {
     if (!d.actualName) {
@@ -537,9 +549,18 @@ export function checkGdb(src: Pick<GdbSource, 'name' | 'dir'>, cat: GdbCatalog, 
     const members = cat.classes.filter((c) => c.dataset?.toLowerCase() === d.actualName!.toLowerCase());
     const sr = d.sr ?? parseSr(members.find((m) => m.wkt)?.wkt);
     const extent = unionExtent(members.map((m) => m.extent));
+    if (!extent) {
+      // A group without data (e.g. created empty by Chuẩn hóa TT16) in the same coordinate system as the data
+      // checked above shares its verdict; in another one it is flagged (it cannot be placed).
+      d.crs = gdbCrs && sameSr(sr, mainSr) ? inheritCrs(gdbCrs, 'cùng hệ tọa độ với dữ liệu của geodatabase') : null;
+      if (sr && mainSr && !sameSr(sr, mainSr)) {
+        d.issues.unshift({ level: 'warn', text: 'Hệ tọa độ của nhóm khác hệ tọa độ của geodatabase' });
+        if (d.status === 'ok') d.status = 'warn';
+      }
+      continue;
+    }
     d.crs = assessCrs(sr, extent, provinceCode);
-    // A group without data has nothing to place: only its coordinate system name is shown, no issue.
-    const issue = !extent || (sameSr(sr, mainSr) && d.crs.status === gdbCrs?.status) ? null : crsIssue(d.crs);
+    const issue = sameSr(sr, mainSr) && d.crs.status === gdbCrs?.status ? null : crsIssue(d.crs);
     if (issue) {
       d.issues.unshift(issue);
       if (issue.level === 'error' && d.status !== 'missing') d.status = 'error';
@@ -595,13 +616,29 @@ export function checkGdb(src: Pick<GdbSource, 'name' | 'dir'>, cat: GdbCatalog, 
     maHoSo: [...stats.maHoSo.entries()].sort((a, b) => b[1] - a[1]),
     maThongTin: [...stats.maThongTin.entries()].sort((a, b) => b[1] - a[1]),
     srNames,
+    sr: mainSr,
     crs: gdbCrs,
     province,
   };
 }
 
 /** Whole submission: several geodatabases, possibly inside a HoSoGIS folder. */
+/** A verdict reused for something without data of its own (same coordinate system as checked data). */
+function inheritCrs(from: CrsCheck, why: string): CrsCheck {
+  return { ...from, text: `${from.text} — ${why}` };
+}
+
+const sameSrInfo = (a: SrInfo | null, b: SrInfo | null) => !!a && !!b && a.lon0 === b.lon0 && a.zone === b.zone && a.vn2000 === b.vn2000;
+
 export function checkSubmission(reports: GdbReport[], gdbs: Pick<GdbSource, 'parent'>[], others: string[]): SubmissionReport {
+  // Geodatabases without data take the verdict of another one in the same coordinate system.
+  for (const g of reports) {
+    if (g.crs || !g.sr) continue;
+    const donor = reports.find((r) => r !== g && r.crs && sameSrInfo(r.sr, g.sr) && r.datasets.some((d) => d.crs));
+    if (!donor?.crs) continue;
+    g.crs = inheritCrs(donor.crs, `cùng hệ tọa độ với ${donor.fileName}`);
+    for (const d of g.datasets) if (d.actualName && !d.crs && (!d.sr || sameSrInfo(d.sr, g.sr))) d.crs = g.crs;
+  }
   const issues: Issue[] = [];
   const present = new Set(reports.map((r) => r.database).filter(Boolean));
   const missingDatabases = TT16_DATABASES.filter((d) => !present.has(d.name)).map((d) => ({ name: d.name, title: d.title }));

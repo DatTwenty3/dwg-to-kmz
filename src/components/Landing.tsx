@@ -353,17 +353,31 @@ export default function Landing({
             )}
 
             {!busy && (
-              <div className="mt-3 flex flex-col items-center gap-1 sm:flex-row sm:justify-center">
-                <Link href="/kiem-tra-gdb" className="ui-btn-ghost text-[13px]">
-                  <IconDatabaseCheck width={15} height={15} />
-                  Kiểm tra CSDL GIS (.gdb) theo Thông tư 16/2025/TT-BXD
-                  <IconArrowRight width={14} height={14} />
-                </Link>
-                <Link href="/bo-tach-dwg" className="ui-btn-ghost text-[13px]">
-                  <IconLayers width={15} height={15} />
-                  Bóc tách DWG → CSDL TT16
-                  <IconArrowRight width={14} height={14} />
-                </Link>
+              <div className="mt-6">
+                <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">Hồ sơ GIS theo Thông tư 16/2025/TT-BXD</p>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {(
+                    [
+                      ['/kiem-tra-gdb', IconDatabaseCheck, 'Kiểm tra CSDL GIS', 'Đối chiếu .gdb, báo cáo PDF'],
+                      ['/bo-tach-dwg', IconLayers, 'Bóc tách DWG → TT16', 'Bản vẽ → HoSoGIS, .qgz, .dxf'],
+                    ] as const
+                  ).map(([href, Icon, title, desc]) => (
+                    <Link
+                      key={href}
+                      href={href}
+                      className="group flex items-center gap-3 rounded-xl border border-zinc-200 bg-white/80 px-3 py-2.5 text-left shadow-sm backdrop-blur transition hover:border-blue-300 hover:bg-white hover:shadow-md"
+                    >
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-zinc-900 text-white transition group-hover:bg-blue-600">
+                        <Icon width={17} height={17} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[13px] font-semibold text-zinc-900">{title}</span>
+                        <span className="block text-[11.5px] leading-snug text-zinc-500">{desc}</span>
+                      </span>
+                      <IconArrowRight width={14} height={14} className="shrink-0 text-zinc-400 transition group-hover:translate-x-0.5 group-hover:text-blue-600" />
+                    </Link>
+                  ))}
+                </div>
               </div>
             )}
 

@@ -59,3 +59,16 @@ export async function filesFromDrop(dt: DataTransfer): Promise<File[]> {
   }
   return out;
 }
+
+/** Every file of a drop (folders walked), with relative paths — for pages that take whole folders. */
+export async function pickedFromDrop(dt: DataTransfer): Promise<Picked[]> {
+  // Entries must be taken before the first await (the DataTransfer is emptied after the handler returns).
+  const roots = [...(dt.items ?? [])].map((i) => i.webkitGetAsEntry?.()).filter((e): e is FileSystemEntry => !!e);
+  if (!roots.length) return [...(dt.files ?? [])].map((f) => ({ path: f.name, file: f }));
+  const out: Picked[] = [];
+  for (const r of roots) await walk(r, '', out);
+  return out;
+}
+
+/** Files of an <input type="file"> (with webkitdirectory: relative paths). */
+export const pickedFromInput = (files: FileList): Picked[] => [...files].map((f) => ({ path: f.webkitRelativePath || f.name, file: f }));

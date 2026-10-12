@@ -374,6 +374,11 @@ class DwgConverter {
           solidFill: number;
           gradientFlag?: number;
           patternName: string;
+          patternAngle?: number;
+          patternScale?: number;
+          patternType?: number;
+          isDouble?: boolean;
+          definitionLines?: { angle: number; base: P2; offset: P2; dashLengths: number[] }[];
           boundaryPaths: DwgBoundaryPath[];
           extrusionDirection?: Vec3;
         };
@@ -384,6 +389,7 @@ class DwgConverter {
           extrusion: extrusionOf(h),
           solid: num(h.solidFill) === 1 || num(h.gradientFlag) === 1,
           pattern: h.patternName || '',
+          ...(h.definitionLines?.length ? { def: hatchDef(h) } : {}),
           loops,
         });
         return;
@@ -564,7 +570,14 @@ export function dwgToSource(db: DwgDatabase, meta: DwgConvertMeta): SrcDocument 
     styles.set(s.name, (s.font || s.extendedFont || s.bigFont || '').trim());
   }
 
+  // Xrefs: block records flagged "external reference" (their entities live in another file).
+  const xrefNames = new Set(records.filter((r) => r.name && (num((r as { flags?: number }).flags, 0) & 4)).map((r) => r.name));
+  const xrefs = entities.flatMap((e) =>
+    e.type === 'insert' && xrefNames.has(e.block) ? [{ name: e.block, position: e.position, scale: e.scale, rotation: e.rotation }] : [],
+  );
+
   return {
+    xrefs,
     units: insunitsToName(header.INSUNITS),
     codepage,
     legacyBytes: encoder !== null,
@@ -573,5 +586,28 @@ export function dwgToSource(db: DwgDatabase, meta: DwgConvertMeta): SrcDocument 
     blocks,
     entities,
     warnings,
+  };
+}
+
+/** Pattern definition of a DWG hatch: libredwg gives angles in radians, lengths already scaled. */
+function hatchDef(h: {
+  patternAngle?: number;
+  patternScale?: number;
+  patternType?: number;
+  isDouble?: boolean;
+  definitionLines?: { angle: number; base: { x: number; y: number }; offset: { x: number; y: number }; dashLengths: number[] }[];
+}) {
+  const deg = (r: number | undefined) => ((Number(r) || 0) * 180) / Math.PI;
+  return {
+    angle: deg(h.patternAngle),
+    scale: Number(h.patternScale) || 1,
+    double: !!h.isDouble,
+    type: Number.isFinite(Number(h.patternType)) ? Number(h.patternType) : 1,
+    lines: (h.definitionLines ?? []).map((l) => ({
+      angle: deg(l.angle),
+      base: [Number(l.base?.x) || 0, Number(l.base?.y) || 0] as Vec2,
+      offset: [Number(l.offset?.x) || 0, Number(l.offset?.y) || 0] as Vec2,
+      dashes: (l.dashLengths ?? []).map((d) => Number(d) || 0),
+    })),
   };
 }

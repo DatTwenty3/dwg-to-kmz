@@ -4,9 +4,9 @@
 // - Library: @tarikjabiri/dxf. Its output is plain "\n"-joined group lines; the UI saves it as UTF-8.
 // - Text: every TEXT/MTEXT uses the style `VN-ARIAL` bound to the TrueType font arial.ttf (SHX fonts such as
 //   txt.shx cannot show Vietnamese).
-// - Polygons → one solid HATCH with a polyline boundary path per ring (outer = External|Polyline, holes =
-//   Polyline; hatch style "Normal" so holes stay holes). `pattern` is ignored on purpose: pattern hatches are
-//   written as a solid fill (tint); `fillOpacity` < 1 is written as entity transparency (group 440).
+// - Polygons → one HATCH with a polyline boundary path per ring (outer = External|Polyline, holes =
+//   Polyline; hatch style "Normal" so holes stay holes). A pattern hatch read from DWG/DXF (`hatch`: its pattern
+//   lines) is written with the same pattern; others as a solid fill, `fillOpacity` < 1 as transparency (440).
 // - Colours: layer colour = nearest ACI (62) + true colour (420); an entity whose colour differs from its layer
 //   gets its own 62 + 420, otherwise it stays ByLayer.
 // - Layer style (CadLayer.style, set by the UI): `dash` → layer linetype (solid → Continuous, otherwise an LTYPE
@@ -372,13 +372,32 @@ export function toDxf(doc: CadDocument, opts: DxfExportOptions = {}): string {
       ({ tl: point3d(hx0, hy1, 0), tr: point3d(hx1, hy1, 0), bl: point3d(hx0, hy0, 0), br: point3d(hx1, hy0, 0) }) as ReturnType<
         typeof hatch.boundingBox
       >;
-    const alpha = Math.round(Math.min(1, Math.max(0, e.fillOpacity)) * 255);
+    // A pattern hatch read from DWG/DXF keeps its pattern lines; otherwise a solid fill (tint).
+    const def = e.hatch && e.hatch.lines.length ? e.hatch : null;
+    const alpha = def ? 255 : Math.round(Math.min(1, Math.max(0, e.fillOpacity)) * 255);
     patchDxfy(hatch, (dx, ov) => {
       const push = dx.push.bind(dx);
       const subclassMarker = dx.subclassMarker.bind(dx);
       let loopIdx = 0;
       ov.push = (code: number, value: number | string) => {
-        if (code === 92) push(92, loopIdx++ === 0 ? 3 : 2); // outer: External|Polyline, holes: Polyline
+        if (def && code === 2) push(2, sanitizeLayerName(e.pattern || 'PATTERN').replace(/\s+/g, '_').slice(0, 31) || 'PATTERN');
+        else if (def && code === 70) push(70, 0); // pattern fill
+        else if (def && code === 76) {
+          push(76, def.type === 0 || def.type === 2 ? def.type : 1);
+          push(52, rnd(def.angle));
+          push(41, rnd(def.scale) || 1);
+          push(77, def.double ? 1 : 0);
+          push(78, def.lines.length);
+          for (const l of def.lines) {
+            push(53, rnd(l.angle));
+            push(43, rnd(l.base[0]));
+            push(44, rnd(l.base[1]));
+            push(45, rnd(l.offset[0]));
+            push(46, rnd(l.offset[1]));
+            push(79, l.dashes.length);
+            for (const d of l.dashes) push(49, rnd(d));
+          }
+        } else if (code === 92) push(92, loopIdx++ === 0 ? 3 : 2); // outer: External|Polyline, holes: Polyline
         else if (code === 75) push(75, 0); // hatch style: Normal (even-odd, holes stay holes)
         else if (code === 47) return; // pixel size: AutoCAD rejects it ("expected group code 98") for solid fills
         else push(code, value);

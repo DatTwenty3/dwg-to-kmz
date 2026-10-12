@@ -1,6 +1,6 @@
 // SrcDocument → CadDocument: explode blocks (recursive affine), tessellate curves, resolve
 // ByLayer/ByBlock colours, decode text through '@/lib/text', compute a robust bbox.
-import type { CadDocument, CadEntity, CadLayer, HAlign, TableCell, TextEntity, VAlign, Vec2 } from '../types';
+import type { CadDocument, CadEntity, CadLayer, HAlign, HatchDef, TableCell, TextEntity, VAlign, Vec2 } from '../types';
 import { ACI_BYBLOCK, ACI_BYLAYER, DEFAULT_COLOR, aciToHex, rgbToHex } from './aci';
 import { robustBBox } from './bbox';
 import { loopToRing, nestRings } from './hatch';
@@ -41,7 +41,7 @@ interface PBase {
 type PEntity = PBase &
   (
     | { kind: 'polyline'; points: Vec2[]; closed: boolean; width?: number }
-    | { kind: 'polygon'; rings: Vec2[][]; fillOpacity: number; pattern?: string }
+    | { kind: 'polygon'; rings: Vec2[][]; fillOpacity: number; pattern?: string; hatch?: HatchDef }
     | {
         kind: 'text';
         raw: string;
@@ -107,6 +107,18 @@ function radToDeg(a: number): number {
   return d;
 }
 
+/** Pattern lines through M: base point moved, directions / offsets / dash lengths mapped by the linear part. */
+function transformHatch(h: HatchDef, m: Mat2D): HatchDef {
+  const lines = h.lines.map((l) => {
+    const a = (l.angle * Math.PI) / 180;
+    const d = applyLinear(m, [Math.cos(a), Math.sin(a)]);
+    const k = Math.hypot(d[0], d[1]) || 1;
+    return { angle: radToDeg(Math.atan2(d[1], d[0])), base: apply(m, l.base), offset: applyLinear(m, l.offset), dashes: l.dashes.map((x) => x * k) };
+  });
+  const u = applyLinear(m, [1, 0]);
+  return { ...h, angle: radToDeg((h.angle * Math.PI) / 180 + Math.atan2(u[1], u[0])), scale: h.scale * Math.sqrt(Math.abs(determinant(m))), lines };
+}
+
 /** Transform a prototype by M; `layer`/`color` substitute layer "0" and ByBlock (INSERT semantics). */
 function transformProto(p: PEntity, m: Mat2D, insLayer?: string, insColor?: ColorSpec): PEntity {
   const layer = insLayer !== undefined && p.layer === '0' ? insLayer : p.layer;
@@ -117,7 +129,7 @@ function transformProto(p: PEntity, m: Mat2D, insLayer?: string, insColor?: Colo
       return { ...p, layer, color, points: applyAll(m, p.points), width: p.width ? p.width * det : p.width };
     }
     case 'polygon':
-      return { ...p, layer, color, rings: p.rings.map((r) => applyAll(m, r)) };
+      return { ...p, layer, color, rings: p.rings.map((r) => applyAll(m, r)), ...(p.hatch ? { hatch: transformHatch(p.hatch, m) } : {}) };
     case 'point':
       return { ...p, layer, color, position: apply(m, p.position) };
     case 'note':
@@ -257,7 +269,8 @@ class Builder {
           for (const poly of nestRings(rings)) emit({ ...base, kind: 'polygon', rings: poly, fillOpacity: SOLID_FILL_OPACITY });
         } else {
           const pattern = e.pattern || 'PATTERN';
-          for (const poly of nestRings(rings)) emit({ ...base, kind: 'polygon', rings: poly, fillOpacity: PATTERN_FILL_OPACITY, pattern });
+          const hatch = e.def;
+          for (const poly of nestRings(rings)) emit({ ...base, kind: 'polygon', rings: poly, fillOpacity: PATTERN_FILL_OPACITY, pattern, ...(hatch ? { hatch } : {}) });
           out.push({ ...base, kind: 'note', key: 'pattern-hatch' });
         }
         return;
@@ -416,7 +429,11 @@ export function buildDocument(src: SrcDocument, opts: BuildOptions = {}): CadDoc
           entities.push(p.width ? { ...common, kind: 'polyline', points: p.points, closed: p.closed, width: p.width } : { ...common, kind: 'polyline', points: p.points, closed: p.closed });
           break;
         case 'polygon':
-          entities.push(p.pattern ? { ...common, kind: 'polygon', rings: p.rings, fillOpacity: p.fillOpacity, pattern: p.pattern } : { ...common, kind: 'polygon', rings: p.rings, fillOpacity: p.fillOpacity });
+          entities.push(
+            p.pattern
+              ? { ...common, kind: 'polygon', rings: p.rings, fillOpacity: p.fillOpacity, pattern: p.pattern, ...(p.hatch ? { hatch: p.hatch } : {}) }
+              : { ...common, kind: 'polygon', rings: p.rings, fillOpacity: p.fillOpacity },
+          );
           break;
         case 'point':
           entities.push({ ...common, kind: 'point', position: p.position });
@@ -495,5 +512,6 @@ export function buildDocument(src: SrcDocument, opts: BuildOptions = {}): CadDoc
     entities: finalEntities,
     bbox: robustBBox(finalEntities),
     warnings,
+    ...(src.xrefs?.length ? { xrefs: src.xrefs } : {}),
   };
 }

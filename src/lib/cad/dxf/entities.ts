@@ -1,6 +1,6 @@
 // Raw DXF group-code entities → SrcEntity. DXF angles: degrees for ARC/TEXT/INSERT/hatch edges,
 // radians (parameters) for ELLIPSE. MTEXT direction vector preferred over its rotation.
-import type { Vec2 } from '../types';
+import type { HatchDef, HatchLine, Vec2 } from '../types';
 import type { Vec3 } from '../normalize/matrix';
 import {
   type SrcColor,
@@ -130,6 +130,45 @@ function readEdge(c: Cursor): SrcEdge | null {
 }
 
 /** Sequential HATCH boundary parsing (group codes repeat between sections, so order matters). */
+/**
+ * Pattern definition of a HATCH: 52 angle, 41 scale, 77 double, 76 type, then 78 lines of
+ * 53 angle / 43,44 base / 45,46 offset / 79 n + 49 dashes (already scaled and rotated, degrees).
+ */
+export function parseHatchPattern(groups: Group[]): HatchDef | null {
+  const i78 = groups.findIndex((g) => g.code === 78);
+  if (i78 < 0) return null;
+  const num = (v: GroupValue) => toNum(v) ?? 0;
+  let angle = 0;
+  let scale = 1;
+  let double = false;
+  let type = 1;
+  for (let i = i78 - 1; i >= 0 && i >= i78 - 8; i--) {
+    const g = groups[i];
+    if (g.code === 52) angle = num(g.value);
+    else if (g.code === 41) scale = num(g.value) || 1;
+    else if (g.code === 77) double = num(g.value) !== 0;
+    else if (g.code === 76) type = num(g.value);
+  }
+  const n = num(groups[i78].value);
+  const lines: HatchLine[] = [];
+  let i = i78 + 1;
+  for (let k = 0; k < n && i < groups.length; k++) {
+    if (groups[i].code !== 53) break;
+    const line: HatchLine = { angle: num(groups[i++].value), base: [0, 0], offset: [0, 0], dashes: [] };
+    for (; i < groups.length && groups[i].code !== 53; i++) {
+      const g = groups[i];
+      if (g.code === 43) line.base[0] = num(g.value);
+      else if (g.code === 44) line.base[1] = num(g.value);
+      else if (g.code === 45) line.offset[0] = num(g.value);
+      else if (g.code === 46) line.offset[1] = num(g.value);
+      else if (g.code === 49) line.dashes.push(num(g.value));
+      else if (g.code !== 79) break;
+    }
+    lines.push(line);
+  }
+  return lines.length ? { angle, scale, double, type, lines } : null;
+}
+
 export function parseHatchLoops(groups: Group[]): SrcLoop[] {
   const c = new Cursor(groups);
   if (!c.seek(91)) return [];
@@ -418,7 +457,8 @@ export function convertRawList(list: RawEntity[], ctx: ConvertContext, isModelSp
       }
       case 'HATCH': {
         const solid = n(f, 70) === 1 || n(f, 450) === 1;
-        out.push({ ...common, type: 'hatch', extrusion: extrusion(f), solid, pattern: s(f, 2), loops: parseHatchLoops(raw.groups) });
+        const def = solid ? null : parseHatchPattern(raw.groups);
+        out.push({ ...common, type: 'hatch', extrusion: extrusion(f), solid, pattern: s(f, 2), ...(def ? { def } : {}), loops: parseHatchLoops(raw.groups) });
         break;
       }
       case 'TEXT': {

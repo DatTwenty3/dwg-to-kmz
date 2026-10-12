@@ -41,6 +41,8 @@ import {
   IconXCircle,
   Logo,
 } from './icons';
+import { pickedFromDrop, pickedFromInput } from './dropFiles';
+import { clearCheckerHandoff, peekCheckerHandoff } from './handoff';
 import GdbMap from './GdbMap';
 import GdbNormalizeDialog from './GdbNormalizeDialog';
 
@@ -104,32 +106,6 @@ const TYPE_LABEL: Record<string, string> = {
   binary: 'Blob',
   raster: 'Raster',
 };
-
-// ---- File collection (folder drop / folder picker / zip) --------------------------------------------------
-
-async function fromDataTransfer(dt: DataTransfer): Promise<Picked[]> {
-  const out: Picked[] = [];
-  const roots = [...dt.items].map((i) => i.webkitGetAsEntry?.()).filter((e): e is FileSystemEntry => !!e);
-  if (!roots.length) return [...dt.files].map((f) => ({ path: f.name, file: f }));
-  const walk = async (entry: FileSystemEntry, prefix: string): Promise<void> => {
-    if (entry.isFile) {
-      const file = await new Promise<File>((res, rej) => (entry as FileSystemFileEntry).file(res, rej));
-      out.push({ path: prefix + entry.name, file });
-    } else if (entry.isDirectory) {
-      const reader = (entry as FileSystemDirectoryEntry).createReader();
-      // readEntries returns batches (≤100 in Chrome) until an empty one.
-      for (;;) {
-        const batch = await new Promise<FileSystemEntry[]>((res, rej) => reader.readEntries(res, rej));
-        if (!batch.length) break;
-        for (const e of batch) await walk(e, `${prefix}${entry.name}/`);
-      }
-    }
-  };
-  for (const r of roots) await walk(r, '');
-  return out;
-}
-
-const fromInput = (files: FileList): Picked[] => [...files].map((f) => ({ path: f.webkitRelativePath || f.name, file: f }));
 
 // ---- CSV report -------------------------------------------------------------------------------------------
 
@@ -638,6 +614,7 @@ export default function GdbChecker() {
               : 'Không tìm thấy geodatabase (.gdb) nào — hãy chọn thư mục .gdb, thư mục HoSoGIS, hoặc file .zip chứa chúng.',
           );
         else {
+          clearCheckerHandoff();
           setRep(m.report);
           if (fresh) {
             setAskProvince(true);
@@ -658,6 +635,13 @@ export default function GdbChecker() {
     };
     w.postMessage({ type: 'check', files } satisfies GdbWorkerRequest);
   };
+  // A HoSoGIS.zip handed over by "Bóc tách DWG → TT16" (client-side navigation).
+  useEffect(() => {
+    const files = peekCheckerHandoff();
+    if (!files?.length) return;
+    const t = setTimeout(() => run(files.map((file) => ({ path: file.name, file }))));
+    return () => clearTimeout(t);
+  }, []);
   /** Re-check the same files with a province chosen by the user (null = from the planning codes). */
   const recheck = (code: string | null) => {
     setProvince(code);
@@ -713,7 +697,7 @@ export default function GdbChecker() {
     onDrop: async (e: React.DragEvent) => {
       e.preventDefault();
       setOver(false);
-      if (!busy) run(await fromDataTransfer(e.dataTransfer));
+      if (!busy) run(await pickedFromDrop(e.dataTransfer));
     },
   };
 
@@ -725,7 +709,7 @@ export default function GdbChecker() {
         multiple
         className="hidden"
         onChange={(e) => {
-          if (e.target.files) run(fromInput(e.target.files));
+          if (e.target.files) run(pickedFromInput(e.target.files));
           e.target.value = '';
         }}
       />
@@ -736,7 +720,7 @@ export default function GdbChecker() {
         multiple
         className="hidden"
         onChange={(e) => {
-          if (e.target.files) run(fromInput(e.target.files));
+          if (e.target.files) run(pickedFromInput(e.target.files));
           e.target.value = '';
         }}
       />
@@ -763,7 +747,10 @@ export default function GdbChecker() {
               <Logo className="h-8 w-8" />
               <span className="ui-wordmark text-lg leading-none">{BRAND}</span>
             </Link>
-            <Link href="/" className="ui-btn-ghost ml-auto">
+            <Link href="/bo-tach-dwg" className="ui-btn-ghost ml-auto hidden sm:inline-flex" title="Tạo HoSoGIS từ các bản vẽ DWG">
+              Bóc tách DWG → TT16
+            </Link>
+            <Link href="/" className="ui-btn-ghost">
               <IconArrowLeft width={14} height={14} /> Trang chủ
             </Link>
           </div>

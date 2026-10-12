@@ -1,0 +1,291 @@
+// Built-in suggestions "CAD layer → TT16 feature class" for planning drawings. Layer names of Vietnamese
+// planning offices follow loose habits (DAT_XD_Khudancu, QHDD_DAT_NN_Tronglua, HTKT_CD_Tuyen 22 kV, GT-MCN…):
+// the name is folded (no accents, lower case, no separators) and matched against ordered rules that depend on
+// the map the layer comes from (its role) and on the geometry kind. Anything not recognised stays unmapped —
+// the user decides in the mapping table, and a saved template (template.ts) wins over these rules.
+import { foldVietnamese } from '@/lib/geo/provinces';
+import { roleById, type RoleId } from './roles';
+
+/** Geometry kinds of a layer row: vùng (hatch/solid), đường (polyline), điểm (point), chữ (text). */
+export type GeomKind = 'A' | 'L' | 'P' | 'T';
+
+/** "QuyHoach/QuyHoachGiaoThong/MangLuoiGiaoThongDuongBo_L" */
+export type TargetPath = string;
+
+export const targetPath = (db: string, dataset: string, cls: string): TargetPath => `${db}/${dataset}/${cls}`;
+export function parseTarget(t: TargetPath): { db: string; dataset: string; cls: string } | null {
+  const [db, dataset, cls] = t.split('/');
+  return db && dataset && cls ? { db, dataset, cls } : null;
+}
+
+export interface Suggestion {
+  target: TargetPath | null;
+  phanLoai: string;
+  /** Why (shown as a tooltip), e.g. "nền sử dụng đất — đã lấy từ bản đồ sử dụng đất". */
+  reason: string;
+  /** No rule applied: the user should decide (a layer left out on purpose has `unknown` false). */
+  unknown?: boolean;
+}
+
+export interface LayerFacts {
+  /** Closed polylines / all polylines of the row (L rows). */
+  closedShare?: number;
+  /** The same layer also has hatches (A row) in this drawing. */
+  layerHasPolygons?: boolean;
+  /** Share of texts that are numbers ("2,18", "+1.5") — elevations (T rows). */
+  numericShare?: number;
+}
+
+type Theme = 'sdd' | 'ktcq' | 'tkdt' | 'gt' | 'cg' | 'cbkt' | 'tnt' | 'nuoc' | 'dien' | 'ttll' | 'mt' | 'ranh';
+
+const DATASET: Record<Theme, [string, string]> = {
+  sdd: ['HienTrangSuDungDat', 'QuyHoachSuDungDat'],
+  ktcq: ['HienTrangKhongGianKienTrucCanhQuan', 'QuyHoachKhongGianKienTrucCanhQuan'],
+  tkdt: ['HienTrangKhongGianKienTrucCanhQuan', 'ThietKeDoThi'],
+  gt: ['HienTrangGiaoThong', 'QuyHoachGiaoThong'],
+  cg: ['HienTrangCGDD_CGXDHanhLangHTKT', 'QuyHoachCGDD_CGXDHanhLangHTKT'],
+  cbkt: ['HienTrangChuanBiKyThuat', 'QuyHoachChuanBiKyThuat'],
+  tnt: ['HienTrangThoatNuocThaiVSMT', 'QuyHoachThoatNuocThaiVSMT'],
+  nuoc: ['HienTrangCapNuoc', 'QuyHoachCapNuoc'],
+  dien: ['HienTrangCapDien', 'QuyHoachCapDien'],
+  ttll: ['HienTrangThongTinLienLac', 'QuyHoachThongTinLienLac'],
+  mt: ['DanhGiaHienTrangMoiTruong', 'GiaiPhapBaoVeMoiTruong'],
+  ranh: ['ViTriRanhGioi', 'ViTriRanhGioi'],
+};
+
+/** Folded layer name without separators: "HTKT_CD_Tuyen 22 kV" → "htktcdtuyen22kv". */
+export const compactName = (s: string) => foldVietnamese(s).replace(/ /g, '');
+
+/** Land use categories (QCVN 01:2021/BXD wording) recognised in layer names. Order matters. */
+const LAND_USE: [RegExp, string][] = [
+  [/chuasudung/, 'Đất chưa sử dụng'],
+  [/khudancu|dato\b|^dato|datodothi|olangxom|onongthon|onongthon|datonongthon|ontdato|taidinhcu|\bont\b|nhao|dat?o$/, 'Đất ở'],
+  [/tronglua|ruonglua|datlua|lua$/, 'Đất trồng lúa'],
+  [/cayhangnam|hangnam|trongtrotkhac/, 'Đất trồng cây hàng năm khác'],
+  [/caylaunam|launam|vuon/, 'Đất trồng cây lâu năm'],
+  [/thuysan|nuoitrong/, 'Đất nuôi trồng thủy sản'],
+  [/rungphongho/, 'Đất rừng phòng hộ'],
+  [/rungdacdung/, 'Đất rừng đặc dụng'],
+  [/rungsanxuat|rung$/, 'Đất rừng sản xuất'],
+  [/lammuoi|muoi$/, 'Đất làm muối'],
+  [/nongnghiepkhac/, 'Đất nông nghiệp khác'],
+  [/quocphong|anninh/, 'Đất quốc phòng, an ninh'],
+  [/hanhchinh|truso|coquan/, 'Đất cơ quan, trụ sở'],
+  [/giaoduc|mamnon|tieuhoc|trunghoc|truonghoc|thcs|thpt/, 'Đất giáo dục'],
+  [/yte|tramyte|benhvien/, 'Đất y tế'],
+  [/vanhoa|nhavanhoa/, 'Đất văn hóa'],
+  [/cayxanhcachly|cachly/, 'Đất cây xanh cách ly'],
+  [/tdtt|thethao|theduc/, 'Đất cây xanh, thể dục thể thao'],
+  [/cayxanh|congvien|cx$/, 'Đất cây xanh sử dụng công cộng'],
+  [/congcong|ctcc/, 'Đất công cộng'],
+  [/tongiao|tinnguong|chua$|dinh$|nhatho/, 'Đất tôn giáo, tín ngưỡng'],
+  [/ditich/, 'Đất di tích, danh thắng'],
+  [/nghiatrang|nghiadia|nhatangle/, 'Đất nghĩa trang, nhà tang lễ'],
+  [/chatthai|xulyrac|bairac|xuly/, 'Đất xử lý chất thải'],
+  [/congnghiep|cumcn|khucn|ttcn|tieuthucong/, 'Đất công nghiệp, tiểu thủ công nghiệp'],
+  [/khoangsan|vatlieu|vlxd/, 'Đất khoáng sản, vật liệu xây dựng'],
+  [/phucvusanxuat|hatangsanxuat|hatangphucvu/, 'Đất hạ tầng phục vụ sản xuất'],
+  [/dulich/, 'Đất du lịch'],
+  [/thuongmai|dichvu|tmdv|cho$|datcho/, 'Đất thương mại, dịch vụ'],
+  [/baitam/, 'Đất bãi tắm'],
+  [/htkt|hatangkythuat|daumoi|hatang$/, 'Đất hạ tầng kỹ thuật'],
+  [/matnuoc|songrach|song|rach|kenh|muong|ao$|aoho|thuyloi|ho$/, 'Đất sông, ngòi, kênh, rạch, suối, mặt nước'],
+  [/giaothong|duongnhua|duongbetong|duong|bendo|baido/, 'Đất giao thông'],
+  [/chucnangkhac|khac$/, 'Đất chức năng khác'],
+];
+
+export function landUseOf(compact: string): string | null {
+  for (const [re, label] of LAND_USE) if (re.test(compact)) return label;
+  return null;
+}
+
+/** Readable label from a layer name: "HTKT_CD_Tuyen 22 kV" → "Tuyến 22 kV"-ish fallback ("CD Tuyen 22 kV"). */
+export function prettyLayer(name: string): string {
+  return name
+    .replace(/^(HTKT|QHDD|QHDH|HT|QH|HK-QH|NTM|BV|KH)[-_ ]+/i, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .normalize('NFC');
+}
+
+const kv = (c: string) => /(\d{2,3})kv/.exec(c)?.[1] ?? (/(500|220|110|35|22)$/.exec(c)?.[1] || null);
+
+/** Layers that never carry GIS data: annotation, dimensions, frames, legend, viewports. */
+const NEVER =
+  /^(0|1|2|3|defpoints|ve|vp|viewport|layer\d*|text\w*|dim\w*|kichthuoc|khung\w*|bv(khung|ten|chugiai|tenchugiai|khungten|khungbanve)\w*|\w*chugiai\w*|\w*ghichu\w*|\w*kyhieu\w*|gchu|hkqhgchu|\w*text|\w*dim|tenkenh\w*|ten\w*|\w*mattcat\w*|mcat|kh ?mc|mcduong|\w*tieude\w*|\w*hoagio\w*|\w*thuoc(tyle)?\w*|\w*tyle\w*|\w*logo\w*)$/;
+
+const BOUNDARY_PLAN = /rglap|ranh\w*lap|lapquyhoach|ranhquyhoach|ranhqh|rgqh|ranhnghiencuu|phamvinghiencuu/;
+const BOUNDARY_ADMIN = /rgcapcoso|ranhgioi(xa|huyen|tinh|hanhchinh)|ranh(xa|huyen|tinh|hanhchinh)|diagioi|rg(xa|huyen|tinh|hc)\b|ranhgioihuyen|ranhap|rgap/;
+/** Land use colours repeated under infrastructure maps (already taken from the land use map). */
+const LAND_USE_BACKGROUND = /^(qhdd|qhdh|ht|hkqh|ntm|hkqhntm)?dat|^ntm|^qhdd|^qhdh/;
+
+/** Classes per kind for a theme, by keyword. Returns [class, phanLoai] or null. */
+type Pick = { theme: Theme; cls: string; phanLoai: string } | null;
+
+function roads(c: string, kind: GeomKind, p: string): Pick {
+  if (!/duong|giaothong|^gt|gt$|quoclo|tinhlo|huyenlo|^ql|^dt|^dh|lo$|nhua|betong|cau$|^cau|ben|baido|tim|mepduong|bovia|leduong|hem|ngo|mcn|logioi|chigioi/.test(c)) return null;
+  if (/logioi|chigioiduongdo|cgdd|duongdo/.test(c)) return kind === 'L' ? { theme: 'cg', cls: 'ChiGioiDuongDo_L', phanLoai: 'Chỉ giới đường đỏ' } : null;
+  if (/chigioixaydung|cgxd/.test(c)) return kind === 'L' ? { theme: 'cg', cls: 'ChiGioiXayDung_L', phanLoai: 'Chỉ giới xây dựng' } : null;
+  if (kind === 'A') {
+    if (/ben|baido|cau|nut/.test(c)) return { theme: 'gt', cls: 'CongTrinhGiaoThong_A', phanLoai: p };
+    return { theme: 'gt', cls: 'MangLuoiGiaoThongDuongBo_A', phanLoai: p };
+  }
+  if (kind === 'P') return /cau|cong|ben|tram|baido/.test(c) ? { theme: 'gt', cls: 'CongTrinhGiaoThong_P', phanLoai: p } : null;
+  if (kind !== 'L') return null;
+  if (/mep|bovia|leduong|vihe|viahe|phancach|mcn/.test(c)) return { theme: 'gt', cls: 'BoViaDaiPhanCach_L', phanLoai: p };
+  if (/huongdi/.test(c)) return { theme: 'gt', cls: 'HuongDi_L', phanLoai: p };
+  if (/^cau|cau$|congtrinh/.test(c)) return { theme: 'gt', cls: 'CongTrinhGiaoThong_L', phanLoai: p };
+  return { theme: 'gt', cls: 'MangLuoiGiaoThongDuongBo_L', phanLoai: p };
+}
+
+function power(c: string, kind: GeomKind): Pick {
+  if (!/dien|kv|^ee|^e$|^e\d|cdtuyen|tuyen\d|trungthe|hathe|caothe|tba|bienap|tramdien|dientram|chieusang|denduong|^den/.test(c)) return null;
+  const v = kv(c);
+  if (/chieusang|denduong|^den/.test(c)) return kind === 'L' ? { theme: 'dien', cls: 'MangLuoiChieuSang_L', phanLoai: 'Chiếu sáng' } : kind === 'T' ? null : { theme: 'dien', cls: 'CongTrinhChieuSang_P', phanLoai: 'Đèn chiếu sáng' };
+  if (/tba|bienap|tram/.test(c)) {
+    if (kind === 'A' || kind === 'P') return { theme: 'dien', cls: 'CongTrinhCapDien_P', phanLoai: v ? `Trạm biến áp ${v} kV` : 'Trạm biến áp' };
+    return null; // outline of the symbol
+  }
+  if (kind === 'L') return { theme: 'dien', cls: 'MangLuoiPhanPhoiDien_L', phanLoai: v ? `Đường dây ${v} kV` : /trungthe/.test(c) ? 'Đường dây trung thế' : /hathe/.test(c) ? 'Đường dây hạ thế' : 'Đường dây điện' };
+  return null;
+}
+
+function water(c: string, kind: GeomKind, p: string): Pick {
+  if (!/capnuoc|^cn|ongnuoc|ong(d|phi)?\d|tuyenong|nuocsach|nhamaynuoc|tramcapnuoc|tramnuoc|pccc|cuuhoa|hong|tru(cuu)?hoa|daunoi|thapnuoc|nuoc$/.test(c)) return null;
+  if (/pccc|cuuhoa|truhoa|hongcuuhoa/.test(c)) return kind === 'L' ? null : { theme: 'nuoc', cls: 'CongTrinhCapNuocPCCC_P', phanLoai: 'Trụ cứu hỏa' };
+  if (/daunoi/.test(c)) return kind === 'L' ? null : { theme: 'nuoc', cls: 'DiemDauNoi_P', phanLoai: 'Điểm đấu nối' };
+  if (/nhamay|tram|thap|be$|xuly/.test(c)) return kind === 'A' ? { theme: 'nuoc', cls: 'CongTrinhCapNuocPCCC_A', phanLoai: 'Công trình cấp nước' } : kind === 'P' ? { theme: 'nuoc', cls: 'CongTrinhCapNuocPCCC_P', phanLoai: 'Công trình cấp nước' } : null;
+  if (/phanvung/.test(c)) return kind === 'A' ? { theme: 'nuoc', cls: 'PhanVungCapNuoc_A', phanLoai: p } : null;
+  return kind === 'L' ? { theme: 'nuoc', cls: 'MangLuoiCapNuoc_L', phanLoai: 'Đường ống cấp nước' } : null;
+}
+
+function drainage(c: string, kind: GeomKind, p: string, defaultMua: boolean): Pick {
+  const thai = /nuocthai|tnt|^nt\b|xulynuocthai|htxl|tramxl|nhamayxl/.test(c);
+  const mua = /nuocmua|tnm|mua$/.test(c);
+  if (!thai && !mua && !/thoatnuoc|^tn|cong(thoat|tron|hop|d\d)|muong|ranh|luuvuc|phanluu|huongthoat|xuly|chatthai|rac|hoga/.test(c)) return null;
+  if (/hoga|giengthu|gietthu|ganuoc/.test(c)) {
+    if (kind === 'L' || kind === 'T') return null;
+    return thai ? { theme: 'tnt', cls: 'CongTrinhTNTvaVSMT_P', phanLoai: 'Hố ga thoát nước thải' } : { theme: 'cbkt', cls: 'CongTrinhCBKT_P', phanLoai: 'Hố ga thoát nước mưa' };
+  }
+  if (/luuvuc/.test(c)) return kind === 'A' ? { theme: 'cbkt', cls: 'PhanVungLuuVuc_A', phanLoai: p } : null;
+  if (/chatthai|rac|xulyrac/.test(c)) return kind === 'L' || kind === 'T' ? null : { theme: 'tnt', cls: kind === 'A' ? 'CongTrinhTNTvaVSMT_A' : 'CongTrinhTNTvaVSMT_P', phanLoai: 'Khu xử lý chất thải rắn' };
+  if (/xuly|tram|nhamay|htxl/.test(c)) return kind === 'L' || kind === 'T' ? null : { theme: 'tnt', cls: kind === 'A' ? 'CongTrinhTNTvaVSMT_A' : 'CongTrinhTNTvaVSMT_P', phanLoai: 'Trạm xử lý nước thải' };
+  if (kind !== 'L') return null;
+  if (/huong/.test(c)) return thai ? { theme: 'tnt', cls: 'HuongThoatNuocThai_L', phanLoai: p } : { theme: 'cbkt', cls: 'HuongThoatNuocMua_L', phanLoai: p };
+  if (/phanluu/.test(c)) return thai ? { theme: 'tnt', cls: 'PhanLuuThoatNuocThai_L', phanLoai: p } : { theme: 'cbkt', cls: 'PhanLuuThoatNuocMua_L', phanLoai: p };
+  if (thai || (!mua && !defaultMua)) return { theme: 'tnt', cls: 'MangLuoiThoatNuocThai_L', phanLoai: 'Tuyến thoát nước thải' };
+  return { theme: 'cbkt', cls: 'MangLuoiThoatNuocMua_L', phanLoai: 'Tuyến thoát nước mưa' };
+}
+
+function telecom(c: string, kind: GeomKind): Pick {
+  if (!/ttll|thongtin|vienthong|capquang|cap(tt|thongtin)|bts|buudien|tongdai|tramthu|cotang|cot(tt|anten)|internet/.test(c)) return null;
+  if (/bts|buudien|tongdai|tram|cot/.test(c)) return kind === 'L' || kind === 'T' ? null : { theme: 'ttll', cls: kind === 'A' ? 'CongTrinhThongTin_A' : 'CongTrinhThongTin_P', phanLoai: /bts|cot/.test(c) ? 'Trạm BTS' : /buudien/.test(c) ? 'Bưu điện' : 'Công trình thông tin' };
+  return kind === 'L' ? { theme: 'ttll', cls: 'MangLuoiCapThongTin_L', phanLoai: 'Tuyến cáp thông tin' } : null;
+}
+
+function boundary(c: string, kind: GeomKind, facts: LayerFacts): Pick {
+  if (BOUNDARY_PLAN.test(c)) {
+    if (kind === 'A' || (kind === 'L' && (facts.closedShare ?? 0) > 0)) return { theme: 'ranh', cls: 'RanhGioiQuyHoach_A', phanLoai: 'Ranh giới lập quy hoạch' };
+    return null;
+  }
+  if (BOUNDARY_ADMIN.test(c)) {
+    if (kind === 'L' || kind === 'A') return { theme: 'ranh', cls: 'RanhGioiHanhChinh_L', phanLoai: /ap/.test(c) ? 'Ranh giới ấp' : /huyen/.test(c) ? 'Ranh giới huyện' : /tinh/.test(c) ? 'Ranh giới tỉnh' : 'Ranh giới xã' };
+    if (kind === 'T') return { theme: 'ranh', cls: 'TenDonViHanhChinh_P', phanLoai: 'Tên đơn vị hành chính' };
+  }
+  return null;
+}
+
+const SDD_ROLES = new Set<RoleId>(['ht-sdd', 'qh-sdd']);
+
+/**
+ * Suggestion for one row (drawing role × layer × geometry kind). `target: null` = leave out
+ * (with the reason), or "chưa nhận ra" when no rule applies.
+ */
+export function suggest(roleId: RoleId, layer: string, kind: GeomKind, facts: LayerFacts = {}): Suggestion {
+  const role = roleById(roleId);
+  const none = (reason: string): Suggestion => ({ target: null, phanLoai: '', reason });
+  const unknown = (reason: string): Suggestion => ({ target: null, phanLoai: '', reason, unknown: true });
+  if (!role.db) return none('Bản vẽ không dùng để tạo dữ liệu');
+  const c = compactName(layer);
+  const p = prettyLayer(layer);
+  const hien = role.db === 'HienTrang';
+  const at = (x: NonNullable<Pick>, why: string): Suggestion => {
+    // Ranh giới is written to QuyHoach (and copied to HienTrang when it has none — see features.ts).
+    const db = x.theme === 'ranh' ? 'QuyHoach' : role.db!;
+    return { target: targetPath(db, DATASET[x.theme][db === 'HienTrang' ? 0 : 1], x.cls), phanLoai: x.phanLoai, reason: why };
+  };
+
+  // Boundaries: kept only from the drawing whose role is "ranh" or from any map when it is the planning area
+  // (one feature, de-duplicated when exporting).
+  const b = boundary(c, kind, facts);
+  if (b) return at(b, 'Tên layer là ranh giới');
+  if (NEVER.test(c) || c === '') return none('Chữ, ký hiệu, khung, kích thước — không phải dữ liệu GIS');
+  if (/tuongrao|hangrao/.test(c)) return none('Tường rào — không có lớp tương ứng');
+
+  if (kind === 'T') {
+    if ((facts.numericShare ?? 0) >= 0.7 && /nen|caodo|cdtk|cdht|ks|khaosat|dodac|^\d|giaithua|hientrang|thietke/.test(c))
+      return at({ theme: 'cbkt', cls: 'CaoDoNen_P', phanLoai: hien ? 'Cao độ hiện trạng' : 'Cao độ thiết kế' }, 'Chữ số cao độ');
+    return none('Chữ — dùng làm tên đối tượng (tenDoiTuong) của vùng chứa nó');
+  }
+
+  if (SDD_ROLES.has(roleId)) {
+    if (kind === 'A' || (kind === 'L' && !facts.layerHasPolygons && (facts.closedShare ?? 0) >= 0.8)) {
+      if (/nha|bkc|kientruc|congtrinh|nhaxay/.test(c) && !/nhavanhoa|nhatho|nhatang/.test(c))
+        return at({ theme: 'ktcq', cls: 'CongTrinh_A', phanLoai: /bkc/.test(c) ? 'Nhà bán kiên cố' : /kc|kiencuo/.test(c) ? 'Nhà kiên cố' : 'Nhà, công trình' }, 'Nhà / công trình');
+      if (/phankhu/.test(c) && !hien) return at({ theme: 'sdd', cls: 'PhanKhuQuyHoach_A', phanLoai: p }, 'Phân khu');
+      const lu = landUseOf(c);
+      if (lu) return at({ theme: 'sdd', cls: 'ChucNangSuDungDat_A', phanLoai: lu }, 'Loại đất nhận ra từ tên layer');
+      if (/^(qhdd|qhdh|ht|hkqh)?dat|^ntm/.test(c)) return at({ theme: 'sdd', cls: 'ChucNangSuDungDat_A', phanLoai: p }, 'Layer đất (DAT_…)');
+      return unknown('Chưa nhận ra loại đất — hãy chọn lớp');
+    }
+    if (kind === 'L') {
+      const r = roads(c, kind, p);
+      if (r && r.theme === 'cg') return at(r, 'Lộ giới / chỉ giới');
+      if (r && /tim/.test(c)) return at(r, 'Tim đường');
+      return none('Đường viền thửa/lô — vùng đã lấy từ hatch');
+    }
+    return none('Điểm khảo sát / ký hiệu');
+  }
+
+  if (LAND_USE_BACKGROUND.test(c)) return none('Nền sử dụng đất — đã lấy từ bản đồ sử dụng đất');
+
+  const tries: ((c: string, k: GeomKind, p: string) => Pick)[] =
+    roleId === 'qh-gt'
+      ? [roads]
+      : roleId === 'qh-dien'
+        ? [power]
+        : roleId === 'qh-nuoc'
+          ? [water]
+          : roleId === 'qh-tn'
+            ? [(cc, k, pp) => drainage(cc, k, pp, true)]
+            : roleId === 'qh-ttll'
+              ? [telecom]
+              : roleId === 'ht-htkt'
+                ? [power, water, (cc, k, pp) => drainage(cc, k, pp, true), telecom, roads]
+                : [];
+  if (roleId === 'ht-htkt' && /^nha|bkc|congtrinh/.test(c) && !/nhavanhoa|nhatho|nhatang/.test(c)) {
+    if (kind === 'A' || (kind === 'L' && (facts.closedShare ?? 0) >= 0.5)) return at({ theme: 'ktcq', cls: 'CongTrinh_A', phanLoai: /bkc/.test(c) ? 'Nhà bán kiên cố' : /kc/.test(c) ? 'Nhà kiên cố' : /tam|^nhat$/.test(c) ? 'Nhà tạm' : 'Nhà, công trình' }, 'Nhà / công trình');
+    return none('Ký hiệu / chữ của nhà');
+  }
+  for (const t of tries) {
+    const r = t(c, kind, p);
+    if (r) return at(r, 'Tên layer khớp chuyên đề của bản vẽ');
+  }
+  if (roleId === 'qh-ktcq') {
+    if (/diemnhan|cuango|bieu ?tuong/.test(c) && kind !== 'L') return at({ theme: 'tkdt', cls: 'DiemNhanChinh_P', phanLoai: p }, 'Điểm nhấn');
+    if (/truc|tuyen|canhquan|khonggian|huongphattrien/.test(c)) {
+      if (kind === 'L') return at({ theme: 'ktcq', cls: 'KhongGianKTCQ_L', phanLoai: p }, 'Trục / tuyến không gian');
+      if (kind === 'A') return at({ theme: 'ktcq', cls: 'KhongGianKTCQ_A', phanLoai: p }, 'Vùng không gian');
+    }
+    if (/vung|khuvuc|phankhu/.test(c) && kind === 'A') return at({ theme: 'ktcq', cls: 'KhongGianKTCQ_A', phanLoai: p }, 'Vùng không gian');
+  }
+  if (roleId === 'qh-cbkt' && kind === 'A' && /sannen|phanvung/.test(c)) return at({ theme: 'cbkt', cls: 'PhanVungSanNen_A', phanLoai: p }, 'San nền');
+  if (roleId === 'qh-mt') {
+    if (/quantrac/.test(c) && kind !== 'L') return at({ theme: 'mt', cls: 'DiemQuanTrac_P', phanLoai: p }, 'Điểm quan trắc');
+  }
+  if ((kind === 'A' || kind === 'L') && landUseOf(c)) return none('Nền sử dụng đất — đã lấy từ bản đồ sử dụng đất');
+  if (/sodo|ghepmanh|luoito?a?do|^level/.test(c)) return none('Sơ đồ ghép mảnh / lưới — không phải dữ liệu GIS');
+  return unknown('Chưa nhận ra — hãy chọn lớp nếu layer có dữ liệu');
+}

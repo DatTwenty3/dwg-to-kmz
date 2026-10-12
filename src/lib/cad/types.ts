@@ -55,6 +55,29 @@ export interface PolygonEntity extends EntityBase {
   fillOpacity: number;
   /** Hatch pattern name (e.g. 'CLAY', 'GRASS'); undefined for solid fills. Pattern hatches are drawn as a tint. */
   pattern?: string;
+  /** Pattern definition of a pattern hatch (DWG/DXF), kept so a DXF export writes the same hatch. */
+  hatch?: HatchDef;
+}
+
+/** One family of parallel pattern lines, as stored in the HATCH (already scaled and rotated, drawing units). */
+export interface HatchLine {
+  /** Degrees. */
+  angle: number;
+  base: Vec2;
+  offset: Vec2;
+  /** Dash (> 0) / gap (< 0) / dot (0) lengths. */
+  dashes: number[];
+}
+
+export interface HatchDef {
+  /** Pattern angle, degrees (informative: the lines are already rotated). */
+  angle: number;
+  /** Pattern scale (informative: the lines are already scaled). */
+  scale: number;
+  double: boolean;
+  /** 0 user-defined, 1 predefined, 2 custom. */
+  type: number;
+  lines: HatchLine[];
 }
 
 export type HAlign = 'left' | 'center' | 'right';
@@ -114,6 +137,17 @@ export interface CadDocument {
   bbox: [Vec2, Vec2];
   /** Human-readable (Vietnamese) messages: skipped entity types, decode doubts, etc. */
   warnings: string[];
+  /** External references (xref) attached in model space; their content is in other files (DWG only). */
+  xrefs?: XrefInsert[];
+}
+
+/** An xref INSERT: the block name is the xref name (usually the referenced file name without .dwg). */
+export interface XrefInsert {
+  name: string;
+  position: Vec2;
+  scale: Vec2;
+  /** Degrees, counter-clockwise. */
+  rotation: number;
 }
 
 /** How to go from drawing coordinates to WGS84. */

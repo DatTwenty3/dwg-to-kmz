@@ -170,7 +170,10 @@ export function transformDocument(doc: CadDocument, crs: CrsOptions): CadDocumen
           dropped++;
           break;
         }
-        entities.push({ ...e, rings });
+        // Pattern lines are in drawing units: not carried once the coordinates are lng/lat.
+        const { hatch, ...rest } = e;
+        void hatch;
+        entities.push({ ...rest, rings });
         break;
       }
       case 'text': {

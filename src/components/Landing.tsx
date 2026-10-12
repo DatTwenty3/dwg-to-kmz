@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { filesFromDrop } from './dropFiles';
 import Tagline from './Tagline';
-import { IconAlert, IconArrowRight, IconCheck, IconDatabaseCheck, IconPen, IconUpload, Logo } from './icons';
+import { IconAlert, IconArrowRight, IconCheck, IconDatabaseCheck, IconLayers, IconPen, IconUpload, Logo } from './icons';
 import { useFileAccept } from './useFileAccept';
 
 /** Formats cycled in the headline, in the order the app reads them. */
@@ -353,11 +353,18 @@ export default function Landing({
             )}
 
             {!busy && (
-              <Link href="/kiem-tra-gdb" className="ui-btn-ghost mx-auto mt-3 text-[13px]">
-                <IconDatabaseCheck width={15} height={15} />
-                Kiểm tra CSDL GIS (.gdb) theo Thông tư 16/2025/TT-BXD
-                <IconArrowRight width={14} height={14} />
-              </Link>
+              <div className="mt-3 flex flex-col items-center gap-1 sm:flex-row sm:justify-center">
+                <Link href="/kiem-tra-gdb" className="ui-btn-ghost text-[13px]">
+                  <IconDatabaseCheck width={15} height={15} />
+                  Kiểm tra CSDL GIS (.gdb) theo Thông tư 16/2025/TT-BXD
+                  <IconArrowRight width={14} height={14} />
+                </Link>
+                <Link href="/bo-tach-dwg" className="ui-btn-ghost text-[13px]">
+                  <IconLayers width={15} height={15} />
+                  Bóc tách DWG → CSDL TT16
+                  <IconArrowRight width={14} height={14} />
+                </Link>
+              </div>
             )}
 
             <p className="mt-4 text-xs text-zinc-400">File được xử lý ngay trên trình duyệt — không tải lên máy chủ.</p>

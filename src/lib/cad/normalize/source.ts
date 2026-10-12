@@ -1,7 +1,7 @@
 // Format-neutral "source" model produced by the DWG and DXF adapters and consumed by `buildDocument`.
 // Angles are radians (CCW). Coordinates are those of the owning container (model space or block),
 // in the entity's OCS when `extrusion` is set (the builder applies the OCS→WCS matrix).
-import type { HAlign, VAlign, Vec2 } from '../types';
+import type { HAlign, HatchDef, VAlign, Vec2, XrefInsert } from '../types';
 import type { Vec3 } from './matrix';
 
 /** aci: 0 = ByBlock, 256 = ByLayer, 1..255 = index. rgb (true colour) wins when present. */
@@ -87,6 +87,8 @@ export interface SrcHatch extends SrcCommon {
   type: 'hatch';
   solid: boolean;
   pattern: string;
+  /** Pattern lines of a pattern hatch (OCS, drawing units). */
+  def?: HatchDef;
   loops: SrcLoop[];
 }
 
@@ -185,6 +187,8 @@ export interface SrcDocument {
   /** Model-space entities only. */
   entities: SrcEntity[];
   warnings: string[];
+  /** Xref INSERTs of model space (DWG). */
+  xrefs?: XrefInsert[];
 }
 
 /** $INSUNITS → unit name. */

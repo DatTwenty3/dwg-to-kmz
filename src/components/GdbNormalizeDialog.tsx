@@ -4,9 +4,10 @@
 // together with the check of the result.
 import { useEffect, useRef, useState } from 'react';
 import type { SubmissionReport } from '@/lib/gdb/check';
-import { describeMaThongTin, parseMaHoSo, parseMaThongTin, PROVINCE_CODES, sampleCodes } from '@/lib/gdb/tt16';
+import { parseMaHoSo, parseMaThongTin } from '@/lib/gdb/tt16';
 import type { NormalizeRequest, NormalizeResponse } from '@/workers/gdbNormalize.worker';
 import { IconAlert, IconCheckCircle, IconDownload, IconSpinner, IconX, IconXCircle } from './icons';
+import PlanningCodeFields, { startDownload, usePlanningCodes } from './PlanningCodes';
 
 type Picked = { path: string; file: File };
 
@@ -14,22 +15,6 @@ const firstValid = (values: [string, number][], parse: (v: string) => unknown) =
 
 /** Main databases "Chuẩn hóa" creates (empty) when they were not uploaded; NenDiaHinh follows the Hàm Giang structure. */
 const CREATABLE = new Set(['HienTrang', 'QuyHoach', 'MocGioi', 'NenDiaHinh']);
-
-/**
- * Starts a download of an object URL. The anchor is attached to the page (Firefox ignores detached ones) and the
- * URL is NOT revoked here: a large zip is read by the browser after the click, and revoking early makes the
- * download fail ("Lỗi mạng"). The dialog revokes it when it closes.
- */
-function startDownload(url: string, name: string) {
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  a.rel = 'noopener';
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-}
 
 export default function GdbNormalizeDialog({
   rep,
@@ -49,15 +34,8 @@ export default function GdbNormalizeDialog({
   const own = { maHoSoQH: firstValid(rep.maHoSo, parseMaHoSo), maThongTinQH: firstValid(rep.maThongTin, parseMaThongTin) };
   // Province of the samples: the chosen one, else the one of a valid code in the data, else Vĩnh Long (86).
   const sampleProvince = provinceCode ?? (parseMaHoSo(own.maHoSoQH)?.province || parseMaThongTin(own.maThongTinQH)?.province || '86');
-  const [useSample, setUseSample] = useState(false);
-  const [maHoSo, setMaHoSo] = useState(own.maHoSoQH);
-  const [maTT, setMaTT] = useState(own.maThongTinQH);
-  const chooseSample = (on: boolean) => {
-    setUseSample(on);
-    const v = on ? sampleCodes(sampleProvince) : own;
-    setMaHoSo(v.maHoSoQH);
-    setMaTT(v.maThongTinQH);
-  };
+  const codes = usePlanningCodes(own, sampleProvince);
+  const { maHoSo, maTT } = codes;
   // Only offered when a main database is really missing from the upload.
   const missing = rep.missingDatabases.filter((m) => CREATABLE.has(m.name));
   const [createMissing, setCreateMissing] = useState(true);
@@ -73,13 +51,10 @@ export default function GdbNormalizeDialog({
   }, [zipUrl]);
 
   const pHoSo = parseMaHoSo(maHoSo);
-  const pTT = parseMaThongTin(maTT);
-  const mismatch = pHoSo && pTT && pHoSo.province !== pTT.province;
-  const otherProvince = pHoSo && provinceCode && pHoSo.province !== provinceCode;
   const running = !!progress && !result && !error;
 
   const start = () => {
-    if (!pHoSo || !pTT) return;
+    if (!pHoSo || !codes.valid) return;
     setError(null);
     setResult(null);
     setProgress({ stage: 'Bắt đầu', done: 0, total: 1 });
@@ -131,63 +106,7 @@ export default function GdbNormalizeDialog({
         <div className="ui-scroll min-h-0 flex-1 overflow-y-auto px-5 py-4 text-[13px]">
           {!result && (
             <div className="space-y-4">
-              <div>
-                <span className="ui-label">Mã hồ sơ và mã thông tin quy hoạch</span>
-                <div className="ui-segment mt-1" role="group" aria-label="Nguồn mã">
-                  <button aria-pressed={!useSample} onClick={() => chooseSample(false)} disabled={running}>
-                    Nhập mã của đồ án
-                  </button>
-                  <button aria-pressed={useSample} onClick={() => chooseSample(true)} disabled={running}>
-                    Dùng số mẫu
-                  </button>
-                </div>
-                {useSample && (
-                  <p className="mt-2 flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] text-amber-800">
-                    <IconAlert width={14} height={14} className="mt-0.5 shrink-0" />
-                    Số mẫu đúng định dạng theo tỉnh {PROVINCE_CODES[sampleProvince] ?? sampleProvince} — dùng để thử. Khi nộp chính thức hãy chuẩn hóa lại với mã
-                    do Sở Xây dựng cấp và mã trên quyết định phê duyệt.
-                  </p>
-                )}
-              </div>
-              <label className="block">
-                <span className="ui-label">Mã hồ sơ quy hoạch (maHoSoQH)</span>
-                <input
-                  className="ui-input mt-1 w-full font-mono"
-                  value={maHoSo}
-                  onChange={(e) => setMaHoSo(e.target.value.toUpperCase())}
-                  placeholder="vd. 86QHC1000001"
-                  disabled={running || useSample}
-                  maxLength={15}
-                />
-                <span className={`mt-1 block text-[12px] ${maHoSo && !pHoSo ? 'text-red-600' : 'text-zinc-400'}`}>
-                  {pHoSo
-                    ? `${pHoSo.provinceName ?? `mã tỉnh ${pHoSo.province} (không thuộc 34 tỉnh/thành)`} · ${pHoSo.kind} · STT ${pHoSo.seq}`
-                    : '<Mã tỉnh 2 số><QHC|QPK|QCT><x><xx><xxxx> — do Sở Xây dựng cấp khi phê duyệt nhiệm vụ quy hoạch'}
-                </span>
-              </label>
-              <label className="block">
-                <span className="ui-label">Mã thông tin quy hoạch (maThongTinQH)</span>
-                <input
-                  className="ui-input mt-1 w-full font-mono"
-                  value={maTT}
-                  onChange={(e) => setMaTT(e.target.value.replace(/\D/g, ''))}
-                  placeholder="vd. 862511000001"
-                  disabled={running || useSample}
-                  maxLength={12}
-                  inputMode="numeric"
-                />
-                <span className={`mt-1 block text-[12px] ${maTT && !pTT ? 'text-red-600' : 'text-zinc-400'}`}>
-                  {pTT ? describeMaThongTin(pTT) : '12 chữ số, ghi trên quyết định phê duyệt quy hoạch (NĐ 111/2024, TT 24/2025/TT-BXD)'}
-                </span>
-              </label>
-              {(mismatch || otherProvince) && (
-                <p className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] text-amber-800">
-                  <IconAlert width={14} height={14} className="mt-0.5 shrink-0" />
-                  {mismatch
-                    ? `Mã tỉnh trong hai mã khác nhau (${pHoSo!.province} và ${pTT!.province}).`
-                    : `Mã hồ sơ thuộc ${PROVINCE_CODES[pHoSo!.province] ?? pHoSo!.province}, khác tỉnh đã chọn (${PROVINCE_CODES[provinceCode!] ?? provinceCode}).`}
-                </p>
-              )}
+              <PlanningCodeFields codes={codes} provinceCode={provinceCode} disabled={running} />
               {missing.length > 0 && (
                 <label className="flex items-start gap-2">
                   <input type="checkbox" className="ui-check mt-0.5" checked={createMissing} onChange={(e) => setCreateMissing(e.target.checked)} disabled={running} />
@@ -294,7 +213,7 @@ export default function GdbNormalizeDialog({
               <button className="ui-btn-ghost" onClick={onClose} disabled={running}>
                 Hủy
               </button>
-              <button className="ui-btn-primary" onClick={start} disabled={running || !pHoSo || !pTT}>
+              <button className="ui-btn-primary" onClick={start} disabled={running || !codes.valid}>
                 {running ? 'Đang chuẩn hóa…' : 'Chuẩn hóa và tải về'}
               </button>
             </>

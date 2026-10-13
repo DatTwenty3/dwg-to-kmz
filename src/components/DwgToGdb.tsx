@@ -533,10 +533,90 @@ export default function DwgToGdb() {
   const focusRow = rowSel ? rowsByKey.get(rowSel) : undefined;
   const focusLayer = focusRow && focusRow.drawing === sel ? focusRow.layer : null;
   const role = selDrawing ? roleById(selDrawing.role) : null;
-  const orderedDrawings = [
-    ...drawings.filter((d) => !d.owner && d.included),
-    ...drawings.filter((d) => !d.owner && !d.included),
-  ].flatMap((d) => [d, ...drawings.filter((x) => x.owner?.id === d.id)]);
+  const selectDrawing = (id: string) => {
+    setSel(id);
+    setRowSel(null);
+    // Nothing left to review → show what is mapped instead of an empty list.
+    setView(reviewCount(id) > 0 ? 'review' : 'mapped');
+  };
+  const mainDrawings = drawings.filter((d) => !d.owner && roleById(d.role).db);
+  const otherDrawings = drawings.filter((d) => !d.owner && !roleById(d.role).db);
+  /** Main drawings in use first, each followed by its xrefs. */
+  const withXrefs = (list: DrawingInfo[]) =>
+    [...list.filter((d) => d.included), ...list.filter((d) => !d.included)].flatMap((d) => [d, ...drawings.filter((x) => x.owner?.id === d.id)]);
+  const drawingItem = (d: DrawingInfo) => {
+    const active = d.id === sel;
+    const db = roleById(d.role).db;
+    const nReview = d.included ? reviewCount(d.id) : 0;
+    return (
+      <li key={d.id} className={d.owner ? 'pl-3' : ''}>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => selectDrawing(d.id)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') selectDrawing(d.id);
+          }}
+          className={`rounded-lg px-2 py-1.5 transition ${active ? 'bg-blue-50 ring-1 ring-blue-200' : 'hover:bg-zinc-50'}`}
+        >
+          <div className="flex items-center gap-1.5">
+            {d.owner && <span className="text-[12px] text-zinc-300">↳</span>}
+            <span
+              className={`min-w-0 flex-1 truncate text-[12.5px] font-medium ${d.included || !db ? 'text-zinc-900' : 'text-zinc-400'}`}
+              title={`${d.path}${d.owner ? `\nxref của ${d.owner.name}` : ''}${d.title ? `\n${d.title}` : ''}`}
+            >
+              {d.name.replace(/\.(dwg|dxf)$/i, '')}
+            </span>
+            {nReview > 0 && (
+              <span className="shrink-0 rounded-full bg-amber-100 px-1.5 text-[11px] font-medium text-amber-800" title={`${nReview} layer cần xem`}>
+                {nReview}
+              </span>
+            )}
+            {db && (
+              <label
+                className={`flex shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] ring-1 ring-inset ${
+                  d.included ? 'bg-emerald-50 text-emerald-800 ring-emerald-200' : 'bg-white text-zinc-500 ring-zinc-200'
+                }`}
+                title="Đưa bản vẽ này vào HoSoGIS khi xuất (không ảnh hưởng việc xem trên bản đồ)"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <input
+                  type="checkbox"
+                  className="ui-check"
+                  checked={d.included}
+                  onChange={(e) => setDrawings((ds) => ds.map((x) => (x.id === d.id ? { ...x, included: e.target.checked } : x)))}
+                  aria-label={`Xuất ${d.name} vào HoSoGIS`}
+                />
+                Xuất
+              </label>
+            )}
+          </div>
+          <div className="mt-0.5 flex min-w-0 items-center gap-1 text-[11.5px] text-zinc-400">
+            <select
+              className={`min-w-0 max-w-[60%] shrink cursor-pointer truncate rounded bg-transparent py-0 font-medium outline-none hover:bg-zinc-100 focus:bg-white focus:ring-1 focus:ring-blue-400 ${
+                db ? 'text-blue-700' : 'text-zinc-500'
+              }`}
+              value={d.role}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setRole(d.id, e.target.value as RoleId)}
+              aria-label={`Loại bản đồ của ${d.name}`}
+              title="Loại bản đồ — quyết định CSDL và nhóm dữ liệu của các layer"
+            >
+              {ROLES.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+            <span className="min-w-0 truncate" title={d.note ?? `${fmt(mappedCount(d.id))} đối tượng đã ghép / ${fmt(d.inside)} trong ranh quy hoạch`}>
+              · {d.note ?? `${fmt(mappedCount(d.id))}/${fmt(d.inside)}`}
+            </span>
+          </div>
+          {db && !d.included && !d.note && <p className="mt-0.5 text-[11px] font-medium text-amber-700">Không xuất vào HoSoGIS</p>}
+        </div>
+      </li>
+    );
+  };
   const pickLayer = (layer: string) => {
     const r = rows.find((x) => x.drawing === sel && x.layer === layer && x.count > 0 && x.kind !== 'T');
     if (!r) return;
@@ -630,75 +710,36 @@ export default function DwgToGdb() {
       <div className="flex flex-1 flex-col md:min-h-0 md:flex-row">
         {/* Left: drawings */}
         <aside className="flex max-h-[40dvh] shrink-0 flex-col border-b border-zinc-200 bg-white md:max-h-none md:w-80 md:border-b-0 md:border-r">
-          <p className="border-b border-zinc-100 px-3 py-2 text-[12px] text-zinc-500">
-            Bản vẽ · bấm để xem và ghép layer
-            {missingXrefs.length > 0 && (
-              <span className="mt-1 block text-amber-700" title={missingXrefs.join('\n')}>
-                Thiếu {fmt(missingXrefs.length)} file xref của bản vẽ đang dùng
-              </span>
+          <div className="flex items-baseline gap-2 border-b border-zinc-100 px-3 py-2">
+            <span className="text-[12.5px] font-semibold text-zinc-900">Bản vẽ</span>
+            <span className="text-[11.5px] text-zinc-400">
+              {fmt(included.length)}/{fmt(mainDrawings.length)} xuất
+            </span>
+            <span className="ml-auto text-[11px] text-zinc-400" title="Bấm tên để xem và ghép layer; ô Xuất = đưa bản vẽ vào HoSoGIS">
+              bấm để ghép layer
+            </span>
+          </div>
+          {missingXrefs.length > 0 && (
+            <p className="border-b border-amber-100 bg-amber-50 px-3 py-1.5 text-[11.5px] text-amber-800" title={missingXrefs.join('\n')}>
+              Thiếu {fmt(missingXrefs.length)} file xref của bản vẽ đang dùng
+            </p>
+          )}
+          <div className="ui-scroll min-h-0 flex-1 overflow-y-auto p-1.5">
+            <ul className="space-y-0.5">{withXrefs(mainDrawings).map(drawingItem)}</ul>
+            {(otherDrawings.length > 0 || data.unused.length > 0) && (
+              <details className="mt-2 border-t border-zinc-100 pt-1.5">
+                <summary className="cursor-pointer select-none px-2 py-1 text-[11.5px] text-zinc-500 hover:text-zinc-800">
+                  Không dùng ({fmt(otherDrawings.length + data.unused.length)}) — sơ đồ vị trí, khung tên, xref thừa
+                </summary>
+                <ul className="mt-1 space-y-0.5">{withXrefs(otherDrawings).map(drawingItem)}</ul>
+                {data.unused.length > 0 && (
+                  <p className="px-2 pt-1 text-[11px] leading-relaxed text-zinc-400" title={data.unused.map((u) => u.path).join('\n')}>
+                    Không bản vẽ nào tham chiếu: {data.unused.map((u) => u.name.replace(/\.(dwg|dxf)$/i, '')).join(', ')}
+                  </p>
+                )}
+              </details>
             )}
-          </p>
-          <ul className="ui-scroll min-h-0 flex-1 space-y-0.5 overflow-y-auto p-1.5">
-            {orderedDrawings.map((d) => {
-              const active = d.id === sel;
-              const nReview = d.included ? reviewCount(d.id) : 0;
-              return (
-                <li key={d.id} className={d.owner ? 'pl-4' : ''}>
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => {
-                      setSel(d.id);
-                      setRowSel(null);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') setSel(d.id);
-                    }}
-                    className={`rounded-lg px-2 py-1.5 text-[12.5px] transition ${active ? 'bg-blue-50 ring-1 ring-blue-200' : 'hover:bg-zinc-50'} ${d.included ? '' : 'opacity-60'}`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="ui-check"
-                        checked={d.included}
-                        disabled={!roleById(d.role).db}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => setDrawings((ds) => ds.map((x) => (x.id === d.id ? { ...x, included: e.target.checked } : x)))}
-                        aria-label={`Dùng ${d.name}`}
-                      />
-                      <span className="min-w-0 flex-1 truncate font-medium text-zinc-900" title={d.path}>
-                        {d.owner && <span className="text-zinc-400">↳ </span>}
-                        {d.name.replace(/\.(dwg|dxf)$/i, '')}
-                      </span>
-                      {nReview > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-[11px] text-amber-800">{nReview}</span>}
-                    </div>
-                    <select
-                      className="mt-1 w-full rounded-md bg-zinc-50 px-1.5 py-0.5 text-[12px] text-zinc-700 ring-1 ring-inset ring-zinc-200"
-                      value={d.role}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => setRole(d.id, e.target.value as RoleId)}
-                      aria-label={`Loại bản đồ của ${d.name}`}
-                    >
-                      {ROLES.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.label}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="mt-0.5 truncate text-[11.5px] text-zinc-400" title={d.title ?? undefined}>
-                      {d.owner ? `xref của ${d.owner.name.replace(/\.(dwg|dxf)$/i, '')} · ` : ''}
-                      {d.note ?? `${fmt(d.inside)} đối tượng trong ranh · ${fmt(mappedCount(d.id))} đã ghép`}
-                    </p>
-                  </div>
-                </li>
-              );
-            })}
-            {data.unused.length > 0 && (
-              <li className="px-2 pt-2 text-[11.5px] text-zinc-400" title={data.unused.map((u) => u.path).join('\n')}>
-                Không dùng (không bản vẽ nào tham chiếu): {data.unused.map((u) => u.name).join(', ')}
-              </li>
-            )}
-          </ul>
+          </div>
         </aside>
 
         {/* Center: map */}
@@ -714,14 +755,24 @@ export default function DwgToGdb() {
         </section>
 
         {/* Right: mapping table */}
-        <section className="flex min-h-[50dvh] flex-col border-t border-zinc-200 bg-white md:min-h-0 md:w-[min(560px,45vw)] md:border-l md:border-t-0">
+        <section className="flex min-h-[50dvh] flex-col border-t border-zinc-200 bg-white md:min-h-0 md:w-[min(500px,40vw)] md:border-l md:border-t-0">
           <div className="space-y-2 border-b border-zinc-100 p-2.5">
             <div className="flex items-baseline gap-2">
               <h2 className="min-w-0 flex-1 truncate text-[13px] font-semibold text-zinc-900" title={selDrawing?.title ?? undefined}>
                 {selDrawing ? selDrawing.name.replace(/\.(dwg|dxf)$/i, '') : 'Chọn một bản vẽ'}
               </h2>
-              {role && <span className="shrink-0 text-[11.5px] text-zinc-500">{role.db ? `→ ${role.db}.gdb` : 'không dùng'}</span>}
+              {role && (
+                <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${role.db ? 'bg-blue-50 text-blue-700' : 'bg-zinc-100 text-zinc-500'}`}>
+                  {role.db ? `→ ${role.db}.gdb` : 'không dùng'}
+                </span>
+              )}
             </div>
+            {selDrawing && role?.db && (
+              <p className="-mt-1 text-[11.5px] text-zinc-500">
+                {role.label} · {fmt(mappedCount(selDrawing.id))}/{fmt(selDrawing.inside)} đối tượng đã ghép
+                {selDrawing.owner ? ` · xref của ${selDrawing.owner.name.replace(/.(dwg|dxf)$/i, '')}` : ''}
+              </p>
+            )}
             <div className="flex flex-wrap items-center gap-2">
               <div className="ui-segment" role="group" aria-label="Lọc layer">
                 {(
@@ -744,9 +795,26 @@ export default function DwgToGdb() {
           </div>
           <div className="ui-scroll min-h-0 flex-1 overflow-y-auto">
             {drawingRows.length === 0 ? (
-              <p className="px-4 py-10 text-center text-[13px] text-zinc-400">
-                {view === 'review' ? 'Không còn layer nào cần xem ở bản vẽ này.' : 'Không có layer nào.'}
-              </p>
+              <div className="px-4 py-10 text-center text-[13px] text-zinc-400">
+                {view === 'review' ? (
+                  <>
+                    <IconCheckCircle width={22} height={22} className="mx-auto mb-2 text-emerald-500" />
+                    Mọi layer có dữ liệu của bản vẽ này đã được ghép hoặc bỏ qua.
+                    <div className="mt-3 flex justify-center gap-2">
+                      <button className="ui-btn" onClick={() => setView('mapped')}>
+                        Xem layer đã ghép
+                      </button>
+                      <button className="ui-btn-ghost" onClick={() => setView('all')}>
+                        Tất cả
+                      </button>
+                    </div>
+                  </>
+                ) : query ? (
+                  'Không có layer nào khớp.'
+                ) : (
+                  'Không có layer nào.'
+                )}
+              </div>
             ) : (
               <table className="w-full text-[12.5px]">
                 <thead className="sticky top-0 z-10 bg-zinc-50 text-left text-[11.5px] text-zinc-500">
@@ -852,6 +920,7 @@ export default function DwgToGdb() {
           provinceCode={provinceCode}
           ktt={unit ? `${unit.name} — KTT ${formatDegMin(unit.lon0)}, múi ${zone}°` : ''}
           review={totalReview}
+          leftOut={drawings.filter((d) => roleById(d.role).db && !d.included && d.inside > 0).map((d) => d.name.replace(/\.(dwg|dxf)$/i, ''))}
           defaultName={data.projectName ?? 'DoAnQuyHoach'}
           summary={exportSummary(rows, mapping, new Set(included.map((d) => d.id)))}
           onStart={startExport}
@@ -900,6 +969,7 @@ function ExportDialog({
   provinceCode,
   ktt,
   review,
+  leftOut,
   summary,
   defaultName,
   onStart,
@@ -910,6 +980,8 @@ function ExportDialog({
   provinceCode: string | null;
   ktt: string;
   review: number;
+  /** Drawings with a map kind that the user unticked. */
+  leftOut: string[];
   summary: [string, number][];
   defaultName: string;
   onStart: (o: ExportOptions) => void;
@@ -1022,6 +1094,14 @@ function ExportDialog({
                   ))}
                 </ul>
               </div>
+              {leftOut.length > 0 && (
+                <p className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] text-amber-800">
+                  <IconAlert width={14} height={14} className="mt-0.5 shrink-0" />
+                  <span>
+                    {leftOut.length} bản vẽ đang bỏ chọn ô “Xuất” — dữ liệu của chúng sẽ không có trong HoSoGIS: {leftOut.join(', ')}.
+                  </span>
+                </p>
+              )}
               {review > 0 && (
                 <p className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] text-amber-800">
                   <IconAlert width={14} height={14} className="mt-0.5 shrink-0" />

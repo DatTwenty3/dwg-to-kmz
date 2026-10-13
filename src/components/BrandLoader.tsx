@@ -3,6 +3,7 @@
 // exports…): the LEDAT-GIS mark draws itself and fills, the wordmark letters wave with the shimmer of "GIS",
 // and the current stage + progress sit underneath. Fades in after 0.12 s so instant operations do not flash.
 import { BRAND_NAVY, LOGO_PATH, LOGO_VIEWBOX } from './brand';
+import { wordmarkLetter } from './shimmerLetter';
 import Tagline from './Tagline';
 
 const BRAND = 'LEDAT-GIS';
@@ -33,11 +34,7 @@ export default function BrandLoader({
         </div>
         <div className="mt-5 flex flex-col items-stretch">
           <p className="ui-wordmark whitespace-nowrap text-3xl leading-none sm:text-4xl" aria-label={BRAND}>
-            {[...BRAND].map((ch, k) => (
-              <span key={k} aria-hidden className={`ui-loader-letter inline-block ${k >= 6 ? 'ui-shimmer' : ''}`} style={{ animationDelay: `${k * 0.09}s` }}>
-                {ch}
-              </span>
-            ))}
+            {[...BRAND].map((ch, k) => wordmarkLetter(ch, k, 'ui-loader-letter', k * 0.09))}
           </p>
           <Tagline className="mt-2 pl-[0.12em] text-[10px] text-zinc-500 sm:text-[11.5px]" />
         </div>

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useEffect } from 'react';
 import Backdrop from './Backdrop';
 import { BRAND_NAVY, LOGO_PATH, LOGO_VIEWBOX } from './brand';
+import { wordmarkLetter } from './shimmerLetter';
 import Tagline from './Tagline';
 import { IconArrowRight, IconDatabaseCheck, IconGlobe, IconLayers, IconShare } from './icons';
 
@@ -60,16 +61,7 @@ export default function BrandHome() {
           </span>
           <div className="flex flex-col items-stretch text-left">
             <h1 className="ui-wordmark whitespace-nowrap text-[2.4rem] leading-none sm:text-8xl" aria-label={BRAND}>
-              {[...BRAND].map((ch, k) => (
-                <span
-                  key={k}
-                  aria-hidden
-                  className={`ui-intro-letter inline-block ${k >= 6 ? 'ui-shimmer' : ''}`}
-                  style={{ animationDelay: `${1.25 + k * 0.07}s` }}
-                >
-                  {ch}
-                </span>
-              ))}
+              {[...BRAND].map((ch, k) => wordmarkLetter(ch, k, 'ui-intro-letter', 1.25 + k * 0.07))}
             </h1>
             <Tagline className="ui-intro-tagline mt-2 pl-[0.12em] text-[10px] sm:mt-4 sm:text-2xl" />
           </div>

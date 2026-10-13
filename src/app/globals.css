@@ -691,8 +691,6 @@ input[type="color"].ui-color::-moz-color-swatch { border: 0; border-radius: 999p
   to { transform: none; opacity: 1; filter: none; }
 }
 .ui-intro-letter { animation: ui-intro-letter 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-/* The shimmer letters keep their running gradient once they are in. */
-.ui-intro-letter.ui-shimmer { animation: ui-intro-letter 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both, ui-shimmer 6s linear 2s infinite; }
 @keyframes ui-intro-tagline {
   from { opacity: 0; transform: translateY(6px) scaleX(1.08); filter: blur(4px); }
   to { opacity: 1; transform: none; filter: none; }
@@ -705,5 +703,4 @@ input[type="color"].ui-color::-moz-color-swatch { border: 0; border-radius: 999p
 .ui-intro-card { animation: ui-intro-card 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 @media (prefers-reduced-motion: reduce) {
   .ui-intro-letter, .ui-intro-card { animation-name: ui-fade !important; }
-  .ui-intro-letter.ui-shimmer { animation: ui-fade 0.55s both !important; }
 }

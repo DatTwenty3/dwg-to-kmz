@@ -1,5 +1,6 @@
 // "Bóc tách DWG → TT16" end to end on the owner's real folder (dwg_to_gdb/, not committed — skipped without it):
 // read the DWGs + xrefs, suggest the mapping, build features, write with GDAL (Node), normalise, check.
+import { tt16Wkt } from '@/lib/gdb/tt16Schema';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import JSZip from 'jszip';
@@ -14,13 +15,16 @@ import {
   buildQgs,
   roleById,
   summaryDocument,
-  vn2000EsriWkt,
+
   type Analysis,
   type BuildResult,
   type LoadedFolder,
 } from '@/lib/dwg2gdb';
 import { collectGdbs, readCatalog, runCheck, type GdbEntry, type SubmissionReport } from '@/lib/gdb';
-import { executePlan, planNormalization, type NormalizeSource } from '@/lib/gdb/normalize';
+import { fixGdalOutput } from '@/lib/gdb/gdalFix';
+import { executePlan, planNormalization, schemaKey, type NormalizeSource } from '@/lib/gdb/normalize';
+import { buildSchemaGpkg } from '@/lib/gdb/schemaGpkg';
+import initSqlJs from 'sql.js';
 import { createRequire } from 'node:module';
 import { toDxf } from '@/lib/export/dxf';
 import { WASM_DIR } from '../fixtures';
@@ -43,6 +47,7 @@ describe.skipIf(!existsSync(ROOT))('Bóc tách DWG → TT16 — xã Long Hiệp'
   let report: SubmissionReport;
   let mappingUsed: ReturnType<typeof initialMapping>;
   let qgs = '';
+  let gdbWkt = '';
   let summary = '';
 
   beforeAll(async () => {
@@ -75,7 +80,7 @@ describe.skipIf(!existsSync(ROOT))('Bóc tách DWG → TT16 — xã Long Hiệp'
     const { default: initGdalJs } = await import('gdal3.js/node.js');
     const errs: string[] = [];
     const Gdal = await initGdalJs({ path: 'node_modules/gdal3.js/dist/package', dest: `${WORK}/out`, logHandler: () => {}, errorHandler: (m: string) => errs.push(m) });
-    const s1 = planStage1(built.classes, vn2000EsriWkt(105.5, 3, 'Trà Vinh'));
+    const s1 = planStage1(built.classes, tt16Wkt(105.5, 3));
     for (const i of s1.inputs) writeFileSync(`${WORK}/in/${i.fileName}`, i.json);
     const o1 = await Gdal.open(s1.inputs.map((i) => `${WORK}/in/${i.fileName}`), [], []);
     const ds1 = new Map<string, unknown>(o1.datasets.map((d: { path: string }) => [d.path.replace(/^.*[\\/]/, '').replace(/\.geojson$/, ''), d]));
@@ -99,12 +104,28 @@ describe.skipIf(!existsSync(ROOT))('Bóc tách DWG → TT16 — xã Long Hiệp'
       sources.push({ key: `s${i}`, name: gdbs[i].name, database: gdbs[i].name.replace(/\.gdb$/i, ''), catalog: await readCatalog(gdbs[i]) });
     }
     const plan = planNormalization(sources, { maHoSoQH: '86QHC1000001', maThongTinQH: '862611000001', createMissingDatabases: true });
+    const SQL = await initSqlJs();
+    for (const db of plan.schemas) {
+      const zip = new JSZip();
+      zip.file(`${schemaKey(db)}.gpkg`, buildSchemaGpkg(SQL, db));
+      writeFileSync(`${WORK}/in/${schemaKey(db)}.gpkg.zip`, await zip.generateAsync({ type: 'uint8array', compression: 'STORE' }));
+      zips.push(`${WORK}/in/${schemaKey(db)}.gpkg.zip`);
+    }
     const o2 = await Gdal.open(zips, [], ['vsizip']);
-    const ds2 = new Map<string, unknown>(o2.datasets.map((d: { path: string }) => [d.path.replace(/^.*[\\/]/, '').replace(/\.gdb\.zip$/, ''), d]));
+    const ds2 = new Map<string, unknown>(o2.datasets.map((d: { path: string }) => [d.path.replace(/^.*[\\/]/, '').replace(/\.(gdb|gpkg)\.zip$/, ''), d]));
     await executePlan(Gdal, ds2, plan, 'out_');
-    const out = entriesOf(`${WORK}/out`, `${WORK}/out`)
-      .filter((e) => e.path.startsWith('out_'))
-      .map((e) => ({ ...e, path: e.path.replace(/^out_/, 'HoSoGIS/') }));
+    const raw = entriesOf(`${WORK}/out`, `${WORK}/out`).filter((e) => e.path.startsWith('out_'));
+    const out: GdbEntry[] = fixGdalOutput(await Promise.all(raw.map(async (e) => ({ path: e.path.replace(/^out_/, 'HoSoGIS/'), bytes: new Uint8Array(await e.read()) }))));
+    const qhCat = await readCatalog(collectGdbs(out).gdbs.find((g) => g.name === 'QuyHoach.gdb')!);
+    gdbWkt = qhCat.classes.find((c) => c.rowCount && c.wkt)!.wkt;
+    // Template attributes from the drawing: land use codes, derived fields of maThongTinQH, area.
+    const land = [...qhCat.classes.find((c) => c.name === 'ChucNangSuDungDat_A')!.rows()];
+    const coded = land.filter((r) => /^\d+$/.test(String(r.chucNangSuDungDatMuc1 ?? ''))).length;
+    summary += `  chucNangSuDungDatMuc1: ${coded}/${land.length}
+`;
+    expect(coded / land.length).toBeGreaterThan(0.8);
+    expect(land[0]).toMatchObject({ trangThaiQuyHoach: '2', capDoQuyHoach: '1', loaiQuyHoach: '1', loaiDieuChinh: '0' });
+    expect(Number(land[0].dienTich)).toBeGreaterThan(0);
     // Tệp tổng hợp (QGIS project) next to the geodatabases.
     const b = a.boundary!.ring;
     qgs = buildQgs({
@@ -192,7 +213,11 @@ describe.skipIf(!existsSync(ROOT))('Bóc tách DWG → TT16 — xã Long Hiệp'
     expect(sources).toContain('./QuyHoach.gdb|layername=ChucNangSuDungDat_A');
     expect(sources).toContain('./HienTrang.gdb|layername=CongTrinh_A');
     expect(cats).toBeGreaterThan(20);
-    expect(qgs).toContain('<authid>EPSG:9209</authid>');
+    // Exactly the coordinate system of the geodatabases (no TOWGS84 / EPSG code QGIS would treat as another CRS).
+    const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+    expect(gdbWkt).toMatch(/^PROJCS\["VN-2000_TM-3_105-30"/);
+    expect(qgs).toContain(`<projectCrs><spatialrefsys nativeFormat="Wkt"><wkt>${esc(gdbWkt)}</wkt>`);
+    expect(qgs).not.toContain('TOWGS84');
     expect(qgs).toContain('class="LinePatternFill"');
     expect(qgs).toContain('fieldName="tenDoiTuong"');
     expect(qgs).toContain('<Absolute type="bool">false</Absolute>');

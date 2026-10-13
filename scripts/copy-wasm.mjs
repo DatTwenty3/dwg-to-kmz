@@ -16,3 +16,10 @@ const gdalDest = join(root, 'public', 'gdal');
 mkdirSync(gdalDest, { recursive: true });
 for (const f of ['gdal3WebAssembly.wasm', 'gdal3WebAssembly.data']) copyFileSync(join(gdalSrc, f), join(gdalDest, f));
 console.log('copied gdal3.js wasm/data -> public/gdal/');
+
+// sql.js (SQLite) for the TT16 schema GeoPackage built in the browser before GDAL writes the geodatabases.
+const sqlDest = join(root, 'public', 'sqljs');
+mkdirSync(sqlDest, { recursive: true });
+// The browser build (package "exports" → sql-wasm-browser.js) loads sql-wasm-browser.wasm.
+copyFileSync(join(root, 'node_modules', 'sql.js', 'dist', 'sql-wasm-browser.wasm'), join(sqlDest, 'sql-wasm-browser.wasm'));
+console.log('copied sql.js wasm -> public/sqljs/');

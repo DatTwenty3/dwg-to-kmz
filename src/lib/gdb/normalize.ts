@@ -2,18 +2,27 @@
 // the geometries untouched. This module only PLANS the work (pure, testable): a list of ogr2ogr runs, one per
 // output feature class, executed by GDAL (gdal3.js) in a worker — see src/workers/gdbNormalize.worker.ts.
 //
-// Decisions of the project owner:
-//   - the 6 required TEXT fields with their exact lengths; every other attribute field is dropped ("trường dư");
-//   - every required feature dataset AND every reference feature class is created (empty when there is no data);
+// The frame is the data structure of the Bộ Xây dựng template (tt16Schema.ts, extracted from the template — the
+// template files are not part of the app): every group and class of HienTrang / QuyHoach / MocGioi / NenDiaHinh is
+// created from a schema GeoPackage (schemaGpkg.ts) with the template's fields in order, Vietnamese aliases, coded
+// value domains and XY precision, then the uploaded features are appended. Decisions of the project owner:
+//   - fields outside the template are dropped ("trường dư"); template fields are kept from the source
+//     (matched case-insensitively), the rest left empty or derived (trangThaiQuyHoach, codes of maThongTinQH);
+//   - every required feature dataset AND every template class is created (empty when there is no data);
 //   - maThongTinQH / maHoSoQH are entered once for the whole submission; maDoiTuong = <maHoSoQH>-<class>-<OBJECTID>;
-//   - tenDoiTuong / phanLoai / ghiChu are kept from the source (matched case-insensitively), else left empty.
+//   - the coordinate system is the one of the data (its KTT), named like the template ("VN-2000_TM-3_105-30").
 import type { GdbCatalog, GdbClass } from './catalog';
-import { CLASS_NAME_RE, DATASET_NAME_RE, NENDIAHINH_TEMPLATE, TT16_DATABASES, TT16_FIELDS, type GeomCode, type Tt16Database } from './tt16';
+import { parseSr } from './check';
+import { schemaTable } from './schemaGpkg';
+import { CLASS_NAME_RE, DATASET_NAME_RE, parseMaThongTin, TT16_DATABASES, TT16_FIELDS, type GeomCode, type Tt16Database } from './tt16';
+import { TT16_SCHEMA, TT16_XY, tt16Wkt, type Tt16SchemaClass } from './tt16Schema';
+
+const SYSTEM_FIELDS = new Set(['objectid', 'shape', 'shape_length', 'shape_area', 'globalid', 'fid', 'oid']);
 
 export interface NormalizeOptions {
   maHoSoQH: string;
   maThongTinQH: string;
-  /** Also create the main databases that were not uploaded (structure only; NenDiaHinh from NENDIAHINH_TEMPLATE). */
+  /** Also create the databases that were not uploaded (template structure only). */
   createMissingDatabases: boolean;
 }
 
@@ -47,6 +56,8 @@ export interface NormalizePlan {
   outputs: string[];
   /** What changed, for the user and the report. */
   notes: string[];
+  /** Template geodatabases whose schema GeoPackage (buildSchemaGpkg) the runner opens as `schemaKey(db)`. */
+  schemas: string[];
 }
 
 const GEOM_NLT: Record<GeomCode, string> = { A: 'MULTIPOLYGON', L: 'MULTILINESTRING', P: 'POINT' };
@@ -85,33 +96,79 @@ export function fixDatasetName(name: string): string {
   return DATASET_NAME_RE.test(name) ? name : pascalName(name) || 'NhomDuLieu';
 }
 
-/** SELECT list giving exactly the 6 required fields (+ geometry) for a source class. */
-function selectFor(cls: GdbClass, outName: string, o: NormalizeOptions): string {
-  const byLower = new Map(cls.fields.map((f) => [f.name.toLowerCase(), f]));
-  const keep = (name: string, length: number) => {
-    const f = byLower.get(name.toLowerCase());
-    return f && f.type === 'string' ? `CAST(${ident(f.name)} AS character(${length})) AS ${name}` : `CAST(NULL AS character(${length})) AS ${name}`;
-  };
-  const len = Object.fromEntries(TT16_FIELDS.map((f) => [f.name, f.length]));
-  return [
-    `CAST(${lit(o.maThongTinQH)} AS character(${len.maThongTinQH})) AS maThongTinQH`,
-    `CAST(${lit(o.maHoSoQH)} AS character(${len.maHoSoQH})) AS maHoSoQH`,
-    // FID = the source OBJECTID (kept with -preserve_fid).
-    `CAST(CONCAT(${lit(`${o.maHoSoQH}-${outName}-`)}, CAST(FID AS character(12))) AS character(${len.maDoiTuong})) AS maDoiTuong`,
-    keep('tenDoiTuong', len.tenDoiTuong),
-    keep('phanLoai', len.phanLoai),
-    keep('ghiChu', len.ghiChu),
-  ].join(', ');
+/** Spatial reference of an output geodatabase: the one of its biggest source class, renamed like the template. */
+function outputWkt(classes: GdbClass[]): string | null {
+  const best = classes.filter((c) => !c.error && c.wkt).sort((a, b) => b.rowCount - a.rowCount)[0];
+  if (!best) return null;
+  const sr = parseSr(best.wkt);
+  return sr?.vn2000 && sr.lon0 !== null && sr.zone ? tt16Wkt(sr.lon0, sr.zone) : best.wkt;
 }
 
-/** SELECT producing the 6 fields and no rows (schema of an empty class). */
-const emptySelect = (from: string) =>
-  `SELECT ${TT16_FIELDS.map((f) => `CAST(NULL AS character(${f.length})) AS ${f.name}`).join(', ')} FROM ${ident(from)} WHERE 1=0`;
+/** Same projection parameters (only the name may differ). */
+function sameSr(a: string, b: string): boolean {
+  const x = parseSr(a);
+  const y = parseSr(b);
+  return !!x && !!y && x.vn2000 === y.vn2000 && x.lon0 === y.lon0 && x.zone === y.zone;
+}
 
-const lco = (dataset: string | null, geom: GeomCode | null) => [
+/** Template values that come from the codes entered once, not from the source. */
+function codeValues(db: string, outName: string, o: NormalizeOptions): Record<string, string> {
+  const p = parseMaThongTin(o.maThongTinQH);
+  return {
+    maThongTinQH: lit(o.maThongTinQH),
+    maHoSoQH: lit(o.maHoSoQH),
+    // FID = the source OBJECTID (kept with -preserve_fid).
+    maDoiTuong: `CONCAT(${lit(`${o.maHoSoQH}-${outName}-`)}, CAST(FID AS character(12)))`,
+    // From the digits of maThongTinQH (Điều 4 TT 24/2025/TT-BXD = the codes of the CapDoQuyHoach / LoaiQuyHoach /
+    // LoaiDieuChinh domains of the template).
+    ...(p && db === 'QuyHoach' ? { capDoQuyHoach: lit(p.level), loaiQuyHoach: lit(p.kind), loaiDieuChinh: lit(p.adjust) } : {}),
+  };
+}
+
+/** Default of a template field the source does not have (null = left empty). */
+function defaultValue(db: string, field: string, geom: GeomCode): string | null {
+  if (field === 'trangThaiQuyHoach') return db === 'QuyHoach' ? lit('2') : db === 'HienTrang' ? lit('1') : null;
+  if (field === 'dienTich' && geom === 'A') return 'OGR_GEOM_AREA';
+  return null;
+}
+
+/** SELECT list mapping a source class onto the fields of its template class (matched case-insensitively). */
+function templateSelect(spec: Tt16SchemaClass, cls: GdbClass, db: string, o: NormalizeOptions): string {
+  const byLower = new Map(cls.fields.map((f) => [f.name.toLowerCase(), f]));
+  const fixed = codeValues(db, spec.name, o);
+  const cols: string[] = [];
+  for (const f of spec.fields) {
+    const src = byLower.get(f.name.toLowerCase());
+    const value = fixed[f.name] ?? (src && src.type !== 'geometry' && src.type !== 'objectid' ? ident(src.name) : defaultValue(db, f.name, spec.geom));
+    if (value === null) continue;
+    cols.push(f.type === 'string' ? `CAST(${value} AS character(${f.length ?? 255})) AS ${f.name}` : `${value} AS ${f.name}`);
+  }
+  return cols.join(', ');
+}
+
+/** SELECT list giving the 6 required fields for a class outside the template. */
+function minimalSelect(cls: GdbClass, outName: string, o: NormalizeOptions): string {
+  const byLower = new Map(cls.fields.map((f) => [f.name.toLowerCase(), f]));
+  const fixed = codeValues('', outName, o);
+  return TT16_FIELDS.map((r) => {
+    const src = byLower.get(r.name.toLowerCase());
+    const value = fixed[r.name] ?? (src && src.type === 'string' ? ident(src.name) : 'NULL');
+    return `CAST(${value} AS character(${r.length})) AS ${r.name}`;
+  }).join(', ');
+}
+
+/** Layer creation options of every output class: group, alias, field names and XY precision of the template. */
+const lco = (dataset: string | null, geom: GeomCode | null, alias?: string) => [
   ...(dataset ? ['-lco', `FEATURE_DATASET=${dataset}`] : []),
+  ...(alias ? ['-lco', `LAYER_ALIAS=${alias}`] : []),
+  ...['-lco', 'GEOMETRY_NAME=Shape', '-lco', 'FID=OBJECTID'],
+  ...['-lco', `XYTOLERANCE=${TT16_XY.xyTolerance}`, '-lco', `XYSCALE=${TT16_XY.xyScale}`],
+  ...['-lco', `XORIGIN=${TT16_XY.xOrigin}`, '-lco', `YORIGIN=${TT16_XY.yOrigin}`],
   ...(geom === 'A' || geom === 'L' ? ['-lco', 'CREATE_SHAPE_AREA_AND_LENGTH_FIELDS=YES'] : []),
 ];
+
+/** Key of the schema GeoPackage of a template geodatabase (schemaGpkg.ts) among the opened datasets. */
+export const schemaKey = (db: string) => `tt16schema${db}`;
 
 /** The part of gdal3.js the plan needs (browser worker or Node). */
 export interface OgrRunner<D> {
@@ -148,105 +205,108 @@ export function planNormalization(sources: NormalizeSource[], o: NormalizeOption
   const steps: NormalizeStep[] = [];
   const notes: string[] = [];
   const outputs: string[] = [];
+  const schemas = new Set<string>();
   const started = new Set<string>();
-  const push = (s: Omit<NormalizeStep, 'args'> & { args: string[] }) => {
+  const push = (s: NormalizeStep) => {
     // The first run creates the output geodatabase, later runs add to it.
     const args = started.has(s.out) ? ['-update', ...s.args] : s.args;
     started.add(s.out);
     steps.push({ ...s, args: ['-f', 'OpenFileGDB', ...args] });
   };
-  /** Any class of any source (empty classes take their schema & coordinate system from it). */
-  const anyClass = (prefer: NormalizeSource | null) => {
-    for (const s of [prefer, ...sources]) {
-      const c = s?.catalog.classes.find((k) => !k.error && k.fields.some((f) => f.type === 'geometry'));
-      if (s && c) return { source: s.key, name: c.name };
-    }
-    return null;
-  };
-
   const outName = (db: string) => {
     let n = db;
     for (let k = 2; outputs.includes(n); k++) n = `${db}_${k}`;
     outputs.push(n);
     return n;
   };
-
-  const emptyClass = (out: string, prefer: NormalizeSource | null, dataset: string, name: string) => {
-    const from = anyClass(prefer);
-    if (!from) return;
-    const geom = name.slice(-1) as GeomCode;
-    push({
-      out,
-      source: from.source,
-      label: `${dataset} / ${name}`,
-      features: 0,
-      args: ['-sql', emptySelect(from.name), '-nln', name, '-nlt', GEOM_NLT[geom], ...lco(dataset, geom)],
-    });
-  };
-
-  const copyClass = (out: string, src: NormalizeSource, cls: GdbClass, dataset: string | null, name: string) => {
-    const geom = GEOM_OF_SHAPE[cls.shapeType] ?? null;
-    push({
-      out,
-      source: src.key,
-      label: `${dataset ? dataset + ' / ' : ''}${name}`,
-      features: cls.rowCount,
-      args: ['-preserve_fid', '-sql', `SELECT ${selectFor(cls, name, o)} FROM ${ident(cls.name)}`, '-nln', name, ...lco(dataset, geom)],
-    });
-  };
-
-  const extraFieldCount = (cls: GdbClass) =>
-    cls.fields.filter(
-      (f) =>
-        f.type !== 'objectid' &&
-        f.type !== 'geometry' &&
-        !TT16_FIELDS.some((r) => r.name.toLowerCase() === f.name.toLowerCase()) &&
-        !['shape_length', 'shape_area'].includes(f.name.toLowerCase()),
-    ).length;
+  const allWkt = outputWkt(sources.flatMap((s) => s.catalog.classes));
+  const reproject = (cls: GdbClass, wkt: string | null) => (wkt && cls.wkt && !sameSr(cls.wkt, wkt) ? ['-s_srs', cls.wkt, '-t_srs', wkt] : []);
+  const extraFieldCount = (cls: GdbClass, keep: Set<string>) =>
+    cls.fields.filter((f) => f.type !== 'objectid' && f.type !== 'geometry' && !SYSTEM_FIELDS.has(f.name.toLowerCase()) && !keep.has(f.name.toLowerCase())).length;
+  const six = new Set(TT16_FIELDS.map((f) => f.name.toLowerCase()));
 
   let created = 0;
   let renamed = 0;
   let droppedFields = 0;
   let moved = 0;
 
+  /** A class outside the template: kept with the 6 required fields (TT16 allows new classes named by the rule). */
+  const copyExtra = (out: string, src: NormalizeSource, cls: GdbClass, dataset: string | null, name: string, wkt: string | null) => {
+    const geom = GEOM_OF_SHAPE[cls.shapeType] ?? null;
+    droppedFields += extraFieldCount(cls, six);
+    push({
+      out,
+      source: src.key,
+      label: `${dataset ? dataset + ' / ' : ''}${name}`,
+      features: cls.rowCount,
+      args: [
+        '-preserve_fid',
+        ...(wkt && cls.wkt && sameSr(cls.wkt, wkt) ? ['-a_srs', wkt] : []),
+        '-sql',
+        `SELECT ${minimalSelect(cls, name, o)} FROM ${ident(cls.name)}`,
+        '-nln',
+        name,
+        ...lco(dataset, geom, cls.alias && cls.alias !== cls.name ? cls.alias : undefined),
+      ],
+    });
+  };
+
+  /** One output geodatabase on the template frame: every template class, uploaded data appended, extras kept. */
   const normalizeOne = (db: Tt16Database, src: NormalizeSource | null) => {
     const out = outName(db.name);
+    const frame = TT16_SCHEMA.databases[db.name] ?? [];
+    const wkt = (src && outputWkt(src.catalog.classes)) ?? allWkt;
     const left = new Map((src?.catalog.classes ?? []).filter((c) => !c.error).map((c) => [c.name.toLowerCase(), c]));
-    for (const ds of db.datasets) {
+    schemas.add(db.name);
+    for (const ds of frame)
       for (const spec of ds.classes) {
+        // The class as in the template (fields, aliases, domains), from the schema GeoPackage…
+        push({
+          out,
+          source: schemaKey(db.name),
+          label: `${ds.name} / ${spec.name}`,
+          features: 0,
+          args: [...(wkt ? ['-a_srs', wkt] : []), '-nlt', GEOM_NLT[spec.geom], '-nln', spec.name, ...lco(ds.name, spec.geom, spec.alias), schemaTable(spec.name)],
+        });
         const cls = left.get(spec.name.toLowerCase());
-        if (cls && src) {
-          left.delete(spec.name.toLowerCase());
-          if (cls.name !== spec.name) renamed++;
-          if ((cls.dataset ?? '').toLowerCase() !== ds.name.toLowerCase()) moved++;
-          droppedFields += extraFieldCount(cls);
-          copyClass(out, src, cls, ds.name, spec.name);
-        } else {
+        if (!cls || !src) {
           created++;
-          emptyClass(out, src, ds.name, spec.name);
+          continue;
         }
+        // …then the uploaded features appended into it.
+        left.delete(spec.name.toLowerCase());
+        if (cls.name !== spec.name) renamed++;
+        if ((cls.dataset ?? '').toLowerCase() !== ds.name.toLowerCase()) moved++;
+        droppedFields += extraFieldCount(cls, new Set(spec.fields.map((f) => f.name.toLowerCase())));
+        if (!cls.rowCount) continue;
+        push({
+          out,
+          source: src.key,
+          label: `${ds.name} / ${spec.name}`,
+          features: cls.rowCount,
+          args: ['-append', '-preserve_fid', ...reproject(cls, wkt), '-sql', `SELECT ${templateSelect(spec, cls, db.name, o)} FROM ${ident(cls.name)}`, '-nln', spec.name],
+        });
       }
-    }
-    // Classes outside the reference list: kept (TT16 allows new classes named by the rule), names fixed.
+    if (!src) return;
+    // Classes outside the template: kept, names fixed, in their template group when the group exists.
     for (const cls of left.values()) {
-      if (!src) break;
       const geom = GEOM_OF_SHAPE[cls.shapeType] ?? null;
       const name = fixClassName(cls.name, geom);
-      const tt = db.datasets.find((d) => d.name.toLowerCase() === (cls.dataset ?? '').toLowerCase());
+      const tt = frame.find((d) => d.name.toLowerCase() === (cls.dataset ?? '').toLowerCase());
       const dataset = tt ? tt.name : cls.dataset ? fixDatasetName(cls.dataset) : null;
       if (name !== cls.name) {
         renamed++;
         notes.push(`${out}: đổi tên lớp ${cls.name} → ${name}`);
       }
       if (!dataset) notes.push(`${out}: lớp ${name} nằm ngoài nhóm dữ liệu (giữ nguyên vị trí)`);
-      droppedFields += extraFieldCount(cls);
-      copyClass(out, src, cls, dataset, name);
+      copyExtra(out, src, cls, dataset, name, wkt);
     }
   };
 
-  // NenDiaHinh has no reference list: keep its groups/classes (names fixed), normalise the fields only.
+  // A geodatabase of unknown kind: its structure is kept, names and fields normalised.
   const normalizeFree = (src: NormalizeSource, dbName: string) => {
     const out = outName(dbName);
+    const wkt = outputWkt(src.catalog.classes) ?? allWkt;
     for (const cls of src.catalog.classes) {
       if (cls.error) continue;
       const geom = GEOM_OF_SHAPE[cls.shapeType] ?? null;
@@ -257,41 +317,40 @@ export function planNormalization(sources: NormalizeSource[], o: NormalizeOption
         notes.push(`${out}: đổi tên lớp ${cls.name} → ${name}`);
       }
       if (dataset && dataset !== cls.dataset) notes.push(`${out}: đổi tên nhóm ${cls.dataset} → ${dataset}`);
-      droppedFields += extraFieldCount(cls);
-      copyClass(out, src, cls, dataset, name);
+      copyExtra(out, src, cls, dataset, name, wkt);
     }
   };
 
   const done = new Set<string>();
   for (const src of sources) {
     const db = TT16_DATABASES.find((d) => d.name === src.database);
-    if (db && db.datasets.length) normalizeOne(db, src);
-    else normalizeFree(src, db?.name ?? fixDatasetName(src.name.replace(/\.gdb$/i, '')));
+    if (db && TT16_SCHEMA.databases[db.name]) normalizeOne(db, src);
+    else {
+      normalizeFree(src, db?.name ?? fixDatasetName(src.name.replace(/\.gdb$/i, '')));
+      notes.push(`${src.name}: không xác định được loại CSDL — giữ cấu trúc hiện có, chỉ chuẩn hóa tên và trường`);
+    }
     if (db) done.add(db.name);
-    if (!db) notes.push(`${src.name}: không xác định được loại CSDL — giữ cấu trúc hiện có, chỉ chuẩn hóa tên và trường`);
   }
   if (o.createMissingDatabases)
     for (const db of TT16_DATABASES) {
-      if (done.has(db.name)) continue;
-      if (db.datasets.length) {
-        notes.push(`Tạo mới ${db.name}.gdb (chỉ có cấu trúc, chưa có dữ liệu)`);
-        normalizeOne(db, null);
-      } else if (db.name === 'NenDiaHinh') {
-        // No list in the circular: the structure of the xã Hàm Giang NenDiaHinh.gdb (owner's choice).
-        const classes = NENDIAHINH_TEMPLATE.reduce((t, ds) => t + ds.classes.length, 0);
-        notes.push(`Tạo mới NenDiaHinh.gdb theo cấu trúc mẫu xã Hàm Giang (${NENDIAHINH_TEMPLATE.length} nhóm, ${classes} lớp, chưa có dữ liệu)`);
-        normalizeOne({ ...db, datasets: NENDIAHINH_TEMPLATE }, null);
-      }
+      const frame = TT16_SCHEMA.databases[db.name];
+      if (done.has(db.name) || !frame) continue;
+      const n = frame.reduce((t, d) => t + d.classes.length, 0);
+      notes.push(`Tạo mới ${db.name}.gdb theo mẫu của Bộ Xây dựng (${frame.length} nhóm, ${n} lớp, chưa có dữ liệu)`);
+      normalizeOne(db, null);
     }
 
+  const srName = allWkt ? (/^PROJCS\["([^"]+)"/.exec(allWkt)?.[1] ?? null) : null;
   notes.unshift(
     ...[
+      'Dựng theo cấu trúc dữ liệu mẫu của Bộ Xây dựng: đủ nhóm, lớp, trường thuộc tính, tên hiển thị (alias) và danh mục giá trị (domain)',
       `Gán maHoSoQH = ${o.maHoSoQH}, maThongTinQH = ${o.maThongTinQH}; tính lại maDoiTuong cho mọi đối tượng`,
-      created ? `Tạo ${created} lớp rỗng theo danh mục Thông tư (đủ các nhóm dữ liệu bắt buộc)` : '',
-      droppedFields ? `Xóa ${droppedFields} trường dư (ngoài 6 trường quy định)` : '',
+      srName ? `Hệ tọa độ ${srName}` : '',
+      created ? `Tạo ${created} lớp rỗng theo mẫu (đủ các nhóm dữ liệu bắt buộc)` : '',
+      droppedFields ? `Xóa ${droppedFields} trường dư (ngoài các trường của mẫu)` : '',
       renamed ? `Sửa tên ${renamed} lớp theo đúng quy định` : '',
       moved ? `Chuyển ${moved} lớp về đúng nhóm dữ liệu` : '',
     ].filter(Boolean),
   );
-  return { steps, outputs, notes };
+  return { steps, outputs, notes, schemas: [...schemas] };
 }

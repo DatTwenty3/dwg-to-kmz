@@ -7,7 +7,7 @@
 //   Phần 3: danh sách lớp dữ liệu — "nội dung tham khảo" (đồ án chỉ có các lớp liên quan; lớp phát sinh
 //           được tạo mới theo nguyên tắc đặt tên).
 //   Phần 3 (4): trường thuộc tính tối thiểu của mọi lớp.
-// Tên trong bảng của Thông tư có vài chỗ không đúng chính quy viết hoa (`ThietkeDoThi`, `CongtrinhCapNuocPCCC_P`,
+// Tên viết đúng như mẫu cấu trúc dữ liệu của Bộ Xây dựng (tt16Schema.ts) — kể cả vài chỗ không đúng chính quy viết hoa (`ThietkeDoThi`, `CongtrinhCapNuocPCCC_P`,
 // `DanhGiaHienTrangDatXaydung` khi xuống dòng) — so khớp không phân biệt hoa/thường, khác chữ hoa chỉ là lưu ý.
 
 export type GeomCode = 'A' | 'P' | 'L';
@@ -100,8 +100,8 @@ const CAP_NUOC = [
   c('MangLuoiCapNuoc_L', 'Mạng lưới cấp nước'),
   c('DiemDauNoi_P', 'Điểm đấu nối'),
   c('PhanVungCapNuoc_A', 'Phân vùng cấp nước'),
-  c('CongTrinhCapNuocPCCC_P', 'Công trình cấp nước PCCC dạng điểm'),
-  c('CongTrinhCapNuocPCCC_A', 'Công trình cấp nước PCCC dạng vùng'),
+  c('CongtrinhCapNuocPCCC_P', 'Công trình cấp nước PCCC dạng điểm'),
+  c('CongtrinhCapNuocPCCC_A', 'Công trình cấp nước PCCC dạng vùng'),
 ];
 
 const CAP_DIEN = [
@@ -147,7 +147,7 @@ export const TT16_DATABASES: Tt16Database[] = [
         c('CongTrinh_A', 'Hiện trạng công trình dạng vùng'),
         c('CongTrinh_L', 'Hiện trạng công trình dạng đường'),
       ]),
-      d('DanhGiaHienTrangDatXayDung', 'Đánh giá hiện trạng đất xây dựng', [
+      d('DanhGiaHienTrangDatXaydung', 'Đánh giá hiện trạng đất xây dựng', [
         c('DuAnLienQuan_A', 'Dự án liên quan'),
         c('PhanVungDanhGia_A', 'Phân vùng đánh giá'),
       ]),
@@ -180,7 +180,7 @@ export const TT16_DATABASES: Tt16Database[] = [
         c('PhanKhuQuyHoach_A', 'Phân khu quy hoạch'),
         c('PhanVungSDDkhac_A', 'Phân vùng sử dụng đất khác'),
       ]),
-      d('ThietKeDoThi', 'Thiết kế đô thị', [
+      d('ThietkeDoThi', 'Thiết kế đô thị', [
         c('DiemNhanChinh_P', 'Điểm nhấn chính'),
         c('TuyenTKDT_L', 'Tuyến thiết kế đô thị'),
         c('KhuVucPhoiCanh_A', 'Khu vực dựng phối cảnh'),
@@ -357,40 +357,3 @@ export function sampleCodes(province: string, year = new Date().getFullYear()): 
   const yy = String(year % 100).padStart(2, '0');
   return { maHoSoQH: `${province}QHC1000001`, maThongTinQH: `${province}${yy}11000001` };
 }
-
-/**
- * NenDiaHinh has no list in Thông tư 16 (it is the base map supplied by the agriculture & environment sector).
- * When it was not uploaded, "Chuẩn hóa TT16" creates an EMPTY NenDiaHinh.gdb with this structure, taken from the
- * NenDiaHinh.gdb of the xã Hàm Giang (Vĩnh Long) submission chosen by the project owner: 6 groups, 25 classes.
- */
-export const NENDIAHINH_TEMPLATE: Tt16Dataset[] = [
-  d('BienGioiDiaGioi', 'Biên giới, địa giới', [c('DiaPhan_A', 'Địa phận'), c('DuongDiaGioi_L', 'Đường địa giới')]),
-  d('DanCuCoSoHaTang', 'Dân cư, cơ sở hạ tầng', [
-    c('Nha_A', 'Nhà'),
-    c('KhuChucNang_P', 'Khu chức năng'),
-    c('TramDien_P', 'Trạm điện'),
-    c('DuongDayTaiDien_L', 'Đường dây tải điện'),
-    c('CongTrinhKienTrucDacBiet_P', 'Công trình kiến trúc đặc biệt'),
-    c('RanhGioiKhuChucNang_L', 'Ranh giới khu chức năng'),
-  ]),
-  d('GiaoThong', 'Giao thông', [
-    c('BenBai_P', 'Bến bãi'),
-    c('CauGiaoThong_A', 'Cầu giao thông dạng vùng'),
-    c('MatDuongBo_A', 'Mặt đường bộ'),
-    c('CauGiaoThong_L', 'Cầu giao thông dạng đường'),
-    c('RanhGioiDuongBo_L', 'Ranh giới đường bộ'),
-    c('CongGiaoThong_P', 'Cống giao thông'),
-    c('DoanTimDuongBo_L', 'Đoạn tim đường bộ'),
-    c('CauGiaoThong_P', 'Cầu giao thông dạng điểm'),
-  ]),
-  d('DiaHinh', 'Địa hình', [c('DiemDoCao_P', 'Điểm độ cao')]),
-  d('ThuyHe', 'Thủy hệ', [
-    c('DuongBoNuoc_L', 'Đường bờ nước'),
-    c('KenhMuong_L', 'Kênh mương dạng đường'),
-    c('SongSuoi_L', 'Sông suối dạng đường'),
-    c('KenhMuong_A', 'Kênh mương dạng vùng'),
-    c('MatNuocTinh_A', 'Mặt nước tĩnh'),
-    c('SongSuoi_A', 'Sông suối dạng vùng'),
-  ]),
-  d('PhuBeMat', 'Phủ bề mặt', [c('PhuBeMat_A', 'Phủ bề mặt'), c('RanhGioiPhuBeMat_L', 'Ranh giới phủ bề mặt')]),
-];

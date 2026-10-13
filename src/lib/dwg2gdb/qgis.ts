@@ -3,8 +3,8 @@
 // by database and feature dataset; polygons/lines/points are coloured by phanLoai with the colours of the CAD
 // drawing (pattern hatches → a line pattern fill), labels from tenDoiTuong. Written as QGIS 3 XML (symbol layers
 // carry both the <Option> map of QGIS ≥ 3.26 and the older <prop> pairs).
-import { buildVn2000, formatDegMin, VN2000_TOWGS84 } from '@/lib/geo/crs';
-import { epsgForProj4 } from '@/lib/geo/epsg';
+import { formatDegMin } from '@/lib/geo/crs';
+import { tt16Wkt } from '@/lib/gdb/tt16Schema';
 import { foldVietnamese } from '@/lib/geo/provinces';
 import { TT16_DATABASES } from '@/lib/gdb/tt16';
 import type { ClassData, CategoryStyle } from './features';
@@ -195,18 +195,18 @@ export interface QgisProjectInput {
   extent: [number, number, number, number];
 }
 
+/**
+ * The coordinate system of the HoSoGIS geodatabases, written exactly as in them (tt16Wkt: ESRI WKT
+ * "VN-2000_TM-3_105-30", no TOWGS84, no EPSG code): with any other definition QGIS sees two different CRSs and
+ * shifts the layers on the fly (datum transformation), so the project would not match its own data.
+ */
 function srsXml(lon0: number, zone: 3 | 6): string {
-  const proj4 = buildVn2000(lon0, zone);
-  const epsg = zone === 3 ? epsgForProj4(proj4) : undefined;
-  const k = zone === 6 ? 0.9996 : 0.9999;
-  const desc = `VN-2000 / KTT ${formatDegMin(lon0)} múi ${zone}°`;
-  const wkt =
-    `PROJCS["${desc}",GEOGCS["VN-2000",DATUM["Vietnam_2000",SPHEROID["WGS 84",6378137,298.257223563],TOWGS84[${VN2000_TOWGS84}]],` +
-    `PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",0],` +
-    `PARAMETER["central_meridian",${lon0}],PARAMETER["scale_factor",${k}],PARAMETER["false_easting",500000],PARAMETER["false_northing",0],UNIT["metre",1]]`;
+  const wkt = tt16Wkt(lon0, zone);
+  const name = /^PROJCS\["([^"]+)"/.exec(wkt)?.[1] ?? `VN-2000 ${formatDegMin(lon0)}`;
+  const proj4 = `+proj=tmerc +lat_0=0 +lon_0=${lon0} +k=${zone === 6 ? 0.9996 : 0.9999} +x_0=500000 +y_0=0 +ellps=WGS84 +units=m +no_defs`;
   return (
-    `<spatialrefsys nativeFormat="Wkt"><wkt>${esc(wkt)}</wkt><proj4>${esc(proj4)}</proj4><srsid>0</srsid><srid>${epsg ?? 0}</srid>` +
-    `<authid>${epsg ? `EPSG:${epsg}` : ''}</authid><description>${esc(desc)}</description><projectionacronym>tmerc</projectionacronym>` +
+    `<spatialrefsys nativeFormat="Wkt"><wkt>${esc(wkt)}</wkt><proj4>${esc(proj4)}</proj4><srsid>0</srsid><srid>0</srid>` +
+    `<authid></authid><description>${esc(name)}</description><projectionacronym>tmerc</projectionacronym>` +
     `<ellipsoidacronym>EPSG:7030</ellipsoidacronym><geographicflag>false</geographicflag></spatialrefsys>`
   );
 }

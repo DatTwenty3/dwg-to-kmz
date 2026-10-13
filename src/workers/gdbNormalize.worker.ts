@@ -4,7 +4,8 @@
 // again. Nothing leaves the browser.
 import { collectGdbs, gdbEntriesFromZip, readCatalog, runCheck, type GdbEntry, type SubmissionReport } from '@/lib/gdb';
 import { executePlan, planNormalization, type NormalizeOptions, type NormalizeSource } from '@/lib/gdb/normalize';
-import { gdal, gdalFailure, gdbZipFile, nextPrefix, openAll, outputEntries, zipEntries } from './gdalRuntime';
+import { fixGdalOutput } from '@/lib/gdb/gdalFix';
+import { datasetKey, gdal, gdalFailure, gdbZipFile, nextPrefix, openAll, outputEntries, schemaFiles, zipEntries } from './gdalRuntime';
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -48,8 +49,8 @@ async function normalize(req: NormalizeRequest) {
   // 3. GDAL.
   post({ type: 'progress', stage: 'Tải thư viện GDAL (lần đầu khoảng 40 MB)', done: 0, total: 1 });
   const Gdal = await gdal();
-  const opened = await openAll(Gdal, zips, ['vsizip']);
-  const datasets = new Map(opened.datasets.map((d) => [d.path.replace(/\.gdb\.zip$/i, ''), d]));
+  const opened = await openAll(Gdal, [...zips, ...(await schemaFiles(plan.schemas))], ['vsizip']);
+  const datasets = new Map(opened.datasets.map((d) => [datasetKey(d.path), d]));
   const prefix = nextPrefix();
   try {
     await executePlan(Gdal, datasets, plan, prefix, (done, total, label) =>
@@ -63,7 +64,7 @@ async function normalize(req: NormalizeRequest) {
 
   // 4. Collect /output/<prefix><CSDL>.gdb/* → HoSoGIS/<CSDL>.gdb/*, zip, check with the same rules.
   post({ type: 'progress', stage: 'Đóng gói kết quả', done: 0, total: 1 });
-  const outEntries = await outputEntries(Gdal, prefix, (rel) => `HoSoGIS/${rel}`);
+  const outEntries = fixGdalOutput(await outputEntries(Gdal, prefix, (rel) => `HoSoGIS/${rel}`));
   const zip = await zipEntries(outEntries);
   post({ type: 'progress', stage: 'Kiểm tra lại bản chuẩn hóa', done: 0, total: 1 });
   const report = await runCheck(outEntries, undefined, { provinceCode: req.provinceCode });

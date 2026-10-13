@@ -1,4 +1,7 @@
 // "Bóc tách DWG → TT16" on small synthetic drawings (no data files needed).
+import { TT16_SCHEMA, tt16Wkt } from '@/lib/gdb/tt16Schema';
+import { templateAttributes } from '@/lib/dwg2gdb/plan';
+import { LAND_USE } from '@/lib/dwg2gdb/suggest';
 import { describe, expect, it } from 'vitest';
 import type { CadDocument, CadEntity, Vec2 } from '@/lib/cad/types';
 import {
@@ -21,7 +24,7 @@ import {
   suggest,
   TemplateError,
   templateDecisions,
-  vn2000EsriWkt,
+
   xrefNameRole,
   type MappingEntry,
 } from '@/lib/dwg2gdb';
@@ -229,8 +232,8 @@ describe('xrefs and writing', () => {
   });
 
   it('writes the coordinate system the check recognises', () => {
-    const sr = parseSr(vn2000EsriWkt(105.5, 3, 'Trà Vinh'));
-    expect(sr).toMatchObject({ name: 'VN_2000_Tra_Vinh_3deg', vn2000: true, lon0: 105.5, zone: 3 });
+    const sr = parseSr(tt16Wkt(105.5, 3));
+    expect(sr).toMatchObject({ name: 'VN-2000_TM-3_105-30', vn2000: true, lon0: 105.5, zone: 3 });
     const plan = planStage1(
       [
         { target: 'QuyHoach/A/B_A', db: 'QuyHoach', dataset: 'A', cls: 'B_A', geom: 'A', features: [], styles: [] },
@@ -318,4 +321,22 @@ describe('plan unit', () => {
 it('plan unit survives line breaks in the title', async () => {
   const { planUnitFromTitle } = await import('@/lib/dwg2gdb');
   expect(planUnitFromTitle('QUY HOẠCH CHUNG\nXÃ   LONG HIỆP, TỈNH VĨNH LONG')).toBe('XÃ LONG HIỆP');
+});
+
+describe('template attributes', () => {
+  const pt = { type: 'Point' as const, coordinates: [0, 0] };
+  it('codes every land use label of the suggestions in ChucNangSuDungDatM1', () => {
+    for (const [, label] of LAND_USE) {
+      const a = templateAttributes({ db: 'QuyHoach', cls: 'ChucNangSuDungDat_A', geom: 'A' }, { geometry: pt, tenDoiTuong: null, phanLoai: label, ghiChu: null });
+      expect(a.chucNangSuDungDatMuc1, label).toMatch(/^\d+$/);
+    }
+    expect(templateAttributes({ db: 'HienTrang', cls: 'ChucNangSuDungDat_A', geom: 'A' }, { geometry: pt, tenDoiTuong: null, phanLoai: 'Đất ở', ghiChu: null })).toEqual({ chucNangSuDungDatMuc1: '52' });
+  });
+  it('fills loaiTenDVHC and chieuDai', () => {
+    expect(templateAttributes({ db: 'QuyHoach', cls: 'TenDonViHanhChinh_P', geom: 'P' }, { geometry: pt, tenDoiTuong: 'Long Hiệp', phanLoai: 'Xã', ghiChu: null })).toEqual({ loaiTenDVHC: '3' });
+    expect(templateAttributes({ db: 'QuyHoach', cls: 'TenDonViHanhChinh_P', geom: 'P' }, { geometry: pt, tenDoiTuong: 'Ấp 1', phanLoai: 'Ấp', ghiChu: null })).toEqual({});
+    const line = { type: 'MultiLineString' as const, coordinates: [[[0, 0], [3, 4], [3, 10]]] };
+    const cls = TT16_SCHEMA.databases.QuyHoach.flatMap((d) => d.classes).find((c) => c.geom === 'L' && c.fields.some((f) => f.name === 'chieuDai'))!;
+    expect(templateAttributes({ db: 'QuyHoach', cls: cls.name, geom: 'L' }, { geometry: line, tenDoiTuong: null, phanLoai: null, ghiChu: null }).chieuDai).toBe(11);
+  });
 });

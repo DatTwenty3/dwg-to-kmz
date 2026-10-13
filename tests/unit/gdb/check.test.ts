@@ -116,7 +116,10 @@ describe('checkGdb (synthetic catalog)', () => {
     expect(ds.HienTrangGiaoThong.status).toBe('missing');
     expect(ds.hien_trang_khac.status).toBe('error');
     const c = (d: string, n: string) => ds[d].classes.find((x) => x.name === n)!;
-    expect(c('ViTriRanhGioi', 'RanhGioiQuyHoach_A').status).toBe('ok');
+    // The 6 fields are right; the class-specific fields of the template are missing (one warning listing them).
+    const rg = c('ViTriRanhGioi', 'RanhGioiQuyHoach_A');
+    expect(rg.status).toBe('warn');
+    expect(rg.issues.map((i) => i.text)).toEqual([expect.stringMatching(/^Thiếu \d+ trường theo mẫu Bộ Xây dựng$/)]);
     expect(c('ViTriRanhGioi', 'TenDonViHanhChinh_P').status).toBe('absent');
     expect(c('ViTriRanhGioi', 'RanhGioiHanhChinh_L').status).toBe('error'); // _L but polygon
     expect(c('HienTrangSuDungDat', 'ChucNangSuDungDat_A').status).toBe('warn'); // in ViTriRanhGioi

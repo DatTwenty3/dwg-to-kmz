@@ -1,6 +1,7 @@
 // Checks geodatabases against Thông tư 16/2025/TT-BXD (see tt16.ts). Output is plain data (worker → UI).
 import type { GdbClass, GdbCatalog, GdbSource } from './catalog';
 import { assessCrs, unionExtent, type CrsCheck } from './crs';
+import { schemaClass, type Tt16SchemaClass } from './tt16Schema';
 import {
   CLASS_NAME_RE,
   DATASET_NAME_RE,
@@ -32,7 +33,8 @@ export const RULE_HINT = {
   maThongTinQH:
     'maThongTinQH = 12 chữ số <mã tỉnh 2><năm trình duyệt 2><cấp độ 1–4><loại QH 1–5><điều chỉnh 0–2><5 số>, vd. 012511012345 (NĐ 111/2024/NĐ-CP, Điều 4 TT 24/2025/TT-BXD).',
   maDoiTuong: 'maDoiTuong = <maHoSoQH>-<Tên lớp>-<ObjectID>; maHoSoQH sai thì maDoiTuong cũng sai.',
-  extra: 'Ngoài 6 trường quy định (maThongTinQH, maHoSoQH, maDoiTuong, tenDoiTuong, phanLoai, ghiChu) — không tính OBJECTID, Shape, Shape_Length, Shape_Area.',
+  extra: 'Ngoài các trường của lớp trong mẫu cấu trúc dữ liệu của Bộ Xây dựng (6 trường quy định maThongTinQH, maHoSoQH, maDoiTuong, tenDoiTuong, phanLoai, ghiChu + các trường riêng của lớp) — không tính OBJECTID, Shape, Shape_Length, Shape_Area.',
+  template: 'Mẫu cấu trúc dữ liệu HoSoGIS của Bộ Xây dựng (CTDL_QuyHoachDTNT_TT16): mỗi lớp có 6 trường quy định và các trường riêng (tên, kiểu, độ dài, danh mục giá trị). Nút "Chuẩn hóa TT16" dựng lại đúng mẫu.',
 };
 
 /**
@@ -227,7 +229,7 @@ interface ValueStats {
 }
 
 /** Field + value checks for one class. */
-function checkClass(cls: GdbClass, stats: ValueStats): { fields: FieldReport[]; extraFields: string[]; issues: Issue[]; sample: Sample | null } {
+function checkClass(cls: GdbClass, stats: ValueStats, template: Tt16SchemaClass | null): { fields: FieldReport[]; extraFields: string[]; issues: Issue[]; sample: Sample | null } {
   const issues: Issue[] = [];
   if (cls.error) {
     issues.push({ level: 'error', text: `Không đọc được bảng: ${cls.error}` });
@@ -237,7 +239,10 @@ function checkClass(cls: GdbClass, stats: ValueStats): { fields: FieldReport[]; 
   const sampleRows: (string | number | null)[][] = [];
   const geomLabel = cls.geom === 'A' ? 'Polygon' : cls.geom === 'L' ? 'Polyline' : cls.geom === 'P' ? 'Point' : cls.shapeType.replace('esriGeometry', '');
   const byLower = new Map(cls.fields.map((f) => [f.name.toLowerCase(), f]));
-  const wanted = TT16_FIELDS.map((f) => ({ spec: f, field: byLower.get(f.name.toLowerCase()) ?? null }));
+  // The 6 required fields, with the length of the template class when it differs (phanLoai 50 in TenDonViHanhChinh_P).
+  const tplField = new Map((template?.fields ?? []).map((f) => [f.name.toLowerCase(), f]));
+  // A template class without one of them (HuongDi_L has no phanLoai) does not ask for it.
+  const wanted = TT16_FIELDS.filter((f) => !template || tplField.has(f.name.toLowerCase())).map((f) => ({ spec: { ...f, length: tplField.get(f.name.toLowerCase())?.length ?? f.length }, field: byLower.get(f.name.toLowerCase()) ?? null }));
 
   // One pass over the rows for every value check.
   const filled = new Map<string, number>();
@@ -249,8 +254,8 @@ function checkClass(cls: GdbClass, stats: ValueStats): { fields: FieldReport[]; 
   let badMaThongTinSample = '';
   let badMaDoiTuongSample = '';
   let total = 0;
-  const fMaHoSo = wanted[1].field;
-  const fMaDoiTuong = wanted[2].field;
+  const fMaHoSo = wanted.find((w) => w.spec.name === 'maHoSoQH')?.field ?? null;
+  const fMaDoiTuong = wanted.find((w) => w.spec.name === 'maDoiTuong')?.field ?? null;
   for (const row of cls.rows()) {
     total++;
     if (sampleRows.length < SAMPLE_ROWS)
@@ -274,7 +279,7 @@ function checkClass(cls: GdbClass, stats: ValueStats): { fields: FieldReport[]; 
         badMaHoSoSample ||= ma;
       }
     }
-    const fMaThongTin = wanted[0].field;
+    const fMaThongTin = wanted.find((w) => w.spec.name === 'maThongTinQH')?.field ?? null;
     const mtt = fMaThongTin ? String(row[fMaThongTin.name] ?? '').trim() : '';
     if (mtt) {
       stats.maThongTin.set(mtt, (stats.maThongTin.get(mtt) ?? 0) + 1);
@@ -332,22 +337,38 @@ function checkClass(cls: GdbClass, stats: ValueStats): { fields: FieldReport[]; 
 
   const required = new Set(TT16_FIELDS.map((f) => f.name.toLowerCase()));
   const extraFields = cls.fields
-    .filter((f) => f.type !== 'objectid' && f.type !== 'geometry' && !required.has(f.name.toLowerCase()) && !SYSTEM_FIELDS.has(f.name.toLowerCase()))
+    .filter((f) => f.type !== 'objectid' && f.type !== 'geometry' && !required.has(f.name.toLowerCase()) && !tplField.has(f.name.toLowerCase()) && !SYSTEM_FIELDS.has(f.name.toLowerCase()))
     .map((f) => f.name);
   // Reference classes may legitimately be empty (Chuẩn hóa TT16 creates them so): a note, not a warning.
   if (cls.rowCount === 0) issues.push({ level: 'info', text: 'Lớp rỗng (0 đối tượng)' });
-  for (const f of extraFields) issues.push({ level: 'warn', field: f, text: 'Trường dư — ngoài 6 trường quy định', hint: RULE_HINT.extra });
+  // The class-specific fields of the template: missing ones listed once, type / length compared.
+  const own = (template?.fields ?? []).filter((f) => !required.has(f.name.toLowerCase()));
+  const missing = own.filter((f) => !byLower.has(f.name.toLowerCase())).map((f) => f.name);
+  if (missing.length)
+    issues.push({ level: 'warn', text: `Thiếu ${missing.length} trường theo mẫu Bộ Xây dựng`, example: missing.join(', '), hint: RULE_HINT.template });
+  const typeName: Record<string, string> = { string: 'TEXT', float32: 'Float', float64: 'Double', int16: 'Short', int32: 'Long', datetime: 'Date' };
+  for (const t of own) {
+    const f = byLower.get(t.name.toLowerCase());
+    if (!f) continue;
+    const want = `${typeName[t.type]}${t.type === 'string' ? ` ${t.length}` : ''}`;
+    if (f.name !== t.name) issues.push({ level: 'warn', field: f.name, text: `Sai chữ hoa/thường — đúng là "${t.name}"`, hint: RULE_HINT.template });
+    if (f.type !== t.type || (t.type === 'string' && f.length < (t.length ?? 0)))
+      issues.push({ level: 'warn', field: f.name, text: `Kiểu ${typeName[f.type] ?? f.type}${f.type === 'string' ? ` ${f.length}` : ''} — mẫu là ${want}`, hint: RULE_HINT.template });
+  }
+  for (const f of extraFields) issues.push({ level: 'warn', field: f, text: 'Trường dư — ngoài các trường của mẫu', hint: RULE_HINT.extra });
   return { fields, extraFields, issues, sample: { columns, rows: sampleRows, total } };
 }
 
 function classReport(
   cls: GdbClass,
   stats: ValueStats,
+  /** TT16 database the class is in (its template class gives the expected fields). */
+  db: string | null,
   expected: { name: string; alias: string; dataset: string | null } | null,
   /** The database has no list in the circular (NenDiaHinh): a class named by the rule is simply "Đạt". */
   free = false,
 ): ClassReport {
-  const r = checkClass(cls, stats);
+  const r = checkClass(cls, stats, db ? schemaClass(db, expected?.name ?? cls.name) : null);
   const issues = [...r.issues];
   const suffix = (/_([APL])$/.exec(cls.name)?.[1] as GeomCode | undefined) ?? null;
   let base: Status = 'ok';
@@ -464,13 +485,13 @@ export function checkGdb(src: Pick<GdbSource, 'name' | 'dir'>, cat: GdbCatalog, 
           issues: [],
         };
       classesLeft.delete(spec.name.toLowerCase());
-      return classReport(cls, stats, { ...spec, dataset: ds.name });
+      return classReport(cls, stats, db?.name ?? null, { ...spec, dataset: ds.name });
     });
     // Extra classes the user put inside this dataset.
     for (const cls of [...classesLeft.values()]) {
       if (actual && cls.dataset?.toLowerCase() === actual.toLowerCase() && !referenceNames.has(cls.name.toLowerCase())) {
         classesLeft.delete(cls.name.toLowerCase());
-        classes.push(classReport(cls, stats, null));
+        classes.push(classReport(cls, stats, db?.name ?? null, null));
       }
     }
     if (actual && !classes.some((c) => c.status !== 'absent')) {
@@ -494,7 +515,7 @@ export function checkGdb(src: Pick<GdbSource, 'name' | 'dir'>, cat: GdbCatalog, 
       : free
         ? []
         : [{ level: 'info', text: db ? 'Nhóm bổ sung ngoài danh mục — tên đúng nguyên tắc' : 'Tên đúng nguyên tắc đặt tên nhóm dữ liệu' }];
-    const reports = classes.map((c) => classReport(c, stats, null, free));
+    const reports = classes.map((c) => classReport(c, stats, db?.name ?? null, null, free));
     datasets.push({
       name: actual,
       title: '',
@@ -508,7 +529,7 @@ export function checkGdb(src: Pick<GdbSource, 'name' | 'dir'>, cat: GdbCatalog, 
     });
   }
 
-  const rootClasses = [...classesLeft.values()].map((c) => classReport(c, stats, null, free));
+  const rootClasses = [...classesLeft.values()].map((c) => classReport(c, stats, db?.name ?? null, null, free));
 
   // ---- Coordinate system vs. where the data actually is (no province choice needed) ----
   const validCode = (vals: Map<string, number>, parse: (v: string) => { province: string } | null) =>

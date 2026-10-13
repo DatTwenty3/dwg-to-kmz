@@ -13,7 +13,7 @@ type Picked = { path: string; file: File };
 
 const firstValid = (values: [string, number][], parse: (v: string) => unknown) => values.map(([v]) => v).find((v) => parse(v)) ?? '';
 
-/** Main databases "Chuẩn hóa" creates (empty) when they were not uploaded; NenDiaHinh follows the Hàm Giang structure. */
+/** Main databases "Chuẩn hóa" creates (empty) when they were not uploaded; NenDiaHinh follows the Bộ Xây dựng template. */
 const CREATABLE = new Set(['HienTrang', 'QuyHoach', 'MocGioi', 'NenDiaHinh']);
 
 export default function GdbNormalizeDialog({
@@ -113,15 +113,15 @@ export default function GdbNormalizeDialog({
                   <span className="text-zinc-700">
                     Tạo thêm {missing.map((m) => `${m.name}.gdb`).join(', ')} còn thiếu{' '}
                     <span className="text-zinc-400">
-                      (chỉ có cấu trúc, chưa có dữ liệu{missing.some((m) => m.name === 'NenDiaHinh') ? '; NenDiaHinh theo cấu trúc mẫu xã Hàm Giang' : ''})
+                      (chỉ có cấu trúc, chưa có dữ liệu{missing.some((m) => m.name === 'NenDiaHinh') ? '; NenDiaHinh theo mẫu của Bộ Xây dựng' : ''})
                     </span>
                   </span>
                 </label>
               )}
               <ul className="space-y-1 rounded-lg bg-zinc-50 px-3 py-2.5 text-[12.5px] text-zinc-600">
-                <li>• Tạo đủ các nhóm dữ liệu bắt buộc và toàn bộ lớp theo danh mục (lớp chưa có dữ liệu để rỗng).</li>
-                <li>• Mỗi lớp đúng 6 trường TEXT theo độ dài quy định; xóa các trường dư.</li>
-                <li>• Gán hai mã trên cho mọi đối tượng, tính lại maDoiTuong = mã hồ sơ-tên lớp-OBJECTID; giữ tenDoiTuong, phanLoai, ghiChu.</li>
+                <li>• Dựng theo mẫu cấu trúc dữ liệu của Bộ Xây dựng: đủ nhóm, lớp (lớp chưa có dữ liệu để rỗng), tên hiển thị và danh mục giá trị.</li>
+                <li>• Mỗi lớp đúng các trường của mẫu (6 trường quy định + trường riêng của lớp), giữ giá trị trùng tên; xóa các trường dư.</li>
+                <li>• Gán hai mã trên cho mọi đối tượng, tính lại maDoiTuong = mã hồ sơ-tên lớp-OBJECTID; điền trạng thái, loại / cấp độ quy hoạch, loại điều chỉnh theo mã thông tin.</li>
                 <li>• Sửa tên lớp sai chữ hoa, chuyển lớp về đúng nhóm, đặt tên file chuẩn trong thư mục HoSoGIS.</li>
               </ul>
               {error && (

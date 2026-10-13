@@ -2,22 +2,72 @@
 // with data, the three free fields), then the stage-1 geodatabases go through "Chuẩn hóa TT16"
 // (src/lib/gdb/normalize.ts) which adds every required group / class, the two codes and maDoiTuong — so the
 // result follows exactly the same rules as a normalised upload.
-import { pascalName, type NormalizePlan, type NormalizeStep } from '@/lib/gdb/normalize';
-import type { ClassData } from './features';
+import type { NormalizePlan, NormalizeStep } from '@/lib/gdb/normalize';
+import { domainCode, schemaClass } from '@/lib/gdb/tt16Schema';
+import type { ClassData, GeoJsonGeometry, GisFeature } from './features';
+
+/** Level of an administrative unit for the LoaiTenDVHC domain (1 tỉnh, 2 huyện, 3 xã); ấp/khu phố have none. */
+function adminLevel(kind: string | null): string | null {
+  const k = (kind ?? '').toLowerCase();
+  if (/^(tỉnh|thành phố trực thuộc trung ương)$/.test(k)) return '1';
+  if (/^(huyện|quận|thị xã|thành phố)$/.test(k)) return '2';
+  if (/^(xã|phường|thị trấn|đặc khu)$/.test(k)) return '3';
+  return null;
+}
+
+function lineLength(g: GeoJsonGeometry): number {
+  if (g.type !== 'MultiLineString') return 0;
+  let len = 0;
+  for (const line of g.coordinates) for (let i = 1; i < line.length; i++) len += Math.hypot(line[i][0] - line[i - 1][0], line[i][1] - line[i - 1][1]);
+  return len;
+}
+
+/** Land use labels of suggest.ts (QCVN 01:2021) worded differently from the ChucNangSuDungDatM1 values. */
+const LAND_USE_M1: Record<string, string> = {
+  'Đất bãi tắm': 'Đất xây dựng các chức năng khác',
+  'Đất chức năng khác': 'Đất xây dựng các chức năng khác',
+  'Đất du lịch': 'Đất xây dựng các chức năng khác',
+  'Đất cây xanh cách ly': 'Đất cây xanh, thể dục thể thao',
+  'Đất cây xanh sử dụng công cộng': 'Đất cây xanh, thể dục thể thao',
+  'Đất giáo dục': 'Đất công cộng',
+  'Đất y tế': 'Đất công cộng',
+  'Đất văn hóa': 'Đất công cộng',
+  'Đất thương mại, dịch vụ': 'Đất công cộng',
+  'Đất cơ quan, trụ sở': 'Đất công cộng',
+  'Đất công nghiệp, tiểu thủ công nghiệp': 'Đất công nghiệp, tiểu thủ công nghiệp và làng nghề',
+  'Đất di tích, danh thắng': 'Đất tôn giáo, danh lam di tích, đình đền',
+  'Đất tôn giáo, tín ngưỡng': 'Đất tôn giáo, danh lam di tích, đình đền',
+  'Đất giao thông': 'Giao thông',
+  'Đất hạ tầng kỹ thuật': 'Đất hạ tầng kỹ thuật khác',
+  'Đất khoáng sản, vật liệu xây dựng': 'Đất khoáng sản và sản xuất vật liệu xây dựng',
+  'Đất nghĩa trang, nhà tang lễ': 'Đất nghĩa trang, nghĩa địa',
+  'Đất sông, ngòi, kênh, rạch, suối, mặt nước': 'Đất sông ngòi, kênh rạch, mặt nước chuyên dùng',
+  'Đất trồng cây hàng năm khác': 'Đất trồng trọt khác',
+  'Đất trồng cây lâu năm': 'Đất trồng trọt khác',
+  'Đất xử lý chất thải': 'Đất xử lý chất thải rắn',
+};
 
 /**
- * ESRI WKT of VN-2000 TM, as ArcGIS writes it in the sample HoSoGIS ("VN_2000_Tra_Vinh_3deg"). The check reads
- * the central meridian and scale factor from it; the 7 parameters to WGS84 are a separate ArcGIS transformation.
+ * Template attributes the drawing gives (tt16Schema.ts): the code of every coded value domain field whose value list
+ * names the phanLoai ("Đất ở" → chucNangSuDungDatMuc1 52, "Trung thế" → capDienThe 2), chieuDai of lines,
+ * loaiTenDVHC of administrative units. dienTich, trangThaiQuyHoach and the codes are filled by the normalisation.
  */
-export function vn2000EsriWkt(lon0: number, zone: 3 | 6, place?: string | null): string {
-  const tag = place ? pascalName(place).replace(/([a-z])([A-Z])/g, '$1_$2') : `KTT_${Math.floor(lon0)}_${String(Math.round((lon0 % 1) * 60)).padStart(2, '0')}`;
-  const name = `VN_2000_${tag}_${zone}deg`;
-  return (
-    `PROJCS["${name}",GEOGCS["GCS_VN_2000",DATUM["D_Vietnam_2000",SPHEROID["WGS_1984",6378137.0,298.257223563]],` +
-    `PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],` +
-    `PARAMETER["False_Easting",500000.0],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",${lon0}],` +
-    `PARAMETER["Scale_Factor",${zone === 6 ? '0.9996' : '0.9999'}],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Meter",1.0]]`
-  );
+export function templateAttributes(c: Pick<ClassData, 'db' | 'cls' | 'geom'>, f: GisFeature): Record<string, string | number> {
+  const spec = schemaClass(c.db, c.cls);
+  const out: Record<string, string | number> = {};
+  if (!spec) return out;
+  for (const field of spec.fields) {
+    if (field.name === 'loaiTenDVHC') {
+      const level = adminLevel(f.phanLoai);
+      if (level) out[field.name] = level;
+    } else if (field.name === 'chieuDai' && c.geom === 'L') out[field.name] = Math.round(lineLength(f.geometry) * 100) / 100;
+    else if (field.domain && f.phanLoai) {
+      const label = field.domain === 'ChucNangSuDungDatM1' ? (LAND_USE_M1[f.phanLoai] ?? f.phanLoai) : f.phanLoai;
+      const code = domainCode(c.db, field.domain, label);
+      if (code !== null) out[field.name] = code;
+    }
+  }
+  return out;
 }
 
 /** GeoJSON text of a class (coordinates in VN-2000 metres; the CRS is assigned with -a_srs). */
@@ -27,7 +77,7 @@ export function classGeoJson(c: ClassData): string {
     features: c.features.map((f, i) => ({
       type: 'Feature',
       id: i + 1,
-      properties: { tenDoiTuong: f.tenDoiTuong ?? '', phanLoai: f.phanLoai ?? '', ghiChu: f.ghiChu ?? '' },
+      properties: { tenDoiTuong: f.tenDoiTuong ?? '', phanLoai: f.phanLoai ?? '', ghiChu: f.ghiChu ?? '', ...templateAttributes(c, f) },
       geometry: f.geometry,
     })),
   });
@@ -70,5 +120,5 @@ export function planStage1(classes: ClassData[], wkt: string): Stage1Plan {
     started.add(c.db);
     steps.push({ out: c.db, source: key, args, label: `${c.dataset} / ${c.cls}`, features: c.features.length });
   });
-  return { steps, inputs, outputs: [...started], notes: [] };
+  return { steps, inputs, outputs: [...started], notes: [], schemas: [] };
 }

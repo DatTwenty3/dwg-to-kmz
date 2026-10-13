@@ -2,6 +2,7 @@
 // "Bóc tách DWG → CSDL TT16" off the main thread: reads the drawings of a planning folder (DWG via libredwg-web,
 // DXF) with their xrefs, analyses them (src/lib/dwg2gdb), previews one drawing on the map, and exports HoSoGIS.zip:
 // features → GeoJSON → GDAL stage 1 → "Chuẩn hóa TT16" → check. Nothing leaves the browser.
+import { tt16Wkt } from '@/lib/gdb/tt16Schema';
 import { parseDwg, parseDxf } from '@/lib/cad';
 import type { CadDocument, CadEntity, CrsOptions, Vec2 } from '@/lib/cad/types';
 import {
@@ -18,7 +19,7 @@ import {
   projectNameFromTexts,
   provinceFromTexts,
   summaryDocument,
-  vn2000EsriWkt,
+
   type DrawingInfo,
   type FolderFile,
   type LayerRow,
@@ -32,7 +33,8 @@ import { collectGdbs, readCatalog, runCheck, type SubmissionReport } from '@/lib
 import { executePlan, planNormalization, type NormalizeSource } from '@/lib/gdb/normalize';
 import { locateVn2000, type Vn2000Guess } from '@/lib/geo/search';
 import { transformDocument } from '@/lib/geo/transform';
-import { gdal, gdalFailure, gdbZipFile, nextPrefix, openAll, outputEntries, zipEntries } from './gdalRuntime';
+import { fixGdalOutput } from '@/lib/gdb/gdalFix';
+import { datasetKey, gdal, gdalFailure, gdbZipFile, nextPrefix, openAll, outputEntries, schemaFiles, zipEntries } from './gdalRuntime';
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -209,7 +211,7 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
   const Gdal = await gdal();
 
   // Stage 1: GeoJSON → <CSDL>.gdb with the classes that have data.
-  const s1 = planStage1(built.classes, vn2000EsriWkt(req.lon0, req.zone, req.place));
+  const s1 = planStage1(built.classes, tt16Wkt(req.lon0, req.zone));
   const o1 = await openAll(
     Gdal,
     s1.inputs.map((i) => new File([i.json], i.fileName, { type: 'application/geo+json' })),
@@ -236,10 +238,10 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
     sources.push({ key: `s${i}`, name: gdbs[i].name, database: gdbs[i].name.replace(/\.gdb$/i, ''), catalog: await readCatalog(gdbs[i]) });
   }
   const plan = planNormalization(sources, { maHoSoQH: req.maHoSoQH, maThongTinQH: req.maThongTinQH, createMissingDatabases: req.createMissing });
-  const o2 = await openAll(Gdal, zips, ['vsizip']);
+  const o2 = await openAll(Gdal, [...zips, ...(await schemaFiles(plan.schemas))], ['vsizip']);
   const p2 = nextPrefix('b');
   try {
-    await executePlan(Gdal, new Map(o2.datasets.map((d) => [d.path.replace(/\.gdb\.zip$/i, ''), d])), plan, p2, (done, total, label) =>
+    await executePlan(Gdal, new Map(o2.datasets.map((d) => [datasetKey(d.path), d])), plan, p2, (done, total, label) =>
       post({ type: 'progress', stage: label ? `Chuẩn hóa ${label}` : 'Hoàn tất', done, total }),
     );
   } catch (e) {
@@ -249,7 +251,7 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
   }
 
   post({ type: 'progress', stage: 'Đóng gói và kiểm tra HoSoGIS', done: 0, total: 1 });
-  const out: { path: string; bytes: Uint8Array; read: () => Promise<Uint8Array> }[] = await outputEntries(Gdal, p2, (rel) => `HoSoGIS/${rel}`);
+  const out: { path: string; bytes: Uint8Array; read: () => Promise<Uint8Array> }[] = fixGdalOutput(await outputEntries(Gdal, p2, (rel) => `HoSoGIS/${rel}`));
   // Tệp tổng hợp: QGIS project next to the geodatabases.
   let qgzName: string | null = null;
   if (req.qgz) {

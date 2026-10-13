@@ -7,7 +7,10 @@
 // worker importing this module must install its own handler after the imports.
 import initGdalJs from 'gdal3.js';
 import JSZip from 'jszip';
+import initSqlJs, { type SqlJsStatic } from 'sql.js';
 import type { GdbEntry } from '@/lib/gdb';
+import { schemaKey } from '@/lib/gdb/normalize';
+import { buildSchemaGpkg } from '@/lib/gdb/schemaGpkg';
 
 export type Gdal = Awaited<ReturnType<typeof initGdalJs>>;
 
@@ -67,3 +70,25 @@ export async function zipEntries(entries: { path: string; bytes: Uint8Array }[])
   for (const e of entries) out.file(e.path, e.bytes);
   return out.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
 }
+
+let sqlPromise: Promise<SqlJsStatic> | null = null;
+
+/**
+ * The schema GeoPackages of the template geodatabases a plan creates (schemaGpkg.ts), as stored zips named
+ * `<schemaKey(db)>.gpkg.zip` so they open with the source zips in the same GDAL `open` (one call: each call
+ * unmounts the previous inputs).
+ */
+export async function schemaFiles(dbs: string[]): Promise<File[]> {
+  if (!dbs.length) return [];
+  const SQL = await (sqlPromise ??= initSqlJs({ locateFile: (f: string) => `/sqljs/${f}` }));
+  const files: File[] = [];
+  for (const db of dbs) {
+    const zip = new JSZip();
+    zip.file(`${schemaKey(db)}.gpkg`, buildSchemaGpkg(SQL, db));
+    files.push(new File([await zip.generateAsync({ type: 'blob', compression: 'STORE' })], `${schemaKey(db)}.gpkg.zip`));
+  }
+  return files;
+}
+
+/** Dataset key of an opened file: "s0.gdb.zip" → "s0", "tt16schemaHienTrang.gpkg.zip" → "tt16schemaHienTrang". */
+export const datasetKey = (path: string) => path.replace(/^.*\//, '').replace(/\.(gdb|gpkg)\.zip$/i, '');

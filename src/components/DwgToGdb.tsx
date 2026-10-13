@@ -500,7 +500,7 @@ export default function DwgToGdb() {
             {[
               ['1. Nhận diện', 'Bản đồ nào là hiện trạng, quy hoạch sử dụng đất, giao thông, điện, nước… (theo tiêu đề bản vẽ); bản 2030/2050 lấy năm mới nhất.'],
               ['2. Ghép layer', 'Mỗi layer được gợi ý một lớp dữ liệu TT16 và “phân loại”. Bạn xem trên bản đồ vệ tinh, sửa chỗ chưa đúng, lưu thành mẫu dùng lại.'],
-              ['3. Xuất HoSoGIS', 'Ghi File Geodatabase đủ nhóm, lớp, 6 trường quy định, mã hồ sơ — rồi kiểm tra lại ngay theo Thông tư 16.'],
+              ['3. Xuất HoSoGIS', 'Ghi File Geodatabase theo mẫu cấu trúc dữ liệu của Bộ Xây dựng (nhóm, lớp, trường, danh mục giá trị), mã hồ sơ — rồi kiểm tra lại ngay theo Thông tư 16.'],
             ].map(([t, d]) => (
               <li key={t} className="ui-card p-4">
                 <b className="block font-medium text-zinc-900">{t}</b>
@@ -1025,7 +1025,7 @@ function ExportDialog({
           <div className="flex-1">
             <h2 className="text-[16px] font-semibold text-zinc-900">Xuất HoSoGIS theo Thông tư 16</h2>
             <p className="mt-1 text-[12.5px] leading-relaxed text-zinc-500">
-              Hệ tọa độ VN-2000 {ktt}. Kết quả: <b className="font-medium text-zinc-700">HoSoGIS.zip</b> gồm các .gdb đủ nhóm, lớp và 6 trường quy định.
+              Hệ tọa độ VN-2000 {ktt}. Kết quả: <b className="font-medium text-zinc-700">HoSoGIS.zip</b> gồm các .gdb theo mẫu cấu trúc dữ liệu của Bộ Xây dựng.
             </p>
           </div>
           {!running && (
@@ -1042,7 +1042,7 @@ function ExportDialog({
               <label className="flex items-start gap-2">
                 <input type="checkbox" className="ui-check mt-0.5" checked={createMissing} onChange={(e) => setCreateMissing(e.target.checked)} disabled={running} />
                 <span className="text-zinc-700">
-                  Tạo đủ 4 CSDL <span className="text-zinc-400">(MocGioi, NenDiaHinh rỗng — NenDiaHinh theo cấu trúc mẫu xã Hàm Giang)</span>
+                  Tạo đủ 4 CSDL <span className="text-zinc-400">(MocGioi, NenDiaHinh rỗng — NenDiaHinh theo mẫu của Bộ Xây dựng)</span>
                 </span>
               </label>
               <label className="flex items-start gap-2">

@@ -41,7 +41,7 @@ type Theme = 'sdd' | 'ktcq' | 'tkdt' | 'gt' | 'cg' | 'cbkt' | 'tnt' | 'nuoc' | '
 const DATASET: Record<Theme, [string, string]> = {
   sdd: ['HienTrangSuDungDat', 'QuyHoachSuDungDat'],
   ktcq: ['HienTrangKhongGianKienTrucCanhQuan', 'QuyHoachKhongGianKienTrucCanhQuan'],
-  tkdt: ['HienTrangKhongGianKienTrucCanhQuan', 'ThietKeDoThi'],
+  tkdt: ['HienTrangKhongGianKienTrucCanhQuan', 'ThietkeDoThi'],
   gt: ['HienTrangGiaoThong', 'QuyHoachGiaoThong'],
   cg: ['HienTrangCGDD_CGXDHanhLangHTKT', 'QuyHoachCGDD_CGXDHanhLangHTKT'],
   cbkt: ['HienTrangChuanBiKyThuat', 'QuyHoachChuanBiKyThuat'],
@@ -57,7 +57,7 @@ const DATASET: Record<Theme, [string, string]> = {
 export const compactName = (s: string) => foldVietnamese(s).replace(/ /g, '');
 
 /** Land use categories (QCVN 01:2021/BXD wording) recognised in layer names. Order matters. */
-const LAND_USE: [RegExp, string][] = [
+export const LAND_USE: [RegExp, string][] = [
   [/chuasudung/, 'Đất chưa sử dụng'],
   [/khudancu|dato\b|^dato|datodothi|olangxom|onongthon|onongthon|datonongthon|ontdato|taidinhcu|\bont\b|nhao|dat?o$/, 'Đất ở'],
   [/tronglua|ruonglua|datlua|lua$/, 'Đất trồng lúa'],
@@ -154,9 +154,9 @@ function power(c: string, kind: GeomKind): Pick {
 
 function water(c: string, kind: GeomKind, p: string): Pick {
   if (!/capnuoc|^cn|ongnuoc|ong(d|phi)?\d|tuyenong|nuocsach|nhamaynuoc|tramcapnuoc|tramnuoc|pccc|cuuhoa|hong|tru(cuu)?hoa|daunoi|thapnuoc|nuoc$/.test(c)) return null;
-  if (/pccc|cuuhoa|truhoa|hongcuuhoa/.test(c)) return kind === 'L' ? null : { theme: 'nuoc', cls: 'CongTrinhCapNuocPCCC_P', phanLoai: 'Trụ cứu hỏa' };
+  if (/pccc|cuuhoa|truhoa|hongcuuhoa/.test(c)) return kind === 'L' ? null : { theme: 'nuoc', cls: 'CongtrinhCapNuocPCCC_P', phanLoai: 'Trụ cứu hỏa' };
   if (/daunoi/.test(c)) return kind === 'L' ? null : { theme: 'nuoc', cls: 'DiemDauNoi_P', phanLoai: 'Điểm đấu nối' };
-  if (/nhamay|tram|thap|be$|xuly/.test(c)) return kind === 'A' ? { theme: 'nuoc', cls: 'CongTrinhCapNuocPCCC_A', phanLoai: 'Công trình cấp nước' } : kind === 'P' ? { theme: 'nuoc', cls: 'CongTrinhCapNuocPCCC_P', phanLoai: 'Công trình cấp nước' } : null;
+  if (/nhamay|tram|thap|be$|xuly/.test(c)) return kind === 'A' ? { theme: 'nuoc', cls: 'CongtrinhCapNuocPCCC_A', phanLoai: 'Công trình cấp nước' } : kind === 'P' ? { theme: 'nuoc', cls: 'CongtrinhCapNuocPCCC_P', phanLoai: 'Công trình cấp nước' } : null;
   if (/phanvung/.test(c)) return kind === 'A' ? { theme: 'nuoc', cls: 'PhanVungCapNuoc_A', phanLoai: p } : null;
   return kind === 'L' ? { theme: 'nuoc', cls: 'MangLuoiCapNuoc_L', phanLoai: 'Đường ống cấp nước' } : null;
 }

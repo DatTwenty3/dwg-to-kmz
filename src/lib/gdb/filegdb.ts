@@ -394,3 +394,173 @@ export function readTable(tableBuf: ArrayBuffer | Uint8Array, tablxBuf: ArrayBuf
 
 /** Physical file name of table #id: a00000001, a0000006f… */
 export const tableFileName = (id: number) => `a${id.toString(16).padStart(8, '0')}`;
+
+// ---- Rewriting one text/XML field of a table (used to fix GDB_Items written by GDAL) --------------------------
+
+const utf8Encoder = new TextEncoder();
+
+function encodeVarUint(n: number): number[] {
+  const out: number[] = [];
+  do {
+    let b = n % 128;
+    n = Math.floor(n / 128);
+    if (n > 0) b |= 0x80;
+    out.push(b);
+  } while (n > 0);
+  return out;
+}
+
+/**
+ * Rewrites the string/XML field `field` of every row where `edit` returns a new value (null = keep). The table is
+ * written compactly (bytes before the first row kept, then the rows in ObjectID order) with a new .gdbtablx; ObjectIDs do not
+ * change, so attribute/spatial index files stay valid (a .freelist must be dropped by the caller). Returns null
+ * when nothing changed or the layout is not handled (sparse .gdbtablx).
+ */
+export function rewriteTextField(
+  tableBuf: Uint8Array,
+  tablxBuf: Uint8Array,
+  field: string,
+  edit: (value: string, row: Record<string, GdbValue>) => string | null,
+): { table: Uint8Array; tablx: Uint8Array } | null {
+  const tv = view(tableBuf);
+  const xv = view(tablxBuf);
+  if (tv.getUint32(0, true) !== 3) return null;
+  const fieldsAt = Number(tv.getBigUint64(32, true));
+  const fieldSectionLen = 4 + tv.getUint32(fieldsAt, true);
+  const fields = readFields(new Cursor(tv, fieldsAt));
+  const target = fields.findIndex((f) => f.name === field && (f.type === 'string' || f.type === 'xml'));
+  if (target < 0) return null;
+  // Dense .gdbtablx only (system tables are small).
+  const blocks = xv.getUint32(4, true);
+  const total = xv.getUint32(8, true);
+  const size = xv.getUint32(12, true);
+  const trailer = 16 + blocks * 1024 * size;
+  if (trailer + 4 <= xv.byteLength && xv.getUint32(trailer, true) !== 0 && blocks * 1024 < total) return null;
+  const offsets = readOffsets(xv);
+  const table = readTable(tableBuf, tablxBuf);
+  const rowsById = new Map<number, Record<string, GdbValue>>();
+  const allRows = [...table.rows()];
+  let id = 0;
+  for (let i = 0; i < offsets.length; i++) if (offsets[i]) rowsById.set(i, allRows[id++]);
+
+  const nullableCount = fields.filter((f) => f.nullable && f.type !== 'objectid').length;
+  // Everything before the rows (header, field description, whatever GDAL / ArcGIS put in between) is kept as is.
+  const firstRow = Math.min(...offsets.filter((o) => o > 0));
+  const prefixLen = fieldsAt + fieldSectionLen <= firstRow ? fieldsAt + fieldSectionLen : -1;
+  if (prefixLen < 0) return null;
+  const parts: Uint8Array[] = [];
+  const newOffsets: number[] = [];
+  let pos = prefixLen;
+  let largest = 0;
+  let changed = false;
+  for (let i = 0; i < offsets.length; i++) {
+    const off = offsets[i];
+    if (!off) {
+      newOffsets.push(0);
+      continue;
+    }
+    const rowSize = tv.getUint32(off, true);
+    let rowBytes = new Uint8Array(tableBuf.buffer, tableBuf.byteOffset + off + 4, rowSize);
+    // Locate the field's bytes in the row.
+    const c = new Cursor(tv, off + 4);
+    const flagsAt = c.p;
+    c.skip(Math.ceil(nullableCount / 8));
+    let bit = 0;
+    let span: [number, number] | null = null;
+    for (let k = 0; k < fields.length; k++) {
+      const f = fields[k];
+      if (f.type === 'objectid') continue;
+      if (f.nullable) {
+        const isNull = (tv.getUint8(flagsAt + (bit >> 3)) >> (bit & 7)) & 1;
+        bit++;
+        if (isNull) continue;
+      }
+      const start = c.p;
+      switch (f.type) {
+        case 'int16':
+          c.skip(2);
+          break;
+        case 'int32':
+        case 'float32':
+          c.skip(4);
+          break;
+        case 'float64':
+        case 'datetime':
+        case 'date':
+        case 'time':
+        case 'int64':
+          c.skip(8);
+          break;
+        case 'datetimeoffset':
+          c.skip(10);
+          break;
+        case 'guid':
+        case 'globalid':
+          c.skip(16);
+          break;
+        case 'raster':
+          return null;
+        default:
+          c.skip(c.varuint());
+      }
+      if (k === target) span = [start, c.p];
+    }
+    const row = rowsById.get(i)!;
+    const value = row[field];
+    const next = span && typeof value === 'string' ? edit(value, row) : null;
+    if (next !== null && next !== value && span) {
+      const enc = utf8Encoder.encode(next);
+      const head = new Uint8Array(tableBuf.buffer, tableBuf.byteOffset + off + 4, span[0] - off - 4);
+      const tail = new Uint8Array(tableBuf.buffer, tableBuf.byteOffset + span[1], off + 4 + rowSize - span[1]);
+      const len = encodeVarUint(enc.length);
+      const b = new Uint8Array(head.length + len.length + enc.length + tail.length);
+      b.set(head, 0);
+      b.set(len, head.length);
+      b.set(enc, head.length + len.length);
+      b.set(tail, head.length + len.length + enc.length);
+      rowBytes = b;
+      changed = true;
+    }
+    const sizeBytes = new Uint8Array(4);
+    new DataView(sizeBytes.buffer).setUint32(0, rowBytes.length, true);
+    parts.push(sizeBytes, rowBytes);
+    newOffsets.push(pos);
+    pos += 4 + rowBytes.length;
+    largest = Math.max(largest, rowBytes.length);
+  }
+  if (!changed) return null;
+
+  const out = new Uint8Array(pos);
+  out.set(new Uint8Array(tableBuf.buffer, tableBuf.byteOffset, prefixLen), 0);
+  let p = prefixLen;
+  for (const part of parts) {
+    out.set(part, p);
+    p += part.length;
+  }
+  const ov = new DataView(out.buffer);
+  ov.setUint32(8, Math.max(largest, tv.getUint32(8, true)), true);
+  ov.setBigUint64(24, BigInt(out.length), true);
+
+  const offSize = Math.max(size, pos > 2 ** 40 ? 6 : pos > 2 ** 32 ? 5 : size);
+  const nBlocks = Math.ceil(newOffsets.length / 1024);
+  const x = new Uint8Array(16 + nBlocks * 1024 * offSize + 16);
+  const xd = new DataView(x.buffer);
+  xd.setUint32(0, 3, true);
+  xd.setUint32(4, nBlocks, true);
+  xd.setUint32(8, newOffsets.length, true);
+  xd.setUint32(12, offSize, true);
+  // Trailer: no sparse bitmap, all 1024-row blocks present.
+  const t = 16 + nBlocks * 1024 * offSize;
+  xd.setUint32(t, 0, true);
+  xd.setUint32(t + 4, nBlocks, true);
+  xd.setUint32(t + 8, nBlocks, true);
+  xd.setUint32(t + 12, 0, true);
+  newOffsets.forEach((o, i) => {
+    let v = o;
+    for (let k = 0; k < offSize; k++) {
+      x[16 + i * offSize + k] = v % 256;
+      v = Math.floor(v / 256);
+    }
+  });
+  return { table: out, tablx: x };
+}

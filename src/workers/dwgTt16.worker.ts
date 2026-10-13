@@ -14,6 +14,7 @@ import {
   buildQgs,
   cleanProjectName,
   planStage1,
+  planUnitFromTitle,
   projectNameFromTexts,
   provinceFromTexts,
   summaryDocument,
@@ -185,7 +186,7 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
   const built = buildFeatures(
     parsed.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: analysis!.inside.get(p.id)! })),
     new Map(req.mapping),
-    { boundary: analysis.boundary?.ring ?? null, sourceInGhiChu: req.sourceInGhiChu },
+    { boundary: analysis.boundary?.ring ?? null, sourceInGhiChu: req.sourceInGhiChu, planUnit: planUnitFromTitle(req.projectTitle) },
   );
   if (!built.classes.length) throw new Error('Chưa có layer nào được ghép vào lớp dữ liệu.');
 

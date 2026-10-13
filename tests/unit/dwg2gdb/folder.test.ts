@@ -64,7 +64,7 @@ describe.skipIf(!existsSync(ROOT))('Bóc tách DWG → TT16 — xã Long Hiệp'
     built = buildFeatures(
       folder.drawings.filter((p) => included.has(p.id)).map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: a.inside.get(p.id)! })),
       mapping,
-      { boundary: a.boundary?.ring ?? null, sourceInGhiChu: false },
+      { boundary: a.boundary?.ring ?? null, sourceInGhiChu: false, planUnit: 'XÃ LONG HIỆP' },
     );
 
     // GDAL (Node): stage 1 from GeoJSON, then "Chuẩn hóa TT16" of the stage-1 geodatabases.
@@ -125,6 +125,8 @@ describe.skipIf(!existsSync(ROOT))('Bóc tách DWG → TT16 — xã Long Hiệp'
     summary += `boundary ${a.boundary ? Math.round(a.boundary.area / 1e4) : 0} ha · unused ${folder.unused.map((u) => u.name).join(', ')} · missing ${folder.missingXrefs.join(', ')}\n`;
     for (const d of a.drawings) summary += `  ${d.included ? '●' : '○'} ${d.owner ? '  ↳ ' : ''}${d.name} — ${roleById(d.role).label}${d.note ? ` (${d.note})` : ''}\n`;
     for (const c of built.classes) summary += `  ${c.target}: ${c.features.length} (có tên ${c.features.filter((f) => f.tenDoiTuong).length})\n`;
+    const units = built.classes.find((c) => c.target === 'QuyHoach/ViTriRanhGioi/TenDonViHanhChinh_P');
+    summary += `  Tên ĐVHC: ${units?.features.map((f) => f.tenDoiTuong).join(' · ')}\n`;
     summary += built.notes.join('\n') + '\n';
     for (const g of report.gdbs) summary += `  ${g.fileName}: lỗi ${g.counts.errors}, cảnh báo ${g.counts.warnings}, crs ${g.crs?.status} ${g.crs?.text ?? ''}\n`;
     summary += [...report.issues, ...report.gdbs.flatMap((g) => g.issues)].map((i) => `  [${i.level}] ${i.text}`).join('\n');

@@ -24,6 +24,14 @@ export function projectNameFromTexts(texts: string[]): string | null {
   return null;
 }
 
+/** The unit a plan is about, from its title: "QUY HOẠCH CHUNG XÃ LONG HIỆP, TỈNH VĨNH LONG…" → "XÃ LONG HIỆP". */
+export function planUnitFromTitle(title: string | null | undefined): string | null {
+  const m = /QUY HOẠCH (?:CHUNG|PHÂN KHU|CHI TIẾT)(?: XÂY DỰNG)? ((?:XÃ|PHƯỜNG|THỊ TRẤN) [^,]+?)(?:,| TỈNH | THÀNH PHỐ | ĐẾN NĂM|$)/.exec(
+    (title ?? '').replace(/\s+/g, ' ').trim().normalize('NFC').toLocaleUpperCase('vi'),
+  );
+  return m ? m[1].trim() : null;
+}
+
 /** A safe file name: letters, digits, _ and -. */
 export const cleanProjectName = (s: string) =>
   s

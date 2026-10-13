@@ -281,3 +281,41 @@ describe('QGIS project name', () => {
     expect(cleanProjectName('  ')).toBe('DoAnQuyHoach');
   });
 });
+
+describe('administrative unit names', () => {
+  it('recognises unit labels by their text, not their layer', async () => {
+    const { adminName } = await import('@/lib/dwg2gdb');
+    expect(adminName('ẤP TRÀ SẤT')).toEqual({ name: 'ẤP TRÀ SẤT', kind: 'Ấp' });
+    expect(adminName('X. HÀM GIANG')).toEqual({ name: 'X. HÀM GIANG', kind: 'Xã' });
+    expect(adminName('Xã Trà Cú')).toEqual({ name: 'Xã Trà Cú', kind: 'Xã' });
+    expect(adminName('KHÓM 3')).toBeNull(); // no letters after the unit word
+    expect(adminName('XÃ NHỊ TRƯỜNG VÀ\nXÃ TẬP SƠN')).toBeNull();
+    expect(adminName('HƯỚNG ĐI\nXÃ NHỊ TRƯỜNG')).toBeNull();
+    expect(adminName('ÁP LỰC NƯỚC')).toBeNull();
+    expect(adminName('XÃ LONG HIỆP, TỈNH VĨNH LONG')).toBeNull();
+  });
+
+  it('adds one point per name into TenDonViHanhChinh_P', () => {
+    const d = doc([text('TEXT', 'ẤP TRÀ SẤT', [X0 + 10, Y0 + 10], 5), text('G-CHU', 'ẤP TRÀ SẤT', [X0 + 900, Y0 + 900], 9), text('G-CHU', 'ẤP CHỢ', [X0 + 50, Y0 + 50])]);
+    const built = buildFeatures([{ id: 'a', name: 'a.dwg', doc: d, inside: new Uint8Array(3).fill(1) }], new Map(), { boundary: null, sourceInGhiChu: false });
+    const c = built.classes.find((x) => x.cls === 'TenDonViHanhChinh_P')!;
+    expect(c.features.map((f) => [f.tenDoiTuong, f.phanLoai, f.geometry.type === 'Point' ? f.geometry.coordinates : null])).toEqual([
+      ['ẤP TRÀ SẤT', 'Ấp', [X0 + 900, Y0 + 900]],
+      ['ẤP CHỢ', 'Ấp', [X0 + 50, Y0 + 50]],
+    ]);
+  });
+});
+
+describe('plan unit', () => {
+  it('reads the commune / ward of the plan from its title', async () => {
+    const { planUnitFromTitle } = await import('@/lib/dwg2gdb');
+    expect(planUnitFromTitle('QUY HOẠCH CHUNG XÃ LONG HIỆP, TỈNH VĨNH LONG ĐẾN NĂM 2050')).toBe('XÃ LONG HIỆP');
+    expect(planUnitFromTitle('Quy hoạch phân khu phường Ninh Kiều thành phố Cần Thơ')).toBe('PHƯỜNG NINH KIỀU');
+    expect(planUnitFromTitle('BẢN ĐỒ GIAO THÔNG')).toBeNull();
+  });
+});
+
+it('plan unit survives line breaks in the title', async () => {
+  const { planUnitFromTitle } = await import('@/lib/dwg2gdb');
+  expect(planUnitFromTitle('QUY HOẠCH CHUNG\nXÃ   LONG HIỆP, TỈNH VĨNH LONG')).toBe('XÃ LONG HIỆP');
+});

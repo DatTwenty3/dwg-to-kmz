@@ -3,6 +3,7 @@
 // vùng → đường (its outline); chữ → điểm (with the text as tenDoiTuong). tenDoiTuong of a vùng is the biggest
 // non-numeric text inside it (labels like "TRƯỜNG TIỂU HỌC LONG HIỆP").
 import type { CadDocument, CadEntity, Vec2 } from '@/lib/cad/types';
+import { foldVietnamese } from '@/lib/geo/provinces';
 import { bboxOf, cleanRing, interiorPoint, lineMidpoint, PointGrid, pointInRing, ringsToPolygons } from './geometry';
 import { KIND_OF, rowKey } from './inventory';
 import { parseTarget, type TargetPath } from './suggest';
@@ -52,6 +53,8 @@ export interface DrawingInput {
 export interface BuildOptions {
   /** Planning boundary (written as RanhGioiQuyHoach_A when no layer was mapped to it). */
   boundary: Vec2[] | null;
+  /** Unit the plan is about, from its title ("XÃ LONG HIỆP"): a name point in the middle of the boundary. */
+  planUnit?: string | null;
   /** Write "Nguồn: <file> · <layer>" into ghiChu. */
   sourceInGhiChu: boolean;
 }
@@ -138,6 +141,35 @@ function stylesOf(t: Map<string, Tally>): CategoryStyle[] {
     .sort((a, b) => (a.phanLoai ?? '').localeCompare(b.phanLoai ?? '', 'vi'));
 }
 
+/** Administrative / residential unit words a label starts with → phanLoai. */
+const ADMIN_PREFIX: [RegExp, string][] = [
+  [/^(XÃ|X\.)\s*/, 'Xã'],
+  [/^(PHƯỜNG|P\.)\s*/, 'Phường'],
+  [/^(THỊ TRẤN|TT\.)\s*/, 'Thị trấn'],
+  [/^ẤP\s+/, 'Ấp'],
+  [/^KHÓM\s+/, 'Khóm'],
+  [/^THÔN\s+/, 'Thôn'],
+  [/^BẢN\s+/, 'Bản'],
+  [/^TỔ DÂN PHỐ\s+/, 'Tổ dân phố'],
+  [/^KHU PHỐ\s+/, 'Khu phố'],
+];
+
+/**
+ * "ẤP TRÀ SẤT" → { name: "ẤP TRÀ SẤT", kind: "Ấp" }. Labels about several units ("XÃ A VÀ XÃ B", neighbours),
+ * directions ("HƯỚNG ĐI XÃ…") and long sentences are not names.
+ */
+export function adminName(raw: string): { name: string; kind: string } | null {
+  const name = raw.replace(/\s+/g, ' ').trim().normalize('NFC');
+  if (name.length < 4 || name.length > 40) return null;
+  const up = name.toLocaleUpperCase('vi');
+  if (/ VÀ |[,;:()]/.test(up) || up.split(' ').length > 7) return null;
+  for (const [re, kind] of ADMIN_PREFIX) {
+    const m = re.exec(up);
+    if (m && /\p{L}/u.test(up.slice(m[0].length))) return { name, kind };
+  }
+  return null;
+}
+
 export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, MappingEntry>, o: BuildOptions): BuildResult {
   const byTarget = new Map<TargetPath, Omit<ClassData, 'styles'> & { seen: Set<string>; tally: Map<string, Tally> }>();
   const notes: string[] = [];
@@ -220,6 +252,32 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
       }
     });
   }
+
+  // Tên đơn vị hành chính: read from the texts themselves ("ẤP TRÀ SẤT", "X. HÀM GIANG"), whatever their layer —
+  // drawings put them on general text layers. One point per name (the biggest label), inside the planning area.
+  const adminPath = 'QuyHoach/ViTriRanhGioi/TenDonViHanhChinh_P';
+  const adminCls = classOf(adminPath);
+  const taken = new Set(adminCls.features.map((f) => foldVietnamese(f.tenDoiTuong ?? '')));
+  const found = new Map<string, { name: string; kind: string; at: Vec2; height: number }>();
+  for (const d of drawings)
+    d.doc.entities.forEach((e, i) => {
+      if (e.kind !== 'text' || !d.inside[i]) return;
+      const a = adminName(e.text);
+      if (!a) return;
+      const key = foldVietnamese(a.name);
+      const old = found.get(key);
+      if (!taken.has(key) && (!old || e.height > old.height)) found.set(key, { ...a, at: e.position, height: e.height });
+    });
+  // The unit of the plan itself is only named in the title block (outside the boundary).
+  const unit = o.planUnit ? adminName(o.planUnit) : null;
+  const ring = o.boundary ? cleanRing(o.boundary) : null;
+  if (unit && ring && !taken.has(foldVietnamese(unit.name)) && !found.has(foldVietnamese(unit.name)))
+    found.set(foldVietnamese(unit.name), { ...unit, at: interiorPoint(ring), height: Infinity });
+  for (const a of found.values()) {
+    add(adminCls, { tenDoiTuong: a.name, phanLoai: a.kind, ghiChu: null, geometry: { type: 'Point', coordinates: pt(a.at) } });
+    tally(adminCls.tally, a.kind, { kind: 'point', layer: '', color: '#1f2937', position: a.at });
+  }
+  if (found.size) notes.push(`Lấy ${found.size} tên đơn vị hành chính từ chữ trên bản vẽ (${[...new Set([...found.values()].map((a) => a.kind))].join(', ')})`);
 
   // Ranh giới quy hoạch: the detected boundary when no layer was mapped to it.
   const ranhPath = 'QuyHoach/ViTriRanhGioi/RanhGioiQuyHoach_A';

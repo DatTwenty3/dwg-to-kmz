@@ -4,7 +4,8 @@
 // lớp đang chọn ở dưới bản đồ vệ tinh (cột thiếu/thừa, ô sai tô đỏ), danh sách lỗi ở cột bên phải.
 // Đọc hoàn toàn trên trình duyệt (worker), không tải lên máy chủ.
 import BrandLoader from './BrandLoader';
-import SiteHeader from './SiteHeader';
+import HomeLogo from './HomeLogo';
+import ToolStart from './ToolStart';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { CadDocument } from '@/lib/cad/types';
 import {
@@ -36,7 +37,6 @@ import {
   IconPlusCircle,
   IconSearch,
   IconSpinner,
-  IconUpload,
   IconX,
   IconXCircle,
 } from './icons';
@@ -755,63 +755,30 @@ export default function GdbChecker() {
   // ---------- Start screen ----------
   if (!rep || !g) {
     return (
-      <div className="flex min-h-dvh flex-col bg-zinc-50">
-        <SiteHeader />
-        <main className="mx-auto w-full max-w-5xl space-y-6 px-4 py-10 sm:px-6 sm:py-14">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600">Công cụ · Thông tư 16/2025/TT-BXD</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl">Kiểm tra CSDL GIS quy hoạch</h1>
-            <p className="mt-1.5 max-w-3xl text-[14px] leading-relaxed text-zinc-500">
-              Đối chiếu File Geodatabase (.gdb) với <b className="font-medium text-zinc-700">Thông tư 16/2025/TT-BXD, Phụ lục II</b>: tên các CSDL
-              (HienTrang, QuyHoach, NenDiaHinh, MocGioi), nhóm dữ liệu (Feature Dataset), lớp dữ liệu (Feature Class), 6 trường thuộc tính quy định
-              và giá trị mã hồ sơ.
-            </p>
-          </div>
-          <div
-            {...dropHandlers}
-            role="button"
-            tabIndex={0}
-            aria-label="Kéo thả thư mục .gdb, thư mục HoSoGIS hoặc file .zip"
-            onKeyDown={(e) => {
-              if ((e.key === 'Enter' || e.key === ' ') && !busy) folderRef.current?.click();
-            }}
-            className={`relative rounded-3xl border bg-white px-5 py-12 shadow-[0_10px_40px_rgba(15,23,42,0.06)] transition sm:py-14 ${
-              over ? 'border-blue-500 bg-blue-50/70 ring-8 ring-blue-500/10' : 'border-zinc-200'
-            }`}
-          >
-            {(
-              <div className="flex flex-col items-center gap-3 text-center">
-                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-900 text-white shadow-md">
-                  <IconUpload width={22} height={22} />
-                </span>
-                <p className="text-[15px] font-medium text-zinc-900">Kéo thả thư mục HoSoGIS, các thư mục .gdb hoặc file .zip</p>
-                <p className="text-[13px] text-zinc-500">Một hoặc nhiều geodatabase cùng lúc · xử lý ngay trên trình duyệt, không tải lên máy chủ.</p>
-                <div className="mt-1 flex flex-wrap justify-center gap-2">
-                  <button className="ui-btn-primary" onClick={() => folderRef.current?.click()}>
-                    <IconFolderOpen width={15} height={15} /> Chọn thư mục
-                  </button>
-                  <button className="ui-btn" onClick={() => zipRef.current?.click()}>
-                    Chọn file .zip
-                  </button>
-                </div>
-              </div>
-            )}
-            {pickers}
-          </div>
-          <ol className="grid gap-3 text-[13px] text-zinc-600 sm:grid-cols-3">
-            {[
-              ['1. Đối chiếu', 'Tên CSDL, nhóm dữ liệu, lớp, trường thuộc tính và mã hồ sơ theo Phụ lục II; hệ tọa độ đúng kinh tuyến trục của tỉnh đồ án.'],
-              ['2. Xem và sửa', 'Danh sách lỗi gom theo lớp, bảng thuộc tính tô ô sai, bản đồ dữ liệu trên nền vệ tinh — bấm lỗi để tới đúng lớp, đúng trường.'],
-              ['3. Chuẩn hóa & báo cáo', 'Dựng lại HoSoGIS theo mẫu cấu trúc của Bộ Xây dựng (giữ nguyên hình học) và xuất báo cáo PDF / CSV.'],
-            ].map(([t, d]) => (
-              <li key={t} className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-                <b className="block font-medium text-zinc-900">{t}</b>
-                <span className="mt-1 block leading-relaxed">{d}</span>
-              </li>
-            ))}
-          </ol>
-          {errorBox}
-        </main>
+      <div className="flex min-h-dvh flex-col bg-white">
+        <ToolStart
+          art="check"
+          title={<>Kiểm tra <span className="ui-shimmer">CSDL GIS</span></>}
+          subtitle="Đối chiếu HoSoGIS với Thông tư 16/2025/TT-BXD."
+          prompt="Thả thư mục HoSoGIS / .gdb hoặc file .zip"
+          label="Kéo thả thư mục .gdb, thư mục HoSoGIS hoặc file .zip"
+          over={over}
+          zoneProps={dropHandlers}
+          onActivate={() => !busy && folderRef.current?.click()}
+          actions={
+            <>
+              <button className="ui-btn-primary" onClick={() => folderRef.current?.click()}>
+                <IconFolderOpen width={15} height={15} /> Chọn thư mục
+              </button>
+              <button className="ui-btn" onClick={() => zipRef.current?.click()}>
+                Chọn file .zip
+              </button>
+            </>
+          }
+          after={errorBox}
+        >
+          {pickers}
+        </ToolStart>
         {loader}
       </div>
     );
@@ -859,9 +826,10 @@ export default function GdbChecker() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-zinc-100 md:h-dvh" {...dropHandlers}>
-      <SiteHeader />
-      {/* Toolbar: one tab per geodatabase (main databases not uploaded are listed dimmed), actions. */}
+      {/* Toolbar: logo (home), one tab per geodatabase (main databases not uploaded are listed dimmed), actions. */}
       <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-zinc-200 bg-white px-3 py-2">
+        <HomeLogo wordmark={false} />
+        <span className="hidden h-5 w-px bg-zinc-200 sm:block" />
         <nav className="ui-scroll -mx-1 flex max-w-full gap-1 overflow-x-auto px-1" aria-label="Geodatabase">
           {rep.gdbs.map((x, i) => {
             const st: Status = x.counts.errors ? 'error' : x.counts.warnings ? 'warn' : 'ok';

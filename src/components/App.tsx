@@ -1,5 +1,6 @@
 'use client';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
 import type { CadDocument, CrsOptions, LayerStyle, Vec2 } from '@/lib/cad/types';
@@ -42,7 +43,6 @@ import { ACCEPTED_EXT, ACCEPTED_HINT } from './FileDropzone';
 import FileList, { type FileRowData } from './FileList';
 import BrandLoader from './BrandLoader';
 import Landing from './Landing';
-import SiteHeader from './SiteHeader';
 import LayerPanel from './LayerPanel';
 import MapPanel, { type PanelTab } from './MapPanel';
 import type { MapPick } from './MapView';
@@ -53,7 +53,7 @@ import { toast, Toaster } from './toast';
 import { useIsPhone } from './useIsPhone';
 import SearchBox, { type GoTarget } from './SearchBox';
 import SketchPanel from './SketchPanel';
-import { IconAlert, IconFolderOpen, IconPen, IconPlus, IconSave, IconSpinner, IconUpload, Logo } from './icons';
+import { IconAlert, IconFolderOpen, IconPanel, IconPen, IconPlus, IconSave, IconSpinner, IconUpload, Logo } from './icons';
 import { findText } from '@/lib/cad/find';
 import { readSession, SESSION_EXT, SessionError, writeSession, type Session, type SessionFile } from '@/lib/cad/session';
 
@@ -120,6 +120,10 @@ function vn2000Around(lng: number, lat: number): CrsOptions {
   const p = PROVINCES.find((x) => lng >= x.bbox[0] && lat >= x.bbox[1] && lng <= x.bbox[2] && lat <= x.bbox[3]);
   return { proj4: buildVn2000(p?.lon0 ?? 105, 3), swapXY: false, unitScale: 1 };
 }
+
+/** Address of the map tool (the home page "/" is the brand page with all the tools). */
+const MAP_PATH = '/ban-do';
+const NEW_MAP_HASH = '#moi';
 
 function loadSketches(): SketchFeature[] {
   try {
@@ -278,11 +282,11 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
 
   /** Page change wrapped in a View Transition (cross-fade + hero morph) where the browser supports it. */
   const go = useCallback((next: Stage) => {
-    // The home page is always plain "/": leaving a shared map (/s/<id>, ?t=…#m=…) must not keep its link in the
-    // address bar. (A shared map still on screen stays non-persisted: `sharedView` is unchanged.)
-    if (next === 'landing' && (window.location.pathname !== '/' || window.location.search || window.location.hash)) {
+    // The map tool's start is always plain MAP_PATH: leaving a shared map (/s/<id>, ?t=…#m=…) must not keep its
+    // link in the address bar. (A shared map still on screen stays non-persisted: `sharedView` is unchanged.)
+    if (next === 'landing' && (window.location.pathname !== MAP_PATH || window.location.search || window.location.hash)) {
       try {
-        window.history.replaceState(null, '', '/');
+        window.history.replaceState(null, '', MAP_PATH);
       } catch {
         /* ignore */
       }
@@ -599,7 +603,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
         setGlobalError(
           'Không tìm thấy bản đồ của link chia sẻ này — link có thể sai, hoặc đã hết hạn vì 7 ngày liền không ai mở. Hãy nhờ người gửi chia sẻ lại.',
         );
-        window.history.replaceState(null, '', '/');
+        window.history.replaceState(null, '', MAP_PATH);
         return;
       }
       const payload = sharePayloadOf(window.location.hash) ?? fromProp ?? null;
@@ -716,7 +720,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   const leaveSharedMap = () => {
     setSharedView(false);
     try {
-      window.history.replaceState(null, '', '/'); // drops /s/<id>, ?t= and #m= of the link
+      window.history.replaceState(null, '', MAP_PATH); // drops /s/<id>, ?t= and #m= of the link
     } catch {
       /* ignore */
     }
@@ -726,6 +730,22 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     if (sharedView) toast.success('Bản đồ đã được lưu vào máy này.');
     leaveSharedMap();
   };
+
+  // The home page card "Vẽ & chia sẻ" opens /ban-do#moi: straight to a new map (asking first if one is saved).
+  const openBlankMapRef = useRef(openBlankMap);
+  useEffect(() => {
+    openBlankMapRef.current = openBlankMap;
+  });
+  useEffect(() => {
+    const check = () => {
+      if (window.location.hash !== NEW_MAP_HASH) return;
+      window.history.replaceState(null, '', MAP_PATH);
+      openBlankMapRef.current();
+    };
+    check();
+    window.addEventListener('hashchange', check);
+    return () => window.removeEventListener('hashchange', check);
+  }, []);
 
   // ---- active-file actions ------------------------------------------------------------------------
 
@@ -1434,7 +1454,6 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
         <Landing
           onFile={(f) => void handleFile(f, { replace: true })}
           busy={af?.status === 'parsing'}
-          onHome={() => go('landing')}
           error={stage === 'landing' ? (globalError ?? af?.error ?? null) : null}
           resumeName={rawDoc ? af?.fileName : sketches.length ? mapMeta.title : undefined}
           onResume={
@@ -1522,7 +1541,6 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
 
   return (
     <div className="flex h-dvh w-full flex-col overflow-hidden bg-zinc-100" {...dropHandlers}>
-      <SiteHeader onHome={() => go('landing')} />
       <div className="relative min-h-0 flex-1 overflow-hidden">
       <main className="absolute inset-0">
         <MapView
@@ -1717,16 +1735,22 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
         }}
       >
         {!sidebarOpen && (
-          <button
-            className="ui-floating flex h-10 shrink-0 items-center gap-2.5 p-2 text-sm font-medium text-zinc-900 transition hover:bg-white sm:pr-4"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Mở bảng điều khiển"
-            title="Bảng điều khiển"
-          >
-            <Logo width={24} height={24} />
-            {/* Phones: logo only, so the button stays clear of the basemap pill. */}
-            <span className="hidden lg:inline">Bảng điều khiển</span>
-          </button>
+          <>
+            {/* The logo leads back to the home page (all the tools). */}
+            <Link href="/" className="ui-floating flex h-10 w-10 shrink-0 items-center justify-center transition hover:bg-white" aria-label="Về trang chủ LEDAT-GIS" title="Trang chủ">
+              <Logo width={24} height={24} />
+            </Link>
+            <button
+              className="ui-floating flex h-10 shrink-0 items-center gap-2 px-2.5 text-sm font-medium text-zinc-900 transition hover:bg-white lg:pr-4"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Mở bảng điều khiển"
+              title="Bảng điều khiển"
+            >
+              <IconPanel width={18} height={18} />
+              {/* Phones: icon only, so the button stays clear of the basemap pill. */}
+              <span className="hidden lg:inline">Bảng điều khiển</span>
+            </button>
+          </>
         )}
         <SearchBox drawingCrs={readoutCrs} find={findOnMap} onGo={goTo} onClear={() => setPin(null)} />
       </div>

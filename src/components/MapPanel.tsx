@@ -2,7 +2,8 @@
 // Floating control panel of the map page: header, file chip, tabs (Layer · Vẽ · Tọa độ · Xuất).
 import { useRef, useState, type ReactNode } from 'react';
 import { useIsPhone } from './useIsPhone';
-import { IconAlert, IconCheck, IconDownload, IconFile, IconGlobe, IconHome, IconLayers, IconPanel, IconPen, IconSave, IconSpinner } from './icons';
+import Link from 'next/link';
+import { IconAlert, IconCheck, IconDownload, IconFile, IconFolderOpen, IconGlobe, IconLayers, IconPanel, IconPen, IconSave, IconSpinner, Logo } from './icons';
 
 export type PanelTab = 'layers' | 'draw' | 'crs' | 'export';
 
@@ -137,7 +138,10 @@ export default function MapPanel({
         </div>
       )}
       <header className={`flex items-center gap-2 px-4 pb-3 ${phone ? 'pt-1' : 'pt-4'}`}>
-        {/* The brand is in the top bar: here only what the panel is about. */}
+        {/* The logo leads back to the home page (all the tools). */}
+        <Link href="/" className="shrink-0 rounded-lg" aria-label="Về trang chủ LEDAT-GIS" title="Trang chủ">
+          <Logo width={24} height={24} />
+        </Link>
         <span className="flex-1 text-[13px] font-semibold text-zinc-900">Bảng điều khiển</span>
         {onSaveSession && (
           <button
@@ -150,8 +154,8 @@ export default function MapPanel({
             {savingSession ? <IconSpinner width={17} height={17} /> : <IconSave width={17} height={17} />}
           </button>
         )}
-        <button className="ui-icon-btn" aria-label="Về trang chủ" title="Về trang chủ" onClick={onHome}>
-          <IconHome width={17} height={17} />
+        <button className="ui-icon-btn" aria-label="Mở bản vẽ khác" title="Mở bản vẽ khác" onClick={onHome}>
+          <IconFolderOpen width={17} height={17} />
         </button>
         <button className="ui-icon-btn" aria-label="Thu gọn bảng điều khiển" title="Thu gọn" onClick={onCollapse}>
           <IconPanel width={17} height={17} />

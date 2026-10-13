@@ -58,7 +58,7 @@ export default function ShareDialog({ map, onClose }: { map: SharedMap; onClose:
   useEffect(() => {
     let alive = true;
     // Always from the app root, also when opened from a short link /s/<id>.
-    buildShareUrl(`${window.location.origin}/`, map)
+    buildShareUrl(`${window.location.origin}/ban-do`, map)
       .then(async (long) => {
         prewarmPreview(cleanShareTitle(map.title));
         const short = await shorten(long, map.title);

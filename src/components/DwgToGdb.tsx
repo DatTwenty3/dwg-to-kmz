@@ -42,7 +42,8 @@ import { getProvince, PROVINCES } from '@/lib/geo/provinces';
 import type { DwgTt16Request, DwgTt16Response } from '@/workers/dwgTt16.worker';
 import BrandLoader from './BrandLoader';
 import DwgPreviewMap from './DwgPreviewMap';
-import SiteHeader from './SiteHeader';
+import HomeLogo from './HomeLogo';
+import ToolStart from './ToolStart';
 import { pickedFromDrop, pickedFromInput } from './dropFiles';
 import { handOffToChecker } from './handoff';
 import {
@@ -58,7 +59,6 @@ import {
   IconSearch,
   IconSpinner,
   IconTrash,
-  IconUpload,
   IconX,
   IconXCircle,
 } from './icons';
@@ -433,7 +433,7 @@ export default function DwgToGdb() {
   };
   const openInChecker = (zip: Blob, name: string) => {
     handOffToChecker([new File([zip], name, { type: 'application/zip' })]);
-    router.push('/kiem-tra-gdb');
+    router.push('/kiem-tra');
   };
 
   const dropHandlers = {
@@ -531,60 +531,29 @@ export default function DwgToGdb() {
   // ---------- Start screen ----------
   if (!data) {
     return (
-      <div className="flex min-h-dvh flex-col bg-zinc-50" {...dropHandlers}>
-        <SiteHeader />
-        <main className="mx-auto w-full max-w-5xl space-y-6 px-4 py-10 sm:px-6 sm:py-14">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600">Công cụ · Thông tư 16/2025/TT-BXD</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl">Bóc tách DWG → CSDL GIS theo Thông tư 16</h1>
-            <p className="mt-1.5 max-w-3xl text-[14px] leading-relaxed text-zinc-500">
-              Thả cả thư mục hồ sơ (vd. thư mục lấy ý kiến Sở Xây dựng với các bản vẽ QH01…QH11 và các file xref). Phần mềm nhận ra từng bản đồ (hiện trạng,
-              sử dụng đất, giao thông, cấp điện, cấp nước, thoát nước…), cắt theo ranh lập quy hoạch, gợi ý lớp dữ liệu cho từng layer và xuất{' '}
-              <b className="font-medium text-zinc-700">HoSoGIS.zip</b> (HienTrang, QuyHoach, MocGioi, NenDiaHinh) đúng Thông tư 16/2025/TT-BXD.
-            </p>
-          </div>
-          <div
-            role="button"
-            tabIndex={0}
-            aria-label="Kéo thả thư mục bản vẽ DWG"
-            onKeyDown={(e) => {
-              if ((e.key === 'Enter' || e.key === ' ') && !busy) folderRef.current?.click();
-            }}
-            className={`relative rounded-3xl border bg-white px-5 py-12 shadow-[0_10px_40px_rgba(15,23,42,0.06)] transition sm:py-14 ${over ? 'border-blue-500 bg-blue-50/70 ring-8 ring-blue-500/10' : 'border-zinc-200'}`}
-          >
-            {(
-              <div className="flex flex-col items-center gap-3 text-center">
-                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-900 text-white shadow-md">
-                  <IconUpload width={22} height={22} />
-                </span>
-                <p className="text-[15px] font-medium text-zinc-900">Kéo thả thư mục bản vẽ (.dwg / .dxf)</p>
-                <p className="text-[13px] text-zinc-500">Cả thư mục để có đủ các file xref · xử lý ngay trên trình duyệt, không tải lên máy chủ.</p>
-                <div className="mt-1 flex flex-wrap justify-center gap-2">
-                  <button className="ui-btn-primary" onClick={() => folderRef.current?.click()}>
-                    <IconFolderOpen width={15} height={15} /> Chọn thư mục
-                  </button>
-                  <button className="ui-btn" onClick={() => filesRef.current?.click()}>
-                    Chọn file .dwg
-                  </button>
-                </div>
-              </div>
-            )}
-            {pickers}
-          </div>
-          <ol className="grid gap-3 text-[13px] text-zinc-600 sm:grid-cols-3">
-            {[
-              ['1. Nhận diện', 'Bản đồ nào là hiện trạng, quy hoạch sử dụng đất, giao thông, điện, nước… (theo tiêu đề bản vẽ); bản 2030/2050 lấy năm mới nhất.'],
-              ['2. Ghép layer', 'Mỗi layer được gợi ý một lớp dữ liệu TT16 và “phân loại”. Bạn xem trên bản đồ vệ tinh, sửa chỗ chưa đúng, lưu thành mẫu dùng lại.'],
-              ['3. Xuất HoSoGIS', 'Ghi File Geodatabase theo mẫu cấu trúc dữ liệu của Bộ Xây dựng (nhóm, lớp, trường, danh mục giá trị), mã hồ sơ — rồi kiểm tra lại ngay theo Thông tư 16.'],
-            ].map(([t, d]) => (
-              <li key={t} className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-                <b className="block font-medium text-zinc-900">{t}</b>
-                <span className="mt-1 block leading-relaxed">{d}</span>
-              </li>
-            ))}
-          </ol>
-          {messageBox}
-        </main>
+      <div className="flex min-h-dvh flex-col bg-white" {...dropHandlers}>
+        <ToolStart
+          art="extract"
+          title={<>Bóc tách <span className="ui-shimmer">DWG → GIS</span></>}
+          subtitle="Thư mục bản vẽ quy hoạch → HoSoGIS theo Thông tư 16."
+          prompt="Thả cả thư mục bản vẽ (kèm file xref)"
+          label="Kéo thả thư mục bản vẽ DWG"
+          over={over}
+          onActivate={() => !busy && folderRef.current?.click()}
+          actions={
+            <>
+              <button className="ui-btn-primary" onClick={() => folderRef.current?.click()}>
+                <IconFolderOpen width={15} height={15} /> Chọn thư mục
+              </button>
+              <button className="ui-btn" onClick={() => filesRef.current?.click()}>
+                Chọn file .dwg
+              </button>
+            </>
+          }
+          after={messageBox}
+        >
+          {pickers}
+        </ToolStart>
         {loader}
       </div>
     );
@@ -709,8 +678,9 @@ export default function DwgToGdb() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-zinc-100 md:h-dvh" {...dropHandlers}>
-      <SiteHeader />
       <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-zinc-200 bg-white px-3 py-2">
+        <HomeLogo wordmark={false} />
+        <span className="hidden h-5 w-px bg-zinc-200 sm:block" />
         <div className="min-w-0">
           <h1 className="truncate text-[14px] font-semibold text-zinc-900">Bóc tách DWG → TT16</h1>
           <p className="truncate text-[11.5px] text-zinc-500">

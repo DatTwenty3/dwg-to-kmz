@@ -85,8 +85,11 @@ export interface MapViewProps {
   onDrawToolChange?: (t: SketchKind | null) => void;
   /** A sketch was finished on the map ([lng, lat] vertices). */
   onSketchCommit?: (kind: SketchKind, points: Vec2[]) => void;
-  /** Title of the drawing pill instead of "Đang vẽ <kind>" (the polygon tool used to sweep-select…). */
-  drawTitle?: string;
+  /**
+   * CAD-style selection box: while set, dragging on the map draws a rectangle instead of panning, and on release
+   * its corners ([lng, lat], ring) are passed with `crossing` = dragged right → left (select what it touches).
+   */
+  onBoxSelect?: ((ring: Vec2[], crossing: boolean) => void) | null;
   /** Search result marker (a pin with its label). */
   pin?: { lngLat: Vec2; label: string } | null;
   /** Sketch whose shape is being edited on the map (vertex handles); null = not editing. */
@@ -131,7 +134,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
   drawTool = null,
   onDrawToolChange,
   onSketchCommit,
-  drawTitle,
+  onBoxSelect = null,
   pin = null,
   editSketch = null,
   onEditCommit,
@@ -552,6 +555,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
     <div className="relative h-full w-full">
       {/* maplibre's CSS forces position:relative on the container, so size it with h/w-full. */}
       <div ref={containerRef} className="h-full w-full" />
+      {onBoxSelect && <BoxSelectLayer mapRef={mapRef} onBox={onBoxSelect} />}
 
       {(phone || compact) && (
         <BasemapPicker
@@ -623,7 +627,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
         >
           <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-rose-500" />
           <span className="truncate">
-            <b className="font-semibold text-zinc-900">{drawTitle ?? `Đang vẽ ${DRAW_LABEL[drawTool]}`}</b>
+            <b className="font-semibold text-zinc-900">Đang vẽ {DRAW_LABEL[drawTool]}</b>
             {drawTool === 'point'
               ? ' · nhấp lên bản đồ để đặt điểm'
               : ` · ${draw.points.length} điểm · nhấp đúp hoặc Enter để xong · Backspace xóa điểm · Esc hủy`}
@@ -757,6 +761,67 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
         >
           {popup.content}
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Drag layer over the map for the selection box (like AutoCAD): left → right = window (solid blue, wholly inside),
+ * right → left = crossing (dashed green, touching). The wheel still zooms; a click without dragging selects nothing.
+ */
+function BoxSelectLayer({ mapRef, onBox }: { mapRef: React.RefObject<MlMap | null>; onBox: (ring: Vec2[], crossing: boolean) => void }) {
+  const [box, setBox] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+  const crossing = !!box && box.x1 < box.x0;
+  return (
+    <div
+      className="absolute inset-0 z-[5] cursor-crosshair touch-none"
+      onWheel={(e) => {
+        const map = mapRef.current;
+        if (!map) return;
+        const r = e.currentTarget.getBoundingClientRect();
+        const around = map.unproject([e.clientX - r.left, e.clientY - r.top]);
+        map.easeTo({ zoom: map.getZoom() - Math.sign(e.deltaY) * 0.5, around, duration: 150 });
+      }}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        const r = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - r.left;
+        const y = e.clientY - r.top;
+        setBox({ x0: x, y0: y, x1: x, y1: y });
+      }}
+      onPointerMove={(e) => {
+        if (!box) return;
+        const r = e.currentTarget.getBoundingClientRect();
+        setBox({ ...box, x1: e.clientX - r.left, y1: e.clientY - r.top });
+      }}
+      onPointerUp={() => {
+        const map = mapRef.current;
+        if (box && map && Math.abs(box.x1 - box.x0) > 3 && Math.abs(box.y1 - box.y0) > 3) {
+          const corners: [number, number][] = [
+            [box.x0, box.y0],
+            [box.x1, box.y0],
+            [box.x1, box.y1],
+            [box.x0, box.y1],
+          ];
+          onBox(
+            corners.map(([x, y]) => {
+              const p = map.unproject([x, y]);
+              return [p.lng, p.lat] as Vec2;
+            }),
+            box.x1 < box.x0,
+          );
+        }
+        setBox(null);
+      }}
+      onPointerCancel={() => setBox(null)}
+    >
+      {box && (
+        <div
+          className={`pointer-events-none absolute border ${crossing ? 'border-dashed border-emerald-600 bg-emerald-500/10' : 'border-blue-600 bg-blue-500/10'}`}
+          style={{ left: Math.min(box.x0, box.x1), top: Math.min(box.y0, box.y1), width: Math.abs(box.x1 - box.x0), height: Math.abs(box.y1 - box.y0) }}
+        />
       )}
     </div>
   );

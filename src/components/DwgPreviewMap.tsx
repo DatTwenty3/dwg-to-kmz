@@ -3,7 +3,8 @@
 // Layers that go to the geodatabase are drawn normally, the others dimmed, the layer selected in the mapping table
 // on top; clicking an object selects its layer in the table. The red outline is the planning boundary.
 //
-// "Biên tập": objects of the mapped layers can be picked (click) or swept (a polygon drawn on the map) and left
+// "Biên tập": objects of the mapped layers can be picked (click) or boxed (a CAD-style selection rectangle:
+// left → right = wholly inside, right → left = touching) and left
 // out of the export — stray hatches, legend leftovers, an old map's patches. Removed objects stay as a red ghost
 // (pickable, to restore them); every change can be undone.
 import dynamic from 'next/dynamic';
@@ -70,7 +71,6 @@ export default function DwgPreviewMap({
   const [pick, setPick] = useState<MapPick | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [tool, setTool] = useState<'click' | 'sweep'>('click');
-  const [touch, setTouch] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   useEffect(() => {
     let alive = true;
@@ -189,10 +189,7 @@ export default function DwgPreviewMap({
         loading={loading}
         popup={popup}
         compact
-        drawTool={editMode && tool === 'sweep' ? 'polygon' : null}
-        drawTitle="Quét chọn"
-        onDrawToolChange={(t) => !t && setTool('click')}
-        onSketchCommit={(_kind, pts) => doc && toggle(sweepSelect(doc, pts, used, touch), true)}
+        onBoxSelect={editMode && tool === 'sweep' && doc ? (ring, crossing) => toggle(sweepSelect(doc, ring, used, crossing), true) : null}
         onPick={(p) => {
           if (editMode) {
             const i = p ? selectable(p) : null;
@@ -225,7 +222,7 @@ export default function DwgPreviewMap({
                 Bấm chọn
               </button>
               <button aria-pressed={tool === 'sweep'} onClick={() => setTool('sweep')}>
-                Quét vùng
+                Quét khung
               </button>
             </div>
             <button className="ui-btn-primary !px-2.5 !py-1 !text-[12px]" onClick={exit}>
@@ -235,14 +232,8 @@ export default function DwgPreviewMap({
           <p className="text-[11.5px] leading-snug text-zinc-500">
             {tool === 'click'
               ? 'Bấm vào đối tượng của các layer đã ghép để chọn / bỏ chọn. Delete = loại bỏ, Esc = bỏ chọn, Ctrl+Z = hoàn tác.'
-              : 'Nhấp các đỉnh của vùng quét, nhấp đúp hoặc Enter để chọn các đối tượng trong vùng; quét tiếp để chọn thêm.'}
+              : 'Kéo khung như AutoCAD: trái → phải (khung xanh) chọn đối tượng nằm trọn trong khung; phải → trái (khung nét đứt xanh lá) chọn cả đối tượng chạm khung. Kéo tiếp để chọn thêm, cuộn chuột để phóng to/thu nhỏ.'}
           </p>
-          {tool === 'sweep' && (
-            <label className="flex items-center gap-2 text-[12px]">
-              <input type="checkbox" className="ui-check" checked={touch} onChange={(e) => setTouch(e.target.checked)} />
-              Chọn cả đối tượng chỉ chạm vùng quét (mặc định: nằm trọn trong vùng)
-            </label>
-          )}
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="mr-auto tabular-nums">
               Đã chọn <b className="font-semibold text-zinc-900">{fmt(selected.size)}</b>

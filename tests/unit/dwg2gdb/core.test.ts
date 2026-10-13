@@ -417,4 +417,17 @@ describe('sweep selection (Biên tập)', () => {
     // A sweep drawn inside a big patch catches it in "touch" mode.
     expect(sweepSelect(d, [[2, 2], [4, 2], [4, 4]], new Set(['dat']), true)).toEqual([0]);
   });
+  it('crossing catches objects passing through the box or around it (AutoCAD crossing)', () => {
+    const d2 = doc(
+      [
+        line('duong', [[-50, 5], [50, 5]]), // passes through the box, no vertex inside
+        line('lo', [...sq(-50, -50, 100), [-50, -50]]), // closed by its vertices, the box inside it
+        line('lo', [[100, 100], [120, 120]]), // far away
+      ].map(tag),
+    );
+    const box: Vec2[] = [[0, 0], [10, 0], [10, 10], [0, 10]];
+    const all = new Set(['duong', 'lo']);
+    expect(sweepSelect(d2, box, all, false)).toEqual([]);
+    expect(sweepSelect(d2, box, all, true)).toEqual([0, 1]);
+  });
 });

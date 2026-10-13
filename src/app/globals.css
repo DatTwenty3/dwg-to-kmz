@@ -581,3 +581,49 @@ input[type="color"].ui-color::-moz-color-swatch { border: 0; border-radius: 999p
   .ui-cta::after { animation: none; display: none; }
   .ui-cta:hover { transform: none; }
 }
+
+/* ---- Brand loader (BrandLoader.tsx): the mark draws itself, fills, the wordmark letters wave ----
+   Kept moving under prefers-reduced-motion (owner's choice, as for the landing backdrop), only slower. */
+@keyframes ui-loader-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.ui-loader { animation: ui-loader-in 0.25s ease-out 0.12s both; }
+@keyframes ui-logo-draw {
+  0% { stroke-dashoffset: 1; opacity: 1; }
+  48% { stroke-dashoffset: 0; opacity: 1; }
+  82% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+.ui-logo-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: ui-logo-draw 2.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+@keyframes ui-logo-fill {
+  0%, 38% { opacity: 0; }
+  58%, 84% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.ui-logo-fill { animation: ui-logo-fill 2.6s ease-in-out infinite; }
+@keyframes ui-logo-halo {
+  0% { transform: scale(0.85); opacity: 0.45; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+.ui-logo-halo { animation: ui-logo-halo 2.6s ease-out infinite; }
+@keyframes ui-loader-letter {
+  0%, 100% { transform: translateY(0); opacity: 0.35; }
+  25% { transform: translateY(-5px); opacity: 1; }
+  50% { transform: translateY(0); opacity: 1; }
+}
+.ui-loader-letter { animation: ui-loader-letter 1.8s ease-in-out infinite; }
+@keyframes ui-indeterminate {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(320%); }
+}
+.ui-indeterminate { animation: ui-indeterminate 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .ui-logo-draw, .ui-logo-fill, .ui-logo-halo { animation-duration: 5s; }
+  .ui-loader-letter { animation-duration: 3.6s; }
+  .ui-loader .ui-shimmer { animation: ui-shimmer 12s linear infinite !important; }
+}

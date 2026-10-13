@@ -2,8 +2,7 @@
 // Floating control panel of the map page: header, file chip, tabs (Layer · Vẽ · Tọa độ · Xuất).
 import { useRef, useState, type ReactNode } from 'react';
 import { useIsPhone } from './useIsPhone';
-import Tagline from './Tagline';
-import { IconAlert, IconCheck, IconDownload, IconFile, IconGlobe, IconHome, IconLayers, IconPanel, IconPen, IconSave, IconSpinner, Logo } from './icons';
+import { IconAlert, IconCheck, IconDownload, IconFile, IconGlobe, IconHome, IconLayers, IconPanel, IconPen, IconSave, IconSpinner } from './icons';
 
 export type PanelTab = 'layers' | 'draw' | 'crs' | 'export';
 
@@ -138,13 +137,8 @@ export default function MapPanel({
         </div>
       )}
       <header className={`flex items-center gap-2 px-4 pb-3 ${phone ? 'pt-1' : 'pt-4'}`}>
-        <Logo width={30} height={30} />
-        <span className="flex flex-1">
-          <span className="flex flex-col items-stretch">
-            <span className="ui-wordmark text-base leading-tight">LEDAT-GIS</span>
-            <Tagline className="pl-px text-[7px] leading-tight" />
-          </span>
-        </span>
+        {/* The brand is in the top bar: here only what the panel is about. */}
+        <span className="flex-1 text-[13px] font-semibold text-zinc-900">Bảng điều khiển</span>
         {onSaveSession && (
           <button
             className="ui-icon-btn"

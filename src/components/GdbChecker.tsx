@@ -3,7 +3,8 @@
 // cây Feature Dataset / Feature Class bên trái, bảng "Lỗi cần sửa & Cảnh báo" đánh số bên phải, bảng thuộc tính của
 // lớp đang chọn ở dưới bản đồ vệ tinh (cột thiếu/thừa, ô sai tô đỏ), danh sách lỗi ở cột bên phải.
 // Đọc hoàn toàn trên trình duyệt (worker), không tải lên máy chủ.
-import Link from 'next/link';
+import BrandLoader from './BrandLoader';
+import SiteHeader from './SiteHeader';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { CadDocument } from '@/lib/cad/types';
 import {
@@ -23,7 +24,6 @@ import { describeMaThongTin, parseMaHoSo, parseMaThongTin, PROVINCE_CODES, TT16_
 import type { GdbWorkerRequest, GdbWorkerResponse } from '@/workers/gdb.worker';
 import {
   IconAlert,
-  IconArrowLeft,
   IconCheckCircle,
   IconChevron,
   IconCircleDashed,
@@ -39,7 +39,6 @@ import {
   IconUpload,
   IconX,
   IconXCircle,
-  Logo,
 } from './icons';
 import { pickedFromDrop, pickedFromInput } from './dropFiles';
 import { clearCheckerHandoff, peekCheckerHandoff } from './handoff';
@@ -49,7 +48,6 @@ import GdbNormalizeDialog from './GdbNormalizeDialog';
 type Picked = { path: string; file: File };
 type Filter = 'all' | 'issues' | 'present';
 
-const BRAND = 'LEDAT-GIS';
 const fmt = (n: number) => n.toLocaleString('vi-VN');
 const PROBLEM: Status[] = ['error', 'missing', 'warn'];
 const isProblem = (s: Status) => PROBLEM.includes(s);
@@ -737,27 +735,32 @@ export default function GdbChecker() {
     </p>
   );
 
+  // Reading / checking / building the PDF: the full-screen brand loader.
+  const loader = (
+    <BrandLoader
+      show={busy || pdfBusy || mapLoading}
+      stage={
+        pdfBusy
+          ? 'Đang tạo báo cáo PDF…'
+          : busy
+            ? progress?.name
+              ? `Đang kiểm tra ${progress.name}…`
+              : 'Đang đọc dữ liệu…'
+            : 'Đang dựng bản đồ dữ liệu…'
+      }
+      percent={busy && !pdfBusy && progress?.total ? (progress.done / progress.total) * 100 : null}
+    />
+  );
+
   // ---------- Start screen ----------
   if (!rep || !g) {
     return (
-      <div className="min-h-dvh bg-zinc-50/60">
-        <header className="border-b border-zinc-200/70 bg-white">
-          <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 sm:px-6">
-            <Link href="/" className="flex items-center gap-2.5" aria-label="Về trang chủ">
-              <Logo className="h-8 w-8" />
-              <span className="ui-wordmark text-lg leading-none">{BRAND}</span>
-            </Link>
-            <Link href="/bo-tach-dwg" className="ui-btn-ghost ml-auto hidden sm:inline-flex" title="Tạo HoSoGIS từ các bản vẽ DWG">
-              Bóc tách DWG → TT16
-            </Link>
-            <Link href="/" className="ui-btn-ghost">
-              <IconArrowLeft width={14} height={14} /> Trang chủ
-            </Link>
-          </div>
-        </header>
-        <main className="mx-auto max-w-5xl space-y-5 px-4 py-8 sm:px-6 sm:py-12">
+      <div className="flex min-h-dvh flex-col bg-zinc-50">
+        <SiteHeader />
+        <main className="mx-auto w-full max-w-5xl space-y-6 px-4 py-10 sm:px-6 sm:py-14">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">Kiểm tra CSDL GIS quy hoạch</h1>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600">Công cụ · Thông tư 16/2025/TT-BXD</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl">Kiểm tra CSDL GIS quy hoạch</h1>
             <p className="mt-1.5 max-w-3xl text-[14px] leading-relaxed text-zinc-500">
               Đối chiếu File Geodatabase (.gdb) với <b className="font-medium text-zinc-700">Thông tư 16/2025/TT-BXD, Phụ lục II</b>: tên các CSDL
               (HienTrang, QuyHoach, NenDiaHinh, MocGioi), nhóm dữ liệu (Feature Dataset), lớp dữ liệu (Feature Class), 6 trường thuộc tính quy định
@@ -772,24 +775,14 @@ export default function GdbChecker() {
             onKeyDown={(e) => {
               if ((e.key === 'Enter' || e.key === ' ') && !busy) folderRef.current?.click();
             }}
-            className={`rounded-2xl border border-dashed bg-white px-5 py-12 transition ${
-              over ? 'border-blue-500 bg-blue-50/70 ring-8 ring-blue-500/10' : 'border-zinc-300'
+            className={`relative rounded-3xl border bg-white px-5 py-12 shadow-[0_10px_40px_rgba(15,23,42,0.06)] transition sm:py-14 ${
+              over ? 'border-blue-500 bg-blue-50/70 ring-8 ring-blue-500/10' : 'border-zinc-200'
             }`}
           >
-            {busy ? (
-              <div className="mx-auto w-full max-w-sm text-center" aria-live="polite">
-                <p className="text-sm font-medium text-zinc-900">{progress?.name ? `Đang kiểm tra ${progress.name}…` : 'Đang đọc dữ liệu…'}</p>
-                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-100">
-                  <div
-                    className="h-full rounded-full bg-zinc-900 transition-[width]"
-                    style={{ width: `${progress?.total ? Math.max(6, (progress.done / progress.total) * 100) : 6}%` }}
-                  />
-                </div>
-              </div>
-            ) : (
+            {(
               <div className="flex flex-col items-center gap-3 text-center">
-                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 text-white">
-                  <IconUpload width={20} height={20} />
+                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-900 text-white shadow-md">
+                  <IconUpload width={22} height={22} />
                 </span>
                 <p className="text-[15px] font-medium text-zinc-900">Kéo thả thư mục HoSoGIS, các thư mục .gdb hoặc file .zip</p>
                 <p className="text-[13px] text-zinc-500">Một hoặc nhiều geodatabase cùng lúc · xử lý ngay trên trình duyệt, không tải lên máy chủ.</p>
@@ -805,8 +798,21 @@ export default function GdbChecker() {
             )}
             {pickers}
           </div>
+          <ol className="grid gap-3 text-[13px] text-zinc-600 sm:grid-cols-3">
+            {[
+              ['1. Đối chiếu', 'Tên CSDL, nhóm dữ liệu, lớp, trường thuộc tính và mã hồ sơ theo Phụ lục II; hệ tọa độ đúng kinh tuyến trục của tỉnh đồ án.'],
+              ['2. Xem và sửa', 'Danh sách lỗi gom theo lớp, bảng thuộc tính tô ô sai, bản đồ dữ liệu trên nền vệ tinh — bấm lỗi để tới đúng lớp, đúng trường.'],
+              ['3. Chuẩn hóa & báo cáo', 'Dựng lại HoSoGIS theo mẫu cấu trúc của Bộ Xây dựng (giữ nguyên hình học) và xuất báo cáo PDF / CSV.'],
+            ].map(([t, d]) => (
+              <li key={t} className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+                <b className="block font-medium text-zinc-900">{t}</b>
+                <span className="mt-1 block leading-relaxed">{d}</span>
+              </li>
+            ))}
+          </ol>
           {errorBox}
         </main>
+        {loader}
       </div>
     );
   }
@@ -853,13 +859,9 @@ export default function GdbChecker() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-zinc-100 md:h-dvh" {...dropHandlers}>
-      {/* Top bar: brand, one tab per geodatabase (main databases not uploaded are listed dimmed), actions. */}
+      <SiteHeader />
+      {/* Toolbar: one tab per geodatabase (main databases not uploaded are listed dimmed), actions. */}
       <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-zinc-200 bg-white px-3 py-2">
-        <Link href="/" className="flex items-center gap-2" aria-label="Về trang chủ">
-          <Logo className="h-7 w-7" />
-          <span className="ui-wordmark hidden text-base leading-none sm:inline">{BRAND}</span>
-        </Link>
-        <span className="hidden h-5 w-px bg-zinc-200 sm:block" />
         <nav className="ui-scroll -mx-1 flex max-w-full gap-1 overflow-x-auto px-1" aria-label="Geodatabase">
           {rep.gdbs.map((x, i) => {
             const st: Status = x.counts.errors ? 'error' : x.counts.warnings ? 'warn' : 'ok';
@@ -1157,6 +1159,7 @@ export default function GdbChecker() {
           <span className="rounded-xl bg-white px-4 py-2 text-[14px] font-medium text-blue-700 shadow">Thả để kiểm tra dữ liệu mới</span>
         </div>
       )}
+      {loader}
     </div>
   );
 }

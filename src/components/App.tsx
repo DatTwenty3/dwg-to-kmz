@@ -40,7 +40,9 @@ import ExportPanel, { baseName, buildExport, download } from './ExportPanel';
 import { filesFromDrop } from './dropFiles';
 import { ACCEPTED_EXT, ACCEPTED_HINT } from './FileDropzone';
 import FileList, { type FileRowData } from './FileList';
+import BrandLoader from './BrandLoader';
 import Landing from './Landing';
+import SiteHeader from './SiteHeader';
 import LayerPanel from './LayerPanel';
 import MapPanel, { type PanelTab } from './MapPanel';
 import type { MapPick } from './MapView';
@@ -1406,11 +1408,23 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       onClose={() => setChoice(null)}
     />
   );
-  const sessionPill = sessionBusy && (
-    <div className="ui-floating ui-fade-up fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2 text-xs font-medium text-zinc-700">
-      <IconSpinner className="text-blue-600" />
-      {sessionBusy === 'saving' ? 'Đang lưu phiên làm việc…' : 'Đang mở phiên làm việc…'}
-    </div>
+  // Every wait (reading a file, projecting, opening / saving a session) shows the full-screen brand loader.
+  const loader = (
+    <BrandLoader
+      show={busy || sessionBusy !== null}
+      stage={
+        sessionBusy
+          ? sessionBusy === 'saving'
+            ? 'Đang lưu phiên làm việc…'
+            : 'Đang mở phiên làm việc…'
+          : busyFile?.status === 'parsing'
+            ? `${progress?.stage ?? 'Đang đọc'} ${busyFile.fileName}`
+            : busyFile
+              ? `Đang chuyển tọa độ ${busyFile.fileName}…`
+              : null
+      }
+      percent={!sessionBusy && busyFile?.status === 'parsing' ? (progress?.percent ?? null) : null}
+    />
   );
 
   // Landing and the CRS step share one <Landing> so the hero (and its animation) stays put.
@@ -1420,7 +1434,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
         <Landing
           onFile={(f) => void handleFile(f, { replace: true })}
           busy={af?.status === 'parsing'}
-          progress={af?.progress ?? null}
+          onHome={() => go('landing')}
           error={stage === 'landing' ? (globalError ?? af?.error ?? null) : null}
           resumeName={rawDoc ? af?.fileName : sketches.length ? mapMeta.title : undefined}
           onResume={
@@ -1453,15 +1467,9 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
             ) : undefined
           }
         />
-        {stage === 'crs' && af?.status === 'parsing' && (
-          <div className="ui-floating ui-fade-up fixed bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2 text-xs font-medium text-zinc-700">
-            <IconSpinner className="text-blue-600" />
-            {`${af.progress?.stage ?? 'Đang đọc'} · ${Math.round(af.progress?.percent ?? 0)}%`}
-          </div>
-        )}
         {dragOverlay}
         {choiceDialog}
-        {sessionPill}
+        {loader}
         <Toaster />
       </div>
     );
@@ -1513,7 +1521,9 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   );
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-zinc-100" {...dropHandlers}>
+    <div className="flex h-dvh w-full flex-col overflow-hidden bg-zinc-100" {...dropHandlers}>
+      <SiteHeader onHome={() => go('landing')} />
+      <div className="relative min-h-0 flex-1 overflow-hidden">
       <main className="absolute inset-0">
         <MapView
           basemapId={basemapId}
@@ -1723,18 +1733,12 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
 
       {dragOverlay}
 
+      </div>
+
       {shareMap && <ShareDialog map={shareMap} onClose={() => setShareMap(null)} />}
       {choiceDialog}
-      {sessionPill}
+      {loader}
       <Toaster />
-
-      {/* Status pill */}
-      {busyFile && (
-        <div className="ui-floating pointer-events-none absolute bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2 text-xs font-medium text-zinc-700">
-          <IconSpinner className="text-blue-600" />
-          {busyFile.status === 'parsing' ? `${progress?.stage ?? 'Đang đọc'} · ${Math.round(progress?.percent ?? 0)}%` : 'Đang chuyển tọa độ…'}
-        </div>
-      )}
     </div>
   );
 }

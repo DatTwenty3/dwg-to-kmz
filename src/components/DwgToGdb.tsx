@@ -4,7 +4,6 @@
 // suggested Thông tư 16 class, the user reviews the mapping on the satellite map and exports HoSoGIS.zip. The
 // mapping is kept as a template ("mẫu ghép layer", localStorage + .json file) for the office's next projects.
 // Everything runs in src/workers/dwgTt16.worker.ts; nothing is uploaded.
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CadDocument, CrsOptions } from '@/lib/cad/types';
@@ -41,12 +40,13 @@ import { codeForProvince } from '@/lib/gdb/crs';
 import { buildVn2000, formatDegMin } from '@/lib/geo/crs';
 import { getProvince, PROVINCES } from '@/lib/geo/provinces';
 import type { DwgTt16Request, DwgTt16Response } from '@/workers/dwgTt16.worker';
+import BrandLoader from './BrandLoader';
 import DwgPreviewMap from './DwgPreviewMap';
+import SiteHeader from './SiteHeader';
 import { pickedFromDrop, pickedFromInput } from './dropFiles';
 import { handOffToChecker } from './handoff';
 import {
   IconAlert,
-  IconArrowLeft,
   IconCheckCircle,
   IconDatabaseCheck,
   IconDownload,
@@ -61,7 +61,6 @@ import {
   IconUpload,
   IconX,
   IconXCircle,
-  Logo,
 } from './icons';
 import PlanningCodeFields, { startDownload, usePlanningCodes } from './PlanningCodes';
 
@@ -70,7 +69,6 @@ type Loaded = Extract<DwgTt16Response, { type: 'loaded' }>;
 type Done = Extract<DwgTt16Response, { type: 'done' }>;
 type Progress = { stage: string; done: number; total: number };
 
-const BRAND = 'LEDAT-GIS';
 const TEMPLATE_KEY = 'ledat-gis:layer-map:v1';
 const fmt = (n: number) => n.toLocaleString('vi-VN');
 
@@ -504,27 +502,41 @@ export default function DwgToGdb() {
     </p>
   );
 
+  // Every wait (reading the folder, drawing a map, building the edit view, writing HoSoGIS): the brand loader.
+  const exporting = !!exportState.progress && !exportState.result && !exportState.error;
+  const loader = (
+    <BrandLoader
+      show={busy || previewLoading || outputLoading || exporting}
+      stage={
+        exporting
+          ? exportState.progress?.stage
+          : busy
+            ? (progress?.stage ?? 'Đang đọc thư mục bản vẽ…')
+            : outputLoading
+              ? 'Đang dựng các đối tượng sẽ ghi vào gdb…'
+              : 'Đang vẽ bản vẽ lên bản đồ…'
+      }
+      percent={
+        exporting
+          ? exportState.progress && exportState.progress.total > 1
+            ? (exportState.progress.done / exportState.progress.total) * 100
+            : null
+          : busy && progress?.total
+            ? (progress.done / progress.total) * 100
+            : null
+      }
+    />
+  );
+
   // ---------- Start screen ----------
   if (!data) {
     return (
-      <div className="min-h-dvh bg-zinc-50/60" {...dropHandlers}>
-        <header className="border-b border-zinc-200/70 bg-white">
-          <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3 sm:px-6">
-            <Link href="/" className="flex items-center gap-2.5" aria-label="Về trang chủ">
-              <Logo className="h-8 w-8" />
-              <span className="ui-wordmark text-lg leading-none">{BRAND}</span>
-            </Link>
-            <Link href="/kiem-tra-gdb" className="ui-btn-ghost ml-auto hidden sm:inline-flex">
-              <IconDatabaseCheck width={14} height={14} /> Kiểm tra .gdb
-            </Link>
-            <Link href="/" className="ui-btn-ghost">
-              <IconArrowLeft width={14} height={14} /> Trang chủ
-            </Link>
-          </div>
-        </header>
-        <main className="mx-auto max-w-5xl space-y-5 px-4 py-8 sm:px-6 sm:py-12">
+      <div className="flex min-h-dvh flex-col bg-zinc-50" {...dropHandlers}>
+        <SiteHeader />
+        <main className="mx-auto w-full max-w-5xl space-y-6 px-4 py-10 sm:px-6 sm:py-14">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 sm:text-3xl">Bóc tách DWG → CSDL GIS theo Thông tư 16</h1>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-600">Công cụ · Thông tư 16/2025/TT-BXD</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl">Bóc tách DWG → CSDL GIS theo Thông tư 16</h1>
             <p className="mt-1.5 max-w-3xl text-[14px] leading-relaxed text-zinc-500">
               Thả cả thư mục hồ sơ (vd. thư mục lấy ý kiến Sở Xây dựng với các bản vẽ QH01…QH11 và các file xref). Phần mềm nhận ra từng bản đồ (hiện trạng,
               sử dụng đất, giao thông, cấp điện, cấp nước, thoát nước…), cắt theo ranh lập quy hoạch, gợi ý lớp dữ liệu cho từng layer và xuất{' '}
@@ -538,23 +550,12 @@ export default function DwgToGdb() {
             onKeyDown={(e) => {
               if ((e.key === 'Enter' || e.key === ' ') && !busy) folderRef.current?.click();
             }}
-            className={`rounded-2xl border border-dashed bg-white px-5 py-12 transition ${over ? 'border-blue-500 bg-blue-50/70 ring-8 ring-blue-500/10' : 'border-zinc-300'}`}
+            className={`relative rounded-3xl border bg-white px-5 py-12 shadow-[0_10px_40px_rgba(15,23,42,0.06)] transition sm:py-14 ${over ? 'border-blue-500 bg-blue-50/70 ring-8 ring-blue-500/10' : 'border-zinc-200'}`}
           >
-            {busy ? (
-              <div className="mx-auto w-full max-w-md text-center" aria-live="polite">
-                <p className="truncate text-sm font-medium text-zinc-900">{progress?.stage ?? 'Đang đọc bản vẽ…'}</p>
-                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-100">
-                  <div
-                    className="h-full rounded-full bg-zinc-900 transition-[width]"
-                    style={{ width: `${progress?.total ? Math.max(6, (progress.done / progress.total) * 100) : 6}%` }}
-                  />
-                </div>
-                <p className="mt-2 text-[12px] text-zinc-400">Bản vẽ lớn và các xref có thể mất 1–2 phút.</p>
-              </div>
-            ) : (
+            {(
               <div className="flex flex-col items-center gap-3 text-center">
-                <span className="flex h-12 w-12 items-center justify-center rounded-full bg-zinc-900 text-white">
-                  <IconUpload width={20} height={20} />
+                <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-zinc-900 text-white shadow-md">
+                  <IconUpload width={22} height={22} />
                 </span>
                 <p className="text-[15px] font-medium text-zinc-900">Kéo thả thư mục bản vẽ (.dwg / .dxf)</p>
                 <p className="text-[13px] text-zinc-500">Cả thư mục để có đủ các file xref · xử lý ngay trên trình duyệt, không tải lên máy chủ.</p>
@@ -576,7 +577,7 @@ export default function DwgToGdb() {
               ['2. Ghép layer', 'Mỗi layer được gợi ý một lớp dữ liệu TT16 và “phân loại”. Bạn xem trên bản đồ vệ tinh, sửa chỗ chưa đúng, lưu thành mẫu dùng lại.'],
               ['3. Xuất HoSoGIS', 'Ghi File Geodatabase theo mẫu cấu trúc dữ liệu của Bộ Xây dựng (nhóm, lớp, trường, danh mục giá trị), mã hồ sơ — rồi kiểm tra lại ngay theo Thông tư 16.'],
             ].map(([t, d]) => (
-              <li key={t} className="ui-card p-4">
+              <li key={t} className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
                 <b className="block font-medium text-zinc-900">{t}</b>
                 <span className="mt-1 block leading-relaxed">{d}</span>
               </li>
@@ -584,6 +585,7 @@ export default function DwgToGdb() {
           </ol>
           {messageBox}
         </main>
+        {loader}
       </div>
     );
   }
@@ -707,12 +709,8 @@ export default function DwgToGdb() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-zinc-100 md:h-dvh" {...dropHandlers}>
+      <SiteHeader />
       <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-zinc-200 bg-white px-3 py-2">
-        <Link href="/" className="flex items-center gap-2" aria-label="Về trang chủ">
-          <Logo className="h-7 w-7" />
-          <span className="ui-wordmark hidden text-base leading-none sm:inline">{BRAND}</span>
-        </Link>
-        <span className="hidden h-5 w-px bg-zinc-200 sm:block" />
         <div className="min-w-0">
           <h1 className="truncate text-[14px] font-semibold text-zinc-900">Bóc tách DWG → TT16</h1>
           <p className="truncate text-[11.5px] text-zinc-500">
@@ -1032,6 +1030,7 @@ export default function DwgToGdb() {
           onOpenChecker={openInChecker}
         />
       )}
+      {loader}
     </div>
   );
 }

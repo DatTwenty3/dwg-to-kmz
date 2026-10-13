@@ -3,6 +3,7 @@
 // and hands back HoSoGIS_chuanhoa_TT16_<ngày>.zip — the geodatabases rebuilt to Thông tư 16, geometries untouched —
 // together with the check of the result.
 import { useEffect, useRef, useState } from 'react';
+import BrandLoader from './BrandLoader';
 import type { SubmissionReport } from '@/lib/gdb/check';
 import { parseMaHoSo, parseMaThongTin } from '@/lib/gdb/tt16';
 import type { NormalizeRequest, NormalizeResponse } from '@/workers/gdbNormalize.worker';
@@ -220,6 +221,11 @@ export default function GdbNormalizeDialog({
           )}
         </div>
       </div>
+      <BrandLoader
+        show={running}
+        stage={progress?.stage ? `Chuẩn hóa TT16 · ${progress.stage}` : 'Đang chuẩn hóa theo Thông tư 16…'}
+        percent={progress && progress.total > 1 ? (progress.done / progress.total) * 100 : null}
+      />
     </div>
   );
 }

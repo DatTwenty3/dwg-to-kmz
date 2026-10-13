@@ -10,6 +10,8 @@ import {
   analyzeDrawings,
   buildFeatures,
   initialMapping,
+  conversionNote,
+  targetOption,
   loadFolder,
   planStage1,
   buildQgs,
@@ -148,6 +150,13 @@ describe.skipIf(!existsSync(ROOT))('Bóc tách DWG → TT16 — xã Long Hiệp'
     for (const c of built.classes) summary += `  ${c.target}: ${c.features.length} (có tên ${c.features.filter((f) => f.tenDoiTuong).length})\n`;
     const units = built.classes.find((c) => c.target === 'QuyHoach/ViTriRanhGioi/TenDonViHanhChinh_P');
     summary += `  Tên ĐVHC: ${units?.features.map((f) => f.tenDoiTuong).join(' · ')}\n`;
+    // Rows whose geometry changes (đường → vùng…): what each gives and loses.
+    for (const r of a.rows) {
+      const t = mappingUsed.get(r.key)?.target;
+      const geom = targetOption(t)?.geom;
+      const note = geom && included.has(r.drawing) ? conversionNote(r, geom) : null;
+      if (note && r.kind === 'L') summary += `  ~ ${r.layer} (${r.count}) → ${t}: ${note.text}${note.warn ? ` ⚠ ${note.warn}` : ''}\n`;
+    }
     summary += built.notes.join('\n') + '\n';
     for (const g of report.gdbs) summary += `  ${g.fileName}: lỗi ${g.counts.errors}, cảnh báo ${g.counts.warnings}, crs ${g.crs?.status} ${g.crs?.text ?? ''}\n`;
     summary += [...report.issues, ...report.gdbs.flatMap((g) => g.issues)].map((i) => `  [${i.level}] ${i.text}`).join('\n');

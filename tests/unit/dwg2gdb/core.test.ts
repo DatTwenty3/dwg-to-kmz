@@ -15,6 +15,12 @@ import {
   insideFlags,
   landUseOf,
   compactName,
+  previewHandle,
+  previewIndex,
+  sweepSelect,
+  conversionNote,
+  layerRows,
+  rowFeatureCount,
   mergeTemplate,
   planStage1,
   provinceFromTexts,
@@ -28,7 +34,7 @@ import {
   xrefNameRole,
   type MappingEntry,
 } from '@/lib/dwg2gdb';
-import { ringsToPolygons } from '@/lib/dwg2gdb/geometry';
+import { chainRings, isClosedLine, ringArea, ringsToPolygons } from '@/lib/dwg2gdb/geometry';
 import { parseSr } from '@/lib/gdb/check';
 
 const X0 = 590_000;
@@ -338,5 +344,77 @@ describe('template attributes', () => {
     const line = { type: 'MultiLineString' as const, coordinates: [[[0, 0], [3, 4], [3, 10]]] };
     const cls = TT16_SCHEMA.databases.QuyHoach.flatMap((d) => d.classes).find((c) => c.geom === 'L' && c.fields.some((f) => f.name === 'chieuDai'))!;
     expect(templateAttributes({ db: 'QuyHoach', cls: cls.name, geom: 'L' }, { geometry: line, tenDoiTuong: null, phanLoai: null, ghiChu: null }).chieuDai).toBe(11);
+  });
+});
+
+describe('lines written to an area class (đường → vùng)', () => {
+  const ranh = 'QuyHoach/ViTriRanhGioi/RanhGioiQuyHoach_A';
+  // A 200 m square boundary drawn as 4 LINE-like pieces (one reversed), a polyline whose last vertex is back on
+  // the first but without the closed flag, and a dangling open line.
+  const pieces: CadEntity[] = [
+    line('ranh', [[X0, Y0], [X0 + 200, Y0]]),
+    line('ranh', [[X0 + 200, Y0], [X0 + 200, Y0 + 200]]),
+    line('ranh', [[X0, Y0 + 200], [X0 + 200, Y0 + 200.004]]), // reversed, ends meet within the snap tolerance
+    line('ranh', [[X0, Y0 + 200], [X0, Y0]]),
+    line('ranh', [...sq(X0 + 500, Y0, 100), [X0 + 500, Y0]]), // closed by its vertices, flag off
+    line('ranh', [[X0 + 900, Y0], [X0 + 950, Y0 + 30]]), // open: no area
+  ];
+
+  it('chains pieces into rings and treats a vertex-closed polyline as closed', () => {
+    expect(isClosedLine([...sq(0, 0, 10), [0, 0]], false)).toBe(true);
+    expect(isClosedLine([[0, 0], [10, 0], [10, 10]], false)).toBe(false);
+    const { rings, used } = chainRings(pieces.slice(0, 4).map((e) => (e as Extract<CadEntity, { kind: 'polyline' }>).points));
+    expect(rings).toHaveLength(1);
+    expect(used).toBe(4);
+    expect(Math.round(ringArea(rings[0]))).toBe(40000);
+  });
+
+  it('counts the areas a row gives and warns about what is dropped', () => {
+    const rows = layerRows('a', doc(pieces), new Uint8Array(pieces.length).fill(1));
+    const r = rows.find((x) => x.layer === 'ranh' && x.kind === 'L')!;
+    expect(r).toMatchObject({ count: 6, closed: 1, chained: 1, openLeft: 1 });
+    expect(rowFeatureCount(r, 'A')).toBe(2);
+    const note = conversionNote(r, 'A')!;
+    expect(note.text).toMatch(/2 vùng \(1 vùng nối từ các đoạn hở\)/);
+    expect(note.warn).toMatch(/1 đường hở/);
+    expect(conversionNote({ ...r, closed: 0, chained: 0, openLeft: 3 }, 'A')!.warn).toMatch(/không tạo được vùng nào/);
+    expect(conversionNote(r, 'L')).toBeNull();
+    expect(conversionNote({ ...r, kind: 'T' }, 'P')!.text).toMatch(/tenDoiTuong/);
+  });
+
+  it('builds the areas, the boundary included', () => {
+    const d = doc(pieces);
+    const built = buildFeatures([{ id: 'a', name: 'a.dwg', doc: d, inside: new Uint8Array(pieces.length).fill(1) }], new Map([[rowKey('a', 'ranh', 'L'), { target: ranh, phanLoai: 'Ranh giới lập quy hoạch' }]]), {
+      boundary: null,
+      sourceInGhiChu: false,
+    });
+    expect(built.classes.find((c) => c.target === ranh)?.features).toHaveLength(2);
+    expect(built.notes.join(' ')).toMatch(/Nối 1 vùng từ các đoạn/);
+    expect(built.notes.join(' ')).toMatch(/Bỏ qua 1 đường hở/);
+    // The planning boundary is found even when drawn in pieces.
+    const b = findBoundary(doc(pieces.slice(0, 4).map((e) => ({ ...e, layer: 'BV_Rg_Lapquyhoach' }))));
+    expect(Math.round(b!.area)).toBe(40000);
+  });
+});
+
+describe('sweep selection (Biên tập)', () => {
+  const tag = (e: CadEntity, i: number): CadEntity => ({ ...e, handle: previewHandle(i) });
+  const d = doc(
+    [
+      poly('dat', sq(0, 0, 10)), // wholly inside the sweep
+      poly('dat', sq(15, 0, 10)), // straddles the sweep edge (x = 20)
+      line('duong', [[1, 1], [5, 5]]), // inside, but its layer is not mapped
+      text('dat', 'ĐẤT LÚA', [50, 50]), // outside
+    ].map(tag),
+  );
+  const sweep: Vec2[] = [[-1, -1], [20, -1], [20, 20], [-1, 20]];
+  it('selects mapped objects wholly inside, or touching', () => {
+    expect(previewIndex(previewHandle(7))).toBe(7);
+    expect(previewIndex('2A3F')).toBeNull();
+    expect(sweepSelect(d, sweep, new Set(['dat']), false)).toEqual([0]);
+    expect(sweepSelect(d, sweep, new Set(['dat']), true)).toEqual([0, 1]);
+    expect(sweepSelect(d, sweep, new Set(['dat', 'duong']), false)).toEqual([0, 2]);
+    // A sweep drawn inside a big patch catches it in "touch" mode.
+    expect(sweepSelect(d, [[2, 2], [4, 2], [4, 4]], new Set(['dat']), true)).toEqual([0]);
   });
 });

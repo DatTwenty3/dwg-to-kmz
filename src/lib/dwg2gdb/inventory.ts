@@ -2,7 +2,7 @@
 // lie inside it (legend swatches, title blocks, cross-sections and frames lie outside and are left out), and one
 // row per layer × geometry kind with its counts — the rows of the mapping table.
 import type { CadDocument, CadEntity, Vec2 } from '@/lib/cad/types';
-import { bboxOf, interiorPoint, ringArea } from './geometry';
+import { bboxOf, chainRings, interiorPoint, isClosedLine, ringArea } from './geometry';
 import { compactName, type GeomKind } from './suggest';
 
 /** Layer names of the planning boundary ("BV_Rg_Lapquyhoach", "Ranh giới lập quy hoạch", "RANH QH"…). */
@@ -25,11 +25,20 @@ export function findBoundary(doc: CadDocument): BoundaryCandidate | null {
     const area = ringArea(ring);
     if (area >= 1e4 && (!best || area > best.area)) best = { ring, area, layer };
   };
+  const pieces = new Map<string, Vec2[][]>();
   for (const e of doc.entities) {
     if (!PLAN_BOUNDARY_LAYER.test(compactName(e.layer))) continue;
-    if (e.kind === 'polyline' && e.closed) consider(e.points, e.layer);
-    else if (e.kind === 'polygon') for (const r of e.rings) consider(r, e.layer);
+    if (e.kind === 'polyline') {
+      if (isClosedLine(e.points, e.closed)) consider(e.points, e.layer);
+      else {
+        const list = pieces.get(e.layer);
+        if (list) list.push(e.points);
+        else pieces.set(e.layer, [e.points]);
+      }
+    } else if (e.kind === 'polygon') for (const r of e.rings) consider(r, e.layer);
   }
+  // A boundary drawn in several pieces.
+  for (const [layer, lines] of pieces) for (const ring of chainRings(lines).rings) consider(ring, layer);
   return best;
 }
 
@@ -155,8 +164,12 @@ export interface LayerRow {
   count: number;
   /** All entities of the layer × kind in the drawing. */
   total: number;
-  /** L rows: closed polylines inside. */
+  /** L rows: polylines inside that enclose an area (closed flag, or last vertex on the first). */
   closed: number;
+  /** L rows: further areas made of open pieces whose ends meet (chainRings) — what a vùng class gets besides `closed`. */
+  chained: number;
+  /** L rows: open pieces that close no area (dropped when the row goes to a vùng class). */
+  openLeft: number;
   /** T rows: share of texts that are numbers (elevations). */
   numericShare: number;
   /** T rows: a few distinct texts. */
@@ -169,28 +182,50 @@ const NUMERIC = /^[+\-±]?\d{1,4}([.,]\d{1,3})?$/;
 export function layerRows(drawing: string, doc: CadDocument, flags: Uint8Array): LayerRow[] {
   const rows = new Map<string, LayerRow & { numeric: number }>();
   const colorOf = new Map(doc.layers.map((l) => [l.name, l.color]));
+  const open = new Map<string, Vec2[][]>();
   doc.entities.forEach((e, i) => {
     const kind = KIND_OF[e.kind];
     if (!kind) return;
     const key = rowKey(drawing, e.layer, kind);
     let r = rows.get(key);
     if (!r) {
-      r = { key, drawing, layer: e.layer, kind, count: 0, total: 0, closed: 0, numericShare: 0, samples: [], color: colorOf.get(e.layer) ?? e.color, numeric: 0 };
+      r = { key, drawing, layer: e.layer, kind, count: 0, total: 0, closed: 0, chained: 0, openLeft: 0, numericShare: 0, samples: [], color: colorOf.get(e.layer) ?? e.color, numeric: 0 };
       rows.set(key, r);
     }
     r.total++;
     if (!flags[i]) return;
     r.count++;
-    if (e.kind === 'polyline' && e.closed) r.closed++;
+    if (e.kind === 'polyline') {
+      if (isClosedLine(e.points, e.closed)) r.closed++;
+      else {
+        const list = open.get(key);
+        if (list) list.push(e.points);
+        else open.set(key, [e.points]);
+      }
+    }
     if (e.kind === 'text') {
       const t = e.text.replace(/\s+/g, ' ').trim();
       if (NUMERIC.test(t)) r.numeric++;
       if (r.samples.length < 4 && t && !r.samples.includes(t)) r.samples.push(t.slice(0, 60));
     }
   });
+  for (const [key, lines] of open) {
+    const r = rows.get(key)!;
+    const { rings, used } = chainRings(lines);
+    r.chained = rings.length;
+    r.openLeft = lines.length - used;
+  }
   return [...rows.values()].map(({ numeric, ...r }) => ({ ...r, numericShare: r.count ? numeric / r.count : 0 }));
 }
 
 /** Texts of a drawing (for the role guess). */
 export const drawingTexts = (doc: CadDocument) => doc.entities.flatMap((e) => (e.kind === 'text' ? [e.text] : []));
 
+
+/** Handle of a previewed object: its index in the drawing ("e123"), so the page can exclude it from the export. */
+export const previewHandle = (index: number) => `e${index}`;
+/** Index of a previewed object (null for the boundary and other added outlines). */
+export function previewIndex(handle: string | undefined): number | null {
+  const m = handle ? /^e(\d+)$/.exec(handle) : null;
+  return m ? Number(m[1]) : null;
+}

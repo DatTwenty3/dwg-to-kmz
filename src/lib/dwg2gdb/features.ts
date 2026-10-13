@@ -4,7 +4,7 @@
 // non-numeric text inside it (labels like "TRƯỜNG TIỂU HỌC LONG HIỆP").
 import type { CadDocument, CadEntity, Vec2 } from '@/lib/cad/types';
 import { foldVietnamese } from '@/lib/geo/provinces';
-import { bboxOf, cleanRing, interiorPoint, lineMidpoint, PointGrid, pointInRing, ringsToPolygons } from './geometry';
+import { bboxOf, chainRings, cleanRing, interiorPoint, isClosedLine, lineMidpoint, PointGrid, pointInRing, ringsToPolygons } from './geometry';
 import { KIND_OF, rowKey } from './inventory';
 import { parseTarget, type TargetPath } from './suggest';
 import { targetOption, type MappingEntry } from './template';
@@ -174,6 +174,7 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
   const byTarget = new Map<TargetPath, Omit<ClassData, 'styles'> & { seen: Set<string>; tally: Map<string, Tally> }>();
   const notes: string[] = [];
   let openToArea = 0;
+  let chainedToArea = 0;
   let duplicates = 0;
 
   const classOf = (target: TargetPath) => {
@@ -199,6 +200,7 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
   for (const d of drawings) {
     let labels: ReturnType<typeof labelIndex> | null = null;
     const label = (poly: Vec2[][]) => labelIn((labels ??= labelIndex(d)), poly);
+    const pieces = new Map<string, { c: ReturnType<typeof classOf>; base: { phanLoai: string | null; ghiChu: string | null }; lines: Vec2[][] }>();
     d.doc.entities.forEach((e, i) => {
       if (!d.inside[i]) return;
       const kind = KIND_OF[e.kind];
@@ -213,8 +215,12 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
         let polys: Vec2[][][] = [];
         if (e.kind === 'polygon') polys = ringsToPolygons(e.rings);
         else if (e.kind === 'polyline') {
-          if (!e.closed) {
-            openToArea++;
+          if (!isClosedLine(e.points, e.closed)) {
+            // Pieces of an outline: chained into rings once the drawing is read.
+            const k = `${m.target}${e.layer}${base.phanLoai ?? ''}`;
+            const g = pieces.get(k);
+            if (g) g.lines.push(e.points);
+            else pieces.set(k, { c, base, lines: [e.points] });
             return;
           }
           const ring = cleanRing(e.points);
@@ -224,7 +230,7 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
         add(c, { ...base, tenDoiTuong: c.dataset === 'ViTriRanhGioi' ? null : label(polys[0]), geometry: { type: 'MultiPolygon', coordinates: polys.map((p) => p.map(closeRing)) } });
       } else if (c.geom === 'L') {
         let lines: Vec2[][] = [];
-        if (e.kind === 'polyline') lines = [e.closed ? [...e.points, e.points[0]] : e.points];
+        if (e.kind === 'polyline') lines = [e.closed && !isClosedLine(e.points, false) ? [...e.points, e.points[0]] : e.points];
         else if (e.kind === 'polygon') lines = e.rings.map(cleanRing).filter((r): r is Vec2[] => !!r).map((r) => [...r, r[0]]);
         lines = lines.filter((l) => l.length >= 2);
         if (!lines.length) return;
@@ -243,7 +249,7 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
             name = label(polys[0]);
           }
         } else if (e.kind === 'polyline' && e.points.length) {
-          const ring = e.closed ? cleanRing(e.points) : null;
+          const ring = isClosedLine(e.points, e.closed) ? cleanRing(e.points) : null;
           p = ring ? interiorPoint(ring) : lineMidpoint(e.points);
           if (ring) name = label([ring]);
         }
@@ -251,6 +257,13 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
         add(c, { ...base, tenDoiTuong: name, geometry: { type: 'Point', coordinates: pt(p) } });
       }
     });
+    for (const { c, base, lines } of pieces.values()) {
+      const { rings, used } = chainRings(lines);
+      chainedToArea += rings.length;
+      openToArea += lines.length - used;
+      for (const ring of rings)
+        add(c, { ...base, tenDoiTuong: c.dataset === 'ViTriRanhGioi' ? null : label([ring]), geometry: { type: 'MultiPolygon', coordinates: [[closeRing(ring)]] } });
+    }
   }
 
   // Tên đơn vị hành chính: read from the texts themselves ("ẤP TRÀ SẤT", "X. HÀM GIANG"), whatever their layer —
@@ -299,7 +312,8 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
       for (const f of c.features) add(t, f);
     }
 
-  if (openToArea) notes.push(`Bỏ qua ${openToArea} đường hở được ghép vào lớp vùng (chỉ đường khép kín mới thành vùng)`);
+  if (chainedToArea) notes.push(`Nối ${chainedToArea} vùng từ các đoạn đường hở khép kín với nhau (ranh vẽ nhiều đoạn)`);
+  if (openToArea) notes.push(`Bỏ qua ${openToArea} đường hở ghép vào lớp vùng nhưng không khép kín được thành vùng`);
   if (duplicates) notes.push(`Bỏ ${duplicates} đối tượng trùng (cùng một đối tượng vẽ ở nhiều bản đồ)`);
   const classes: ClassData[] = [...byTarget.values()]
     .filter((c) => c.features.length)

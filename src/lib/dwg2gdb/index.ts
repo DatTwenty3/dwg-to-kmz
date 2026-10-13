@@ -19,6 +19,7 @@ export * from './qgis';
 export * from './roles';
 export * from './summary';
 export * from './suggest';
+export * from './sweep';
 export * from './template';
 export * from './xrefs';
 

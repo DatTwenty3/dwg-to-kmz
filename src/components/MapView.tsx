@@ -85,6 +85,8 @@ export interface MapViewProps {
   onDrawToolChange?: (t: SketchKind | null) => void;
   /** A sketch was finished on the map ([lng, lat] vertices). */
   onSketchCommit?: (kind: SketchKind, points: Vec2[]) => void;
+  /** Title of the drawing pill instead of "Đang vẽ <kind>" (the polygon tool used to sweep-select…). */
+  drawTitle?: string;
   /** Search result marker (a pin with its label). */
   pin?: { lngLat: Vec2; label: string } | null;
   /** Sketch whose shape is being edited on the map (vertex handles); null = not editing. */
@@ -129,6 +131,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
   drawTool = null,
   onDrawToolChange,
   onSketchCommit,
+  drawTitle,
   pin = null,
   editSketch = null,
   onEditCommit,
@@ -620,7 +623,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
         >
           <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-rose-500" />
           <span className="truncate">
-            <b className="font-semibold text-zinc-900">Đang vẽ {DRAW_LABEL[drawTool]}</b>
+            <b className="font-semibold text-zinc-900">{drawTitle ?? `Đang vẽ ${DRAW_LABEL[drawTool]}`}</b>
             {drawTool === 'point'
               ? ' · nhấp lên bản đồ để đặt điểm'
               : ` · ${draw.points.length} điểm · nhấp đúp hoặc Enter để xong · Backspace xóa điểm · Esc hủy`}

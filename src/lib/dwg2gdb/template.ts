@@ -3,6 +3,7 @@
 // shared between colleagues, so reading one treats it as untrusted input.
 import { TT16_DATABASES } from '@/lib/gdb/tt16';
 import { ROLES, type RoleId } from './roles';
+import type { LayerRow } from './inventory';
 import { compactName, targetPath, type GeomKind, type TargetPath } from './suggest';
 
 export interface TargetOption {
@@ -127,3 +128,34 @@ export function readTemplate(json: unknown): MappingTemplate {
   };
 }
 
+
+/**
+ * What happens to a mapping-table row written to a class of another geometry ("Đường → vùng"), and what is lost —
+ * null when the geometry is kept. Mirrors buildFeatures.
+ */
+export function conversionNote(
+  r: Pick<LayerRow, 'kind' | 'count' | 'closed' | 'chained' | 'openLeft'>,
+  geom: 'A' | 'L' | 'P',
+): { text: string; warn: string | null } | null {
+  if (r.kind === geom) return null;
+  if (r.kind === 'L' && geom === 'A') {
+    const areas = r.closed + r.chained;
+    return {
+      text: `Đường khép kín → vùng: ${areas.toLocaleString('vi-VN')} vùng${r.chained ? ` (${r.chained.toLocaleString('vi-VN')} vùng nối từ các đoạn hở)` : ''}`,
+      warn: !areas
+        ? 'Không có đường khép kín — không tạo được vùng nào; chọn lớp dạng đường (_L)'
+        : r.openLeft
+          ? `${r.openLeft.toLocaleString('vi-VN')} đường hở không khép kín được — bị bỏ`
+          : null,
+    };
+  }
+  if (r.kind === 'A' && geom === 'L') return { text: 'Vùng tô → đường viền', warn: null };
+  if (r.kind === 'A' && geom === 'P') return { text: 'Vùng tô → điểm bên trong vùng', warn: null };
+  if (r.kind === 'L' && geom === 'P') return { text: 'Đường → điểm (giữa đường, hoặc trong vòng khép kín)', warn: null };
+  if (r.kind === 'T' && geom === 'P') return { text: 'Chữ → điểm, nội dung chữ thành tenDoiTuong', warn: null };
+  return { text: 'Không chuyển được kiểu hình này', warn: 'Kiểu hình không phù hợp — layer sẽ bị bỏ qua' };
+}
+
+/** Features a row gives its class (before duplicates are removed). */
+export const rowFeatureCount = (r: Pick<LayerRow, 'kind' | 'count' | 'closed' | 'chained'>, geom: 'A' | 'L' | 'P') =>
+  r.kind === 'L' && geom === 'A' ? r.closed + r.chained : r.count;

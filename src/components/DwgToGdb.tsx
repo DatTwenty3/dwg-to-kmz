@@ -11,6 +11,7 @@ import type { CadDocument, CrsOptions } from '@/lib/cad/types';
 import {
   cleanProjectName,
   compactName,
+  conversionNote,
   emptyTemplate,
   initialMapping,
   kindFits,
@@ -19,6 +20,7 @@ import {
   prettyLayer,
   readTemplate,
   roleById,
+  rowFeatureCount,
   ROLES,
   suggestRow,
   targetOption,
@@ -52,6 +54,7 @@ import {
   IconSave,
   IconSearch,
   IconSpinner,
+  IconTrash,
   IconUpload,
   IconX,
   IconXCircle,
@@ -110,6 +113,7 @@ const KIND_ICON: Record<GeomKind, (p: { width: number; height: number; className
     </span>
   ),
 };
+const NO_INDEXES = new Set<number>();
 const KIND_LABEL: Record<GeomKind, string> = { A: 'vùng (hatch)', L: 'đường', P: 'điểm', T: 'chữ' };
 
 /** Short label of a target class: "QuyHoach · ChucNangSuDungDat_A". */
@@ -152,6 +156,26 @@ export default function DwgToGdb() {
   const [editing, setEditing] = useState<string | null>(null);
   const [menu, setMenu] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  // Objects removed on the map ("Biên tập"): drawing id → entity indexes; history for undo.
+  const [excluded, setExcluded] = useState<Map<string, Set<number>>>(new Map());
+  const [excludedHistory, setExcludedHistory] = useState<Map<string, Set<number>>[]>([]);
+  const changeExcluded = (drawing: string, add: number[], remove: number[] | null) => {
+    setExcludedHistory((h) => [...h.slice(-49), excluded]);
+    const next = new Map(excluded);
+    const set = new Set(excluded.get(drawing) ?? []);
+    for (const i of add) set.add(i);
+    if (remove === null) set.clear();
+    else for (const i of remove) set.delete(i);
+    next.set(drawing, set);
+    setExcluded(next);
+  };
+  const undoExcluded = () => {
+    const prev = excludedHistory[excludedHistory.length - 1];
+    if (!prev) return;
+    setExcluded(prev);
+    setExcludedHistory((h) => h.slice(0, -1));
+  };
+  const excludedCount = [...excluded].reduce((t, [id, set]) => t + (drawings.find((d) => d.id === id)?.included ? set.size : 0), 0);
   const [exportState, setExportState] = useState<{ progress: Progress | null; result: Done | null; error: string | null }>({ progress: null, result: null, error: null });
   const workerRef = useRef<Worker | null>(null);
   const folderRef = useRef<HTMLInputElement>(null);
@@ -230,6 +254,8 @@ export default function DwgToGdb() {
     setProgress(null);
     setData(null);
     setPreview(null);
+    setExcluded(new Map());
+    setExcludedHistory([]);
     workerRef.current?.terminate();
     const w = new Worker(new URL('../workers/dwgTt16.worker.ts', import.meta.url), { type: 'module' });
     workerRef.current = w;
@@ -357,6 +383,7 @@ export default function DwgToGdb() {
       roles: Object.fromEntries(drawings.map((d) => [d.id, d.role])),
       projectTitle: data?.projectTitle ?? null,
       provinceCode,
+      excluded: Object.fromEntries([...excluded].filter(([, set]) => set.size).map(([id, set]) => [id, [...set]])),
     } satisfies DwgTt16Request);
   };
   const openInChecker = (zip: Blob, name: string) => {
@@ -751,6 +778,10 @@ export default function DwgToGdb() {
             onPickLayer={pickLayer}
             loading={previewLoading}
             note={mapNote}
+            excluded={(sel && excluded.get(sel)) || NO_INDEXES}
+            onExclude={(idx) => sel && changeExcluded(sel, idx, [])}
+            onRestore={(idx) => sel && changeExcluded(sel, [], idx)}
+            undo={{ can: excludedHistory.length > 0, run: undoExcluded }}
           />
         </section>
 
@@ -829,7 +860,9 @@ export default function DwgToGdb() {
                     const m = mapping.get(r.key);
                     const Icon = KIND_ICON[r.kind];
                     const active = r.key === rowSel;
-                    const status = m?.target ? 'ok' : isReview(r) ? 'review' : 'skip';
+                    // A target that gets nothing from this row (open lines → vùng) is flagged like a row to review.
+                    const geom = targetOption(m?.target)?.geom;
+                    const status = m?.target ? (geom && !rowFeatureCount(r, geom) ? 'review' : 'ok') : isReview(r) ? 'review' : 'skip';
                     return (
                       <tr
                         key={r.key}
@@ -893,6 +926,23 @@ export default function DwgToGdb() {
                               {m?.source === 'template' && <span className="ml-auto shrink-0 text-[10.5px] text-blue-600">mẫu</span>}
                             </button>
                           )}
+                          {m?.target &&
+                            (() => {
+                              const conv = conversionNote(r, targetOption(m.target)?.geom ?? 'A');
+                              return (
+                                conv && (
+                                  <p className="mt-0.5 px-1.5 text-[11px] leading-snug text-zinc-500">
+                                    {conv.text}
+                                    {conv.warn && (
+                                      <span className="mt-0.5 flex items-start gap-1 text-amber-700">
+                                        <IconAlert width={11} height={11} className="mt-px shrink-0" />
+                                        {conv.warn}
+                                      </span>
+                                    )}
+                                  </p>
+                                )
+                              );
+                            })()}
                           {m?.target && (
                             <input
                               className="mt-1 w-full rounded-md bg-transparent px-1.5 py-0.5 text-[12px] text-zinc-700 ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus:bg-white focus:ring-blue-400 focus:outline-none"
@@ -920,6 +970,7 @@ export default function DwgToGdb() {
           provinceCode={provinceCode}
           ktt={unit ? `${unit.name} — KTT ${formatDegMin(unit.lon0)}, múi ${zone}°` : ''}
           review={totalReview}
+          excludedCount={excludedCount}
           leftOut={drawings.filter((d) => roleById(d.role).db && !d.included && d.inside > 0).map((d) => d.name.replace(/\.(dwg|dxf)$/i, ''))}
           defaultName={data.projectName ?? 'DoAnQuyHoach'}
           summary={exportSummary(rows, mapping, new Set(included.map((d) => d.id)))}
@@ -958,8 +1009,9 @@ function exportSummary(rows: LayerRow[], mapping: Map<string, MappingState>, dra
   const by = new Map<string, number>();
   for (const r of rows) {
     const t = mapping.get(r.key)?.target;
-    if (!t || !drawings.has(r.drawing) || !r.count) continue;
-    by.set(t, (by.get(t) ?? 0) + r.count);
+    const geom = targetOption(t)?.geom;
+    if (!t || !geom || !drawings.has(r.drawing) || !r.count) continue;
+    by.set(t, (by.get(t) ?? 0) + rowFeatureCount(r, geom));
   }
   return [...by].sort((a, b) => a[0].localeCompare(b[0]));
 }
@@ -970,6 +1022,7 @@ function ExportDialog({
   ktt,
   review,
   leftOut,
+  excludedCount,
   summary,
   defaultName,
   onStart,
@@ -982,6 +1035,8 @@ function ExportDialog({
   review: number;
   /** Drawings with a map kind that the user unticked. */
   leftOut: string[];
+  /** Objects removed on the map ("Biên tập"). */
+  excludedCount: number;
   summary: [string, number][];
   defaultName: string;
   onStart: (o: ExportOptions) => void;
@@ -1094,6 +1149,12 @@ function ExportDialog({
                   ))}
                 </ul>
               </div>
+              {excludedCount > 0 && (
+                <p className="flex items-start gap-2 rounded-lg bg-zinc-50 px-3 py-2 text-[12.5px] text-zinc-600">
+                  <IconTrash width={14} height={14} className="mt-0.5 shrink-0 text-red-500" />
+                  <span>{excludedCount.toLocaleString('vi-VN')} đối tượng đã loại trên bản đồ (Biên tập) sẽ không có trong HoSoGIS và bản vẽ tổng hợp.</span>
+                </p>
+              )}
               {leftOut.length > 0 && (
                 <p className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] text-amber-800">
                   <IconAlert width={14} height={14} className="mt-0.5 shrink-0" />

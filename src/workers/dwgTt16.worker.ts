@@ -8,6 +8,7 @@ import type { CadDocument, CadEntity, CrsOptions, Vec2 } from '@/lib/cad/types';
 import {
   analyzeDrawings,
   BOUNDARY_LAYER,
+  previewHandle,
   buildFeatures,
   drawingTexts,
   guessesInProvince,
@@ -62,6 +63,8 @@ export type DwgTt16Request =
       /** Add the QGIS project <projectName>.qgz (tệp tổng hợp) to HoSoGIS. */
       qgz: boolean;
       projectName: string;
+      /** Objects the user removed on the map (drawing id → entity indexes): left out of every output. */
+      excluded: Record<string, number[]>;
     };
 
 export type DwgTt16Response =
@@ -167,7 +170,11 @@ function preview(drawingId: string, crs: CrsOptions, layers: string[] | null) {
   let inside = 0;
   for (const f of flags) inside += f;
   const keep = layers && inside > PREVIEW_LIMIT ? new Set(layers) : null;
-  const entities: CadEntity[] = p.doc.entities.filter((e, i) => flags[i] && (!keep || keep.has(e.layer)));
+  // handle = e<index in the drawing>: the page excludes objects by it (previewHandle / previewIndex).
+  const entities: CadEntity[] = [];
+  p.doc.entities.forEach((e, i) => {
+    if (flags[i] && (!keep || keep.has(e.layer))) entities.push({ ...e, handle: previewHandle(i) });
+  });
   const ring = analysis!.boundary?.ring;
   if (ring) entities.push({ kind: 'polyline', layer: BOUNDARY_LAYER, color: '#ef4444', points: ring, closed: true, width: 0 });
   const used = new Set(entities.map((e) => e.layer));
@@ -185,8 +192,17 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
   if (!analysis) throw new Error('Chưa đọc thư mục bản vẽ.');
   post({ type: 'progress', stage: 'Bóc tách đối tượng', done: 0, total: 1 });
   const ids = new Set(req.drawings);
+  /** Inside-the-boundary flags without the objects removed on the map. */
+  const insideOf = (id: string) => {
+    const flags = analysis!.inside.get(id)!;
+    const out = req.excluded[id];
+    if (!out?.length) return flags;
+    const copy = flags.slice();
+    for (const i of out) if (i >= 0 && i < copy.length) copy[i] = 0;
+    return copy;
+  };
   const built = buildFeatures(
-    parsed.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: analysis!.inside.get(p.id)! })),
+    parsed.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: insideOf(p.id) })),
     new Map(req.mapping),
     { boundary: analysis.boundary?.ring ?? null, sourceInGhiChu: req.sourceInGhiChu, planUnit: planUnitFromTitle(req.projectTitle) },
   );
@@ -199,7 +215,7 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
     const doc = summaryDocument(
       parsed
         .filter((p) => ids.has(p.id))
-        .map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: analysis!.inside.get(p.id)!, role: req.roles[p.id] ?? 'other' })),
+        .map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: insideOf(p.id), role: req.roles[p.id] ?? 'other' })),
       new Map(req.mapping),
       { boundary: analysis.boundary?.ring ?? null, texts: true },
     );

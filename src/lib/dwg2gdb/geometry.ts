@@ -202,3 +202,67 @@ export class PointGrid<T> {
     return out;
   }
 }
+
+/** Ends of a line closer than this (drawing units, metres) are the same point. */
+export const SNAP = 0.01;
+
+const near = (a: Vec2, b: Vec2, tol = SNAP) => Math.abs(a[0] - b[0]) <= tol && Math.abs(a[1] - b[1]) <= tol;
+
+/** A polyline that encloses an area: flagged closed, or its last vertex back on the first (CAD often leaves the flag off). */
+export const isClosedLine = (pts: Vec2[], closed: boolean) => pts.length >= 3 && (closed || (pts.length >= 4 && near(pts[0], pts[pts.length - 1])));
+
+/**
+ * Rings made of open lines whose ends meet (outlines drawn in several pieces: a boundary of LINE segments, a lot
+ * split at each corner). Each line is used at most once; at a junction the first free piece is taken. Returns the
+ * rings (without the repeated closing vertex) and how many lines went into them.
+ */
+export function chainRings(lines: Vec2[][], tol = SNAP): { rings: Vec2[][]; used: number } {
+  const cell = (p: Vec2) => `${Math.round(p[0] / tol)},${Math.round(p[1] / tol)}`;
+  const ends = new Map<string, number[]>();
+  const live = lines.map((l) => l.length >= 2);
+  lines.forEach((l, i) => {
+    if (!live[i]) return;
+    for (const p of [l[0], l[l.length - 1]]) {
+      const k = cell(p);
+      const list = ends.get(k);
+      if (list) list.push(i);
+      else ends.set(k, [i]);
+    }
+  });
+  /** A free line with an end at p (3×3 cells around it, so ends straddling a cell edge still meet). */
+  const take = (p: Vec2): { i: number; reversed: boolean } | null => {
+    const cx = Math.round(p[0] / tol);
+    const cy = Math.round(p[1] / tol);
+    for (let dx = -1; dx <= 1; dx++)
+      for (let dy = -1; dy <= 1; dy++)
+        for (const i of ends.get(`${cx + dx},${cy + dy}`) ?? []) {
+          if (!live[i]) continue;
+          const l = lines[i];
+          if (near(l[0], p, tol)) return { i, reversed: false };
+          if (near(l[l.length - 1], p, tol)) return { i, reversed: true };
+        }
+    return null;
+  };
+  const rings: Vec2[][] = [];
+  let used = 0;
+  for (let s = 0; s < lines.length; s++) {
+    if (!live[s]) continue;
+    live[s] = false;
+    const chain: Vec2[] = [...lines[s]];
+    const members = [s];
+    for (let guard = 0; guard < lines.length && !near(chain[0], chain[chain.length - 1], tol); guard++) {
+      const next = take(chain[chain.length - 1]);
+      if (!next) break;
+      live[next.i] = false;
+      members.push(next.i);
+      const pts = next.reversed ? [...lines[next.i]].reverse() : lines[next.i];
+      chain.push(...pts.slice(1));
+    }
+    const ring = chain.length >= 4 && near(chain[0], chain[chain.length - 1], tol) ? cleanRing(chain) : null;
+    if (ring) {
+      rings.push(ring);
+      used += members.length;
+    } else for (const i of members.slice(1)) live[i] = true; // a spur led nowhere: its pieces may still close from elsewhere
+  }
+  return { rings, used };
+}

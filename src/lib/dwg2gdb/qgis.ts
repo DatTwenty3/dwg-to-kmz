@@ -282,7 +282,9 @@ export function buildQgs(p: QgisProjectInput): string {
     `<mapcanvas annotationsVisible="1" name="theMapCanvas"><units>meters</units><extent>${ext}</extent><rotation>0</rotation><destinationsrs>${srs}</destinationsrs><rendermaptile>0</rendermaptile><expressionContextScope/></mapcanvas>` +
     `<projectModels/><legend updateDrawingOrder="true"/>` +
     `<projectlayers>${maplayers}</projectlayers><layerorder>${order}</layerorder>` +
-    `<properties><Paths><Absolute type="bool">false</Absolute></Paths><Measurement><DistanceUnits type="QString">meters</DistanceUnits><AreaUnits type="QString">m2</AreaUnits></Measurement>` +
+    // Without SpatialRefSys/ProjectionsEnabled QGIS ignores <projectCrs>: the project CRS stays invalid and the
+    // layers are drawn far from the basemap (checked with QGIS 4.2: Long Hiệp landed in Nigeria).
+    `<properties><SpatialRefSys><ProjectionsEnabled type="int">1</ProjectionsEnabled></SpatialRefSys><Paths><Absolute type="bool">false</Absolute></Paths><Measurement><DistanceUnits type="QString">meters</DistanceUnits><AreaUnits type="QString">m2</AreaUnits></Measurement>` +
     `<PositionPrecision><Automatic type="bool">true</Automatic><DecimalPlaces type="int">2</DecimalPlaces></PositionPrecision></properties>` +
     `<visibility-presets/><transformContext/><projectMetadata><identifier></identifier><parentidentifier></parentidentifier><language>vi</language><type></type><title>${esc(p.title)}</title><abstract>Tệp tổng hợp HoSoGIS theo Thông tư 16/2025/TT-BXD — tạo bởi LEDAT-GIS</abstract><links/><author>LEDAT-GIS</author><creation></creation></projectMetadata>` +
     `<ProjectViewSettings UseProjectScales="0" rotation="0"><Scales/><DefaultViewExtent xmin="${x0}" ymin="${y0}" xmax="${x1}" ymax="${y1}">${srs}</DefaultViewExtent></ProjectViewSettings>` +

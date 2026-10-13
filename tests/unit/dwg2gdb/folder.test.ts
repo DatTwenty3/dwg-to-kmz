@@ -218,6 +218,8 @@ describe.skipIf(!existsSync(ROOT))('Bóc tách DWG → TT16 — xã Long Hiệp'
     expect(gdbWkt).toMatch(/^PROJCS\["VN-2000_TM-3_105-30"/);
     expect(qgs).toContain(`<projectCrs><spatialrefsys nativeFormat="Wkt"><wkt>${esc(gdbWkt)}</wkt>`);
     expect(qgs).not.toContain('TOWGS84');
+    // QGIS reads <projectCrs> only with this property (else invalid project CRS: data drawn far from the basemap).
+    expect(qgs).toContain('<SpatialRefSys><ProjectionsEnabled type="int">1</ProjectionsEnabled></SpatialRefSys>');
     expect(qgs).toContain('class="LinePatternFill"');
     expect(qgs).toContain('fieldName="tenDoiTuong"');
     expect(qgs).toContain('<Absolute type="bool">false</Absolute>');

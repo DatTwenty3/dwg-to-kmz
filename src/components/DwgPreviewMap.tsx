@@ -49,6 +49,12 @@ export default function DwgPreviewMap({
   onExclude,
   onRestore,
   undo,
+  loadingText,
+  editMode,
+  onEditMode,
+  views,
+  view,
+  onView,
 }: {
   doc: CadDocument | null;
   /** Layers that go to the geodatabase (drawn at full strength). */
@@ -65,11 +71,19 @@ export default function DwgPreviewMap({
   /** Put objects back (null = all of this drawing). */
   onRestore: (indexes: number[] | null) => void;
   undo: { can: boolean; run: () => void };
+  /** Spinner text while `loading` (default: drawing the drawing). */
+  loadingText?: string;
+  /** "Biên tập" on (controlled: the page swaps `doc` for what the geodatabases will get). */
+  editMode: boolean;
+  onEditMode: (on: boolean) => void;
+  /** Geodatabases to look at while editing (QuyHoach.gdb, HienTrang.gdb…) with their feature counts. */
+  views: { id: string; label: string; count: number }[];
+  view: string;
+  onView: (id: string) => void;
 }) {
   const [basemapId, setBasemapId] = useState(DEFAULT_BASEMAP_ID);
   const [font, setFont] = useState({ family: DEFAULT_FONT_FAMILY, ready: false });
   const [pick, setPick] = useState<MapPick | null>(null);
-  const [editMode, setEditMode] = useState(false);
   const [tool, setTool] = useState<'click' | 'sweep'>('click');
   const [selected, setSelected] = useState<Set<number>>(new Set());
   useEffect(() => {
@@ -145,14 +159,14 @@ export default function DwgPreviewMap({
     setSelected(new Set());
   };
   const exit = () => {
-    setEditMode(false);
+    onEditMode(false);
     setTool('click');
     setSelected(new Set());
   };
 
-  // Delete removes the selection, Esc clears it (the sweep tool handles its own keys while drawing).
+  // Delete (or Backspace) removes the selection, Esc clears it, Ctrl+Z undoes — in both tools.
   useEffect(() => {
-    if (!editMode || tool !== 'click') return;
+    if (!editMode) return;
     const onKey = (ev: KeyboardEvent) => {
       const t = ev.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
@@ -170,7 +184,7 @@ export default function DwgPreviewMap({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [editMode, tool, toRemove, onExclude, undo]);
+  }, [editMode, toRemove, onExclude, undo]);
 
   const popup = pick && !editMode ? { lngLat: pick.lngLat, content: <EntityPopup pick={pick.ref} onClose={() => setPick(null)} /> } : null;
   const selectable = (p: MapPick) => {
@@ -205,7 +219,7 @@ export default function DwgPreviewMap({
           className="ui-floating absolute left-3 top-3 z-10 flex items-center gap-1.5 px-2.5 py-1.5 text-[12.5px] font-medium text-zinc-800 hover:bg-zinc-50"
           onClick={() => {
             setPick(null);
-            setEditMode(true);
+            onEditMode(true);
           }}
           title="Chọn hoặc quét các đối tượng không mong muốn để bỏ khỏi HoSoGIS"
         >
@@ -214,8 +228,26 @@ export default function DwgPreviewMap({
           {excluded.size > 0 && <span className="rounded-full bg-red-50 px-1.5 text-[11px] font-semibold text-red-600">{fmt(excluded.size)} đã loại</span>}
         </button>
       )}
-      {doc && editMode && (
+      {editMode && (
         <div className="ui-floating ui-pop-in absolute left-3 top-3 z-20 w-[min(23rem,calc(100%-1.5rem))] space-y-2 p-2.5 text-[12.5px] text-zinc-700">
+          <div>
+            <p className="mb-1 text-[11.5px] text-zinc-500">Đang xem đúng những gì sẽ ghi vào geodatabase (và tệp .qgz):</p>
+            <div className="flex flex-wrap gap-1" role="group" aria-label="Geodatabase">
+              {views.map((v) => (
+                <button
+                  key={v.id}
+                  aria-pressed={v.id === view}
+                  onClick={() => onView(v.id)}
+                  className={`rounded-md px-2 py-0.5 font-mono text-[11.5px] ring-1 ring-inset ${
+                    v.id === view ? 'bg-blue-600 text-white ring-blue-600' : 'bg-white text-zinc-700 ring-zinc-200 hover:bg-zinc-50'
+                  }`}
+                >
+                  {v.label} <span className={v.id === view ? 'text-blue-100' : 'text-zinc-400'}>{fmt(v.count)}</span>
+                </button>
+              ))}
+              {!views.length && <span className="text-[11.5px] text-zinc-400">Chưa có lớp nào được ghép.</span>}
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <div className="ui-segment flex-1">
               <button aria-pressed={tool === 'click'} onClick={() => setTool('click')}>
@@ -231,8 +263,8 @@ export default function DwgPreviewMap({
           </div>
           <p className="text-[11.5px] leading-snug text-zinc-500">
             {tool === 'click'
-              ? 'Bấm vào đối tượng của các layer đã ghép để chọn / bỏ chọn. Delete = loại bỏ, Esc = bỏ chọn, Ctrl+Z = hoàn tác.'
-              : 'Kéo khung như AutoCAD: trái → phải (khung xanh) chọn đối tượng nằm trọn trong khung; phải → trái (khung nét đứt xanh lá) chọn cả đối tượng chạm khung. Kéo tiếp để chọn thêm, cuộn chuột để phóng to/thu nhỏ.'}
+              ? 'Bấm vào đối tượng để chọn / bỏ chọn. Delete = xóa, Esc = bỏ chọn, Ctrl+Z = hoàn tác.'
+              : 'Kéo khung như AutoCAD: trái → phải (khung xanh) chọn đối tượng nằm trọn trong khung; phải → trái (khung nét đứt xanh lá) chọn cả đối tượng chạm khung. Kéo tiếp để chọn thêm, cuộn chuột để phóng to/thu nhỏ. Delete = xóa, Esc = bỏ chọn, Ctrl+Z = hoàn tác.'}
           </p>
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="mr-auto tabular-nums">
@@ -248,9 +280,10 @@ export default function DwgPreviewMap({
                 Khôi phục {fmt(toRestore.length)}
               </button>
             )}
-            <button className="ui-btn !px-2 !py-1 !text-[12px] text-red-600 disabled:opacity-40" disabled={!toRemove.length} onClick={remove}>
+            <button className="ui-btn !px-2 !py-1 !text-[12px] text-red-600 disabled:opacity-40" disabled={!toRemove.length} onClick={remove} title="Xóa các đối tượng đã chọn khỏi HoSoGIS (phím Delete)">
               <IconTrash width={13} height={13} />
-              Loại bỏ{toRemove.length ? ` ${fmt(toRemove.length)}` : ''}
+              Xóa{toRemove.length ? ` ${fmt(toRemove.length)}` : ''}
+              <kbd className="rounded border border-red-200 bg-red-50 px-1 font-sans text-[10.5px] font-medium text-red-600">Delete</kbd>
             </button>
             <button className="ui-btn !px-2 !py-1 !text-[12px] disabled:opacity-40" disabled={!undo.can} onClick={undo.run} title="Hoàn tác (Ctrl+Z)">
               <IconUndo width={13} height={13} />
@@ -260,7 +293,7 @@ export default function DwgPreviewMap({
             <p className="flex items-center gap-2 border-t border-zinc-100 pt-2 text-[11.5px] text-zinc-500">
               <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-red-500/60" />
               <span className="flex-1">
-                {fmt(excluded.size)} đối tượng của bản vẽ này đã loại khỏi HoSoGIS (vẽ màu đỏ mờ, bấm để chọn lại)
+                {fmt(excluded.size)} đối tượng của {views.find((v) => v.id === view)?.label ?? 'gdb này'} đã xóa — sẽ không ghi (vẽ màu đỏ mờ, bấm để chọn lại)
               </span>
               <button className="shrink-0 font-medium text-blue-600 hover:underline" onClick={() => onRestore(null)}>
                 Khôi phục tất cả
@@ -273,7 +306,7 @@ export default function DwgPreviewMap({
         <div className="pointer-events-none absolute inset-x-3 top-14 z-10 flex justify-center">
           <span className="ui-floating flex items-center gap-2 px-3 py-1.5 text-[12.5px] text-zinc-700">
             {loading && <IconSpinner width={14} height={14} className="text-blue-600" />}
-            {loading ? 'Đang vẽ bản vẽ lên bản đồ…' : note}
+            {loading ? (loadingText ?? 'Đang vẽ bản vẽ lên bản đồ…') : note}
           </span>
         </div>
       )}

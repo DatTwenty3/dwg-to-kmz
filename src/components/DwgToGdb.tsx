@@ -29,7 +29,10 @@ import {
   templateLookup,
   type DrawingInfo,
   type GeomKind,
+  featureKept,
   type LayerRow,
+  type SourceRef,
+  type MappingEntry,
   type MappingState,
   type MappingTemplate,
   type RoleId,
@@ -159,16 +162,25 @@ export default function DwgToGdb() {
   // Objects removed on the map ("Biên tập"): drawing id → entity indexes; history for undo.
   const [excluded, setExcluded] = useState<Map<string, Set<number>>>(new Map());
   const [excludedHistory, setExcludedHistory] = useState<Map<string, Set<number>>[]>([]);
-  const changeExcluded = (drawing: string, add: number[], remove: number[] | null) => {
+  /** One undoable step: these CAD objects left out of / put back into the export. */
+  const editExcluded = (add: SourceRef[], remove: SourceRef[]) => {
     setExcludedHistory((h) => [...h.slice(-49), excluded]);
     const next = new Map(excluded);
-    const set = new Set(excluded.get(drawing) ?? []);
-    for (const i of add) set.add(i);
-    if (remove === null) set.clear();
-    else for (const i of remove) set.delete(i);
-    next.set(drawing, set);
+    const setOf = (d: string) => {
+      let set = next.get(d);
+      if (!set || set === excluded.get(d)) next.set(d, (set = new Set(set ?? [])));
+      return set;
+    };
+    for (const [d, i] of add) setOf(d).add(i);
+    for (const [d, i] of remove) setOf(d).delete(i);
     setExcluded(next);
   };
+  // "Biên tập": the map shows what one geodatabase will get (worker `output`), not a drawing.
+  const [editMode, setEditMode] = useState(false);
+  const [editDb, setEditDb] = useState('QuyHoach');
+  const [output, setOutput] = useState<{ db: string; doc: CadDocument; refs: SourceRef[][][]; dbs: { db: string; count: number }[] } | null>(null);
+  const [outputLoading, setOutputLoading] = useState(false);
+  const [outputError, setOutputError] = useState<string | null>(null);
   const undoExcluded = () => {
     const prev = excludedHistory[excludedHistory.length - 1];
     if (!prev) return;
@@ -230,6 +242,10 @@ export default function DwgToGdb() {
     } else if (m.type === 'preview') {
       setPreviewLoading(false);
       setPreview({ id: m.drawingId, doc: m.doc, truncated: m.truncated });
+    } else if (m.type === 'output') {
+      setOutputLoading(false);
+      setOutputError(null);
+      setOutput({ db: m.db, doc: m.doc, refs: m.refs, dbs: m.dbs });
     } else if (m.type === 'done') {
       setExportState({ progress: null, result: m, error: null });
     } else if (m.type === 'error') {
@@ -239,6 +255,9 @@ export default function DwgToGdb() {
       } else if (m.during === 'preview') {
         setPreviewLoading(false);
         setPreviewError(m.message);
+      } else if (m.during === 'output') {
+        setOutputLoading(false);
+        setOutputError(m.message);
       } else setExportState({ progress: null, result: null, error: m.message });
     }
   };
@@ -256,6 +275,8 @@ export default function DwgToGdb() {
     setPreview(null);
     setExcluded(new Map());
     setExcludedHistory([]);
+    setEditMode(false);
+    setOutput(null);
     workerRef.current?.terminate();
     const w = new Worker(new URL('../workers/dwgTt16.worker.ts', import.meta.url), { type: 'module' });
     workerRef.current = w;
@@ -287,6 +308,32 @@ export default function DwgToGdb() {
     });
     return () => clearTimeout(t);
   }, [previewKey, requested, data, sel, crs, selDrawing, usedLayers]);
+
+  // What goes to the geodatabases: the export payload and the "Biên tập" view.
+  const includedIds = useMemo(() => drawings.filter((d) => d.included).map((d) => d.id), [drawings]);
+  const exportMapping = useMemo(
+    () => [...mapping].filter(([k]) => rowsByKey.has(k)).map(([k, v]): [string, MappingEntry] => [k, { target: v.target, phanLoai: v.phanLoai }]),
+    [mapping, rowsByKey],
+  );
+  useEffect(() => {
+    if (!editMode || !crs || !data || !workerRef.current) return;
+    const t = setTimeout(() => {
+      setOutputLoading(true);
+      workerRef.current?.postMessage({ type: 'output', db: editDb, drawings: includedIds, mapping: exportMapping, crs, projectTitle: data.projectTitle ?? null } satisfies DwgTt16Request);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [editMode, editDb, crs, data, includedIds, exportMapping]);
+  const editView = editMode && output && output.db === editDb ? output : null;
+  /** Features of the edit view that will not be written (all their sources left out). */
+  const removedFeatures = useMemo(() => {
+    const out = new Set<number>();
+    editView?.refs.forEach((alts, k) => {
+      if (!featureKept(alts, excluded)) out.add(k);
+    });
+    return out;
+  }, [editView, excluded]);
+  const featureRefs = (ks: number[] | null) => (ks ?? editView?.refs.map((_, k) => k) ?? []).flatMap((k) => editView?.refs[k]?.flat() ?? []);
+  const editLayers = useMemo(() => new Set(editView?.doc.layers.map((l) => l.name) ?? []), [editView]);
 
   // ----- Mapping edits -----
   const setRole = (id: string, role: RoleId) => {
@@ -374,8 +421,8 @@ export default function DwgToGdb() {
     saveTemplate(true);
     workerRef.current.postMessage({
       type: 'export',
-      drawings: drawings.filter((d) => d.included).map((d) => d.id),
-      mapping: [...mapping].filter(([k]) => rowsByKey.has(k)).map(([k, v]) => [k, { target: v.target, phanLoai: v.phanLoai }]),
+      drawings: includedIds,
+      mapping: exportMapping,
       lon0: unit.lon0,
       zone,
       place: unit.name,
@@ -772,16 +819,22 @@ export default function DwgToGdb() {
         {/* Center: map */}
         <section className="relative h-[50dvh] min-w-0 shrink-0 md:h-auto md:flex-1 md:shrink">
           <DwgPreviewMap
-            doc={preview && preview.id === sel ? preview.doc : null}
-            used={usedLayers}
-            focusLayer={focusLayer}
+            doc={editMode ? (editView?.doc ?? null) : preview && preview.id === sel ? preview.doc : null}
+            used={editMode ? editLayers : usedLayers}
+            focusLayer={editMode ? null : focusLayer}
             onPickLayer={pickLayer}
-            loading={previewLoading}
-            note={mapNote}
-            excluded={(sel && excluded.get(sel)) || NO_INDEXES}
-            onExclude={(idx) => sel && changeExcluded(sel, idx, [])}
-            onRestore={(idx) => sel && changeExcluded(sel, [], idx)}
+            loading={editMode ? outputLoading : previewLoading}
+            loadingText={editMode ? 'Đang dựng các đối tượng sẽ ghi vào gdb…' : undefined}
+            note={editMode ? (outputError ? `Không dựng được: ${outputError}` : !unit ? mapNote : null) : mapNote}
+            excluded={editMode ? removedFeatures : (sel && excluded.get(sel)) || NO_INDEXES}
+            onExclude={(ks) => editMode && editExcluded(featureRefs(ks), [])}
+            onRestore={(ks) => editMode && editExcluded([], featureRefs(ks))}
             undo={{ can: excludedHistory.length > 0, run: undoExcluded }}
+            editMode={editMode}
+            onEditMode={setEditMode}
+            views={editMode ? (output?.dbs ?? []).map((d) => ({ id: d.db, label: `${d.db}.gdb`, count: d.db === editView?.db ? d.count - removedFeatures.size : d.count })) : []}
+            view={editDb}
+            onView={setEditDb}
           />
         </section>
 

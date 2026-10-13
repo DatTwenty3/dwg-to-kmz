@@ -13,6 +13,7 @@ import { placeXref, resolveXref, xrefNameRole, xrefOwners, type FolderFile, type
 
 export * from './features';
 export * from './inventory';
+export * from './output';
 export * from './place';
 export * from './plan';
 export * from './qgis';

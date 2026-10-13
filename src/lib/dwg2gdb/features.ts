@@ -14,11 +14,20 @@ export type GeoJsonGeometry =
   | { type: 'MultiLineString'; coordinates: number[][][] }
   | { type: 'MultiPolygon'; coordinates: number[][][][] };
 
+/** A CAD object: [drawing id, index of the entity in the drawing]. */
+export type SourceRef = [string, number];
+
 export interface GisFeature {
   geometry: GeoJsonGeometry;
   tenDoiTuong: string | null;
   phanLoai: string | null;
   ghiChu: string | null;
+  /**
+   * The CAD objects this feature comes from: alternatives (the same object drawn on several maps, duplicates
+   * removed) each made of one or more objects (an outline chained from pieces). The feature is written as long
+   * as one alternative has none of its objects left out. Empty: added by the app (detected boundary…).
+   */
+  refs?: SourceRef[][];
 }
 
 export interface ClassData {
@@ -171,7 +180,7 @@ export function adminName(raw: string): { name: string; kind: string } | null {
 }
 
 export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, MappingEntry>, o: BuildOptions): BuildResult {
-  const byTarget = new Map<TargetPath, Omit<ClassData, 'styles'> & { seen: Set<string>; tally: Map<string, Tally> }>();
+  const byTarget = new Map<TargetPath, Omit<ClassData, 'styles'> & { seen: Map<string, GisFeature>; tally: Map<string, Tally> }>();
   const notes: string[] = [];
   let openToArea = 0;
   let chainedToArea = 0;
@@ -182,25 +191,28 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
     if (!c) {
       const t = parseTarget(target)!;
       const opt = targetOption(target)!;
-      c = { target, db: t.db, dataset: t.dataset, cls: t.cls, geom: opt.geom, features: [], seen: new Set(), tally: new Map() };
+      c = { target, db: t.db, dataset: t.dataset, cls: t.cls, geom: opt.geom, features: [], seen: new Map(), tally: new Map() };
       byTarget.set(target, c);
     }
     return c;
   };
   const add = (c: ReturnType<typeof classOf>, f: GisFeature) => {
     const k = dupKey(f.geometry);
-    if (c.seen.has(k)) {
+    const first = c.seen.get(k);
+    if (first) {
       duplicates++;
+      // The same object on another map: one more way to get the feature.
+      if (f.refs?.length) first.refs = [...(first.refs ?? []), ...f.refs];
       return;
     }
-    c.seen.add(k);
+    c.seen.set(k, f);
     c.features.push(f);
   };
 
   for (const d of drawings) {
     let labels: ReturnType<typeof labelIndex> | null = null;
     const label = (poly: Vec2[][]) => labelIn((labels ??= labelIndex(d)), poly);
-    const pieces = new Map<string, { c: ReturnType<typeof classOf>; base: { phanLoai: string | null; ghiChu: string | null }; lines: Vec2[][] }>();
+    const pieces = new Map<string, { c: ReturnType<typeof classOf>; base: { phanLoai: string | null; ghiChu: string | null }; lines: Vec2[][]; index: number[] }>();
     d.doc.entities.forEach((e, i) => {
       if (!d.inside[i]) return;
       const kind = KIND_OF[e.kind];
@@ -209,6 +221,7 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
       if (!m?.target || !targetOption(m.target)) return;
       const c = classOf(m.target);
       const base = { phanLoai: m.phanLoai.trim().slice(0, 250) || null, ghiChu: o.sourceInGhiChu ? `Nguồn: ${d.name} · ${e.layer}`.slice(0, 250) : null };
+      const refs: SourceRef[][] = [[[d.id, i]]];
       tally(c.tally, base.phanLoai, e);
 
       if (c.geom === 'A') {
@@ -219,22 +232,24 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
             // Pieces of an outline: chained into rings once the drawing is read.
             const k = `${m.target}${e.layer}${base.phanLoai ?? ''}`;
             const g = pieces.get(k);
-            if (g) g.lines.push(e.points);
-            else pieces.set(k, { c, base, lines: [e.points] });
+            if (g) {
+              g.lines.push(e.points);
+              g.index.push(i);
+            } else pieces.set(k, { c, base, lines: [e.points], index: [i] });
             return;
           }
           const ring = cleanRing(e.points);
           if (ring) polys = [[ring]];
         }
         if (!polys.length) return;
-        add(c, { ...base, tenDoiTuong: c.dataset === 'ViTriRanhGioi' ? null : label(polys[0]), geometry: { type: 'MultiPolygon', coordinates: polys.map((p) => p.map(closeRing)) } });
+        add(c, { ...base, refs, tenDoiTuong: c.dataset === 'ViTriRanhGioi' ? null : label(polys[0]), geometry: { type: 'MultiPolygon', coordinates: polys.map((p) => p.map(closeRing)) } });
       } else if (c.geom === 'L') {
         let lines: Vec2[][] = [];
         if (e.kind === 'polyline') lines = [e.closed && !isClosedLine(e.points, false) ? [...e.points, e.points[0]] : e.points];
         else if (e.kind === 'polygon') lines = e.rings.map(cleanRing).filter((r): r is Vec2[] => !!r).map((r) => [...r, r[0]]);
         lines = lines.filter((l) => l.length >= 2);
         if (!lines.length) return;
-        add(c, { ...base, tenDoiTuong: null, geometry: { type: 'MultiLineString', coordinates: lines.map((l) => l.map(pt)) } });
+        add(c, { ...base, refs, tenDoiTuong: null, geometry: { type: 'MultiLineString', coordinates: lines.map((l) => l.map(pt)) } });
       } else {
         let p: Vec2 | null = null;
         let name: string | null = null;
@@ -254,15 +269,21 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
           if (ring) name = label([ring]);
         }
         if (!p) return;
-        add(c, { ...base, tenDoiTuong: name, geometry: { type: 'Point', coordinates: pt(p) } });
+        add(c, { ...base, refs, tenDoiTuong: name, geometry: { type: 'Point', coordinates: pt(p) } });
       }
     });
-    for (const { c, base, lines } of pieces.values()) {
-      const { rings, used } = chainRings(lines);
+    for (const { c, base, lines, index } of pieces.values()) {
+      const { rings, used, members } = chainRings(lines);
       chainedToArea += rings.length;
       openToArea += lines.length - used;
-      for (const ring of rings)
-        add(c, { ...base, tenDoiTuong: c.dataset === 'ViTriRanhGioi' ? null : label([ring]), geometry: { type: 'MultiPolygon', coordinates: [[closeRing(ring)]] } });
+      rings.forEach((ring, r) =>
+        add(c, {
+          ...base,
+          refs: [members[r].map((m): SourceRef => [d.id, index[m]])],
+          tenDoiTuong: c.dataset === 'ViTriRanhGioi' ? null : label([ring]),
+          geometry: { type: 'MultiPolygon', coordinates: [[closeRing(ring)]] },
+        }),
+      );
     }
   }
 
@@ -271,7 +292,7 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
   const adminPath = 'QuyHoach/ViTriRanhGioi/TenDonViHanhChinh_P';
   const adminCls = classOf(adminPath);
   const taken = new Set(adminCls.features.map((f) => foldVietnamese(f.tenDoiTuong ?? '')));
-  const found = new Map<string, { name: string; kind: string; at: Vec2; height: number }>();
+  const found = new Map<string, { name: string; kind: string; at: Vec2; height: number; ref: SourceRef | null }>();
   for (const d of drawings)
     d.doc.entities.forEach((e, i) => {
       if (e.kind !== 'text' || !d.inside[i]) return;
@@ -279,15 +300,15 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
       if (!a) return;
       const key = foldVietnamese(a.name);
       const old = found.get(key);
-      if (!taken.has(key) && (!old || e.height > old.height)) found.set(key, { ...a, at: e.position, height: e.height });
+      if (!taken.has(key) && (!old || e.height > old.height)) found.set(key, { ...a, at: e.position, height: e.height, ref: [d.id, i] });
     });
   // The unit of the plan itself is only named in the title block (outside the boundary).
   const unit = o.planUnit ? adminName(o.planUnit) : null;
   const ring = o.boundary ? cleanRing(o.boundary) : null;
   if (unit && ring && !taken.has(foldVietnamese(unit.name)) && !found.has(foldVietnamese(unit.name)))
-    found.set(foldVietnamese(unit.name), { ...unit, at: interiorPoint(ring), height: Infinity });
+    found.set(foldVietnamese(unit.name), { ...unit, at: interiorPoint(ring), height: Infinity, ref: null });
   for (const a of found.values()) {
-    add(adminCls, { tenDoiTuong: a.name, phanLoai: a.kind, ghiChu: null, geometry: { type: 'Point', coordinates: pt(a.at) } });
+    add(adminCls, { tenDoiTuong: a.name, phanLoai: a.kind, ghiChu: null, refs: a.ref ? [[a.ref]] : [], geometry: { type: 'Point', coordinates: pt(a.at) } });
     tally(adminCls.tally, a.kind, { kind: 'point', layer: '', color: '#1f2937', position: a.at });
   }
   if (found.size) notes.push(`Lấy ${found.size} tên đơn vị hành chính từ chữ trên bản vẽ (${[...new Set([...found.values()].map((a) => a.kind))].join(', ')})`);

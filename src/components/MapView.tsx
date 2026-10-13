@@ -785,7 +785,11 @@ function BoxSelectLayer({ mapRef, onBox }: { mapRef: React.RefObject<MlMap | nul
       }}
       onPointerDown={(e) => {
         if (e.button !== 0) return;
-        e.currentTarget.setPointerCapture(e.pointerId);
+        try {
+          e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+          // No capture (synthetic / already released pointer): the box still follows inside the map.
+        }
         const r = e.currentTarget.getBoundingClientRect();
         const x = e.clientX - r.left;
         const y = e.clientY - r.top;

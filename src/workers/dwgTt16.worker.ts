@@ -10,6 +10,10 @@ import {
   BOUNDARY_LAYER,
   previewHandle,
   buildFeatures,
+  outputDatabases,
+  outputView,
+  type ClassData,
+  type SourceRef,
   drawingTexts,
   guessesInProvince,
   loadFolder,
@@ -42,6 +46,8 @@ declare const self: DedicatedWorkerGlobalScope;
 export type DwgTt16Request =
   | { type: 'load'; files: { path: string; file: File }[] }
   | { type: 'preview'; drawingId: string; crs: CrsOptions; layers: string[] | null }
+  /** What one geodatabase will get with this mapping ("Biên tập"), in WGS84. */
+  | { type: 'output'; db: string; drawings: string[]; mapping: [string, MappingEntry][]; crs: CrsOptions; projectTitle: string | null }
   | {
       type: 'export';
       drawings: string[];
@@ -88,6 +94,7 @@ export type DwgTt16Response =
       ms: number;
     }
   | { type: 'preview'; drawingId: string; doc: CadDocument; truncated: boolean }
+  | { type: 'output'; db: string; doc: CadDocument; refs: SourceRef[][][]; dbs: { db: string; count: number }[] }
   | {
       type: 'done';
       zip: Blob;
@@ -99,7 +106,7 @@ export type DwgTt16Response =
       classes: { target: string; count: number }[];
       ms: number;
     }
-  | { type: 'error'; during: 'load' | 'preview' | 'export'; message: string };
+  | { type: 'error'; during: 'load' | 'preview' | 'output' | 'export'; message: string };
 
 const post = (m: DwgTt16Response) => self.postMessage(m);
 
@@ -185,6 +192,26 @@ function preview(drawingId: string, crs: CrsOptions, layers: string[] | null) {
     xrefs: undefined,
   };
   post({ type: 'preview', drawingId, doc: transformDocument(doc, crs), truncated: !!keep });
+}
+
+/** Last features built for the edit view, reused while only the geodatabase shown changes. */
+let outputCache: { key: string; classes: ClassData[] } | null = null;
+
+function output(req: Extract<DwgTt16Request, { type: 'output' }>) {
+  if (!analysis) throw new Error('Chưa đọc thư mục bản vẽ.');
+  const key = JSON.stringify([req.drawings, req.mapping, req.projectTitle]);
+  if (outputCache?.key !== key) {
+    const ids = new Set(req.drawings);
+    // Every object inside the boundary, the removed ones too: the page draws those as ghosts (featureKept).
+    const built = buildFeatures(
+      parsed.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: analysis!.inside.get(p.id)! })),
+      new Map(req.mapping),
+      { boundary: analysis.boundary?.ring ?? null, sourceInGhiChu: false, planUnit: planUnitFromTitle(req.projectTitle) },
+    );
+    outputCache = { key, classes: built.classes };
+  }
+  const { doc, refs } = outputView(outputCache.classes, req.db);
+  post({ type: 'output', db: req.db, doc: transformDocument(doc, req.crs), refs, dbs: outputDatabases(outputCache.classes) });
 }
 
 async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
@@ -307,7 +334,7 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
 
 self.onmessage = (ev: MessageEvent<DwgTt16Request>) => {
   const m = ev.data;
-  const fail = (during: 'load' | 'preview' | 'export') => (e: unknown) =>
+  const fail = (during: 'load' | 'preview' | 'output' | 'export') => (e: unknown) =>
     post({ type: 'error', during, message: e instanceof Error ? e.message : String(e) });
   if (m.type === 'load') load(m.files).catch(fail('load'));
   else if (m.type === 'preview') {
@@ -315,6 +342,12 @@ self.onmessage = (ev: MessageEvent<DwgTt16Request>) => {
       preview(m.drawingId, m.crs, m.layers);
     } catch (e) {
       fail('preview')(e);
+    }
+  } else if (m.type === 'output') {
+    try {
+      output(m);
+    } catch (e) {
+      fail('output')(e);
     }
   } else exportHoSoGis(m).catch(fail('export'));
 };

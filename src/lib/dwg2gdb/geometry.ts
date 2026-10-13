@@ -214,9 +214,9 @@ export const isClosedLine = (pts: Vec2[], closed: boolean) => pts.length >= 3 &&
 /**
  * Rings made of open lines whose ends meet (outlines drawn in several pieces: a boundary of LINE segments, a lot
  * split at each corner). Each line is used at most once; at a junction the first free piece is taken. Returns the
- * rings (without the repeated closing vertex) and how many lines went into them.
+ * rings (without the repeated closing vertex), how many lines went into them and which ones (indexes in `lines`).
  */
-export function chainRings(lines: Vec2[][], tol = SNAP): { rings: Vec2[][]; used: number } {
+export function chainRings(lines: Vec2[][], tol = SNAP): { rings: Vec2[][]; used: number; members: number[][] } {
   const cell = (p: Vec2) => `${Math.round(p[0] / tol)},${Math.round(p[1] / tol)}`;
   const ends = new Map<string, number[]>();
   const live = lines.map((l) => l.length >= 2);
@@ -244,6 +244,7 @@ export function chainRings(lines: Vec2[][], tol = SNAP): { rings: Vec2[][]; used
     return null;
   };
   const rings: Vec2[][] = [];
+  const ringMembers: number[][] = [];
   let used = 0;
   for (let s = 0; s < lines.length; s++) {
     if (!live[s]) continue;
@@ -261,8 +262,9 @@ export function chainRings(lines: Vec2[][], tol = SNAP): { rings: Vec2[][]; used
     const ring = chain.length >= 4 && near(chain[0], chain[chain.length - 1], tol) ? cleanRing(chain) : null;
     if (ring) {
       rings.push(ring);
+      ringMembers.push(members);
       used += members.length;
     } else for (const i of members.slice(1)) live[i] = true; // a spur led nowhere: its pieces may still close from elsewhere
   }
-  return { rings, used };
+  return { rings, used, members: ringMembers };
 }

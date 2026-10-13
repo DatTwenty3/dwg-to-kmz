@@ -16,6 +16,9 @@ import {
   landUseOf,
   compactName,
   previewHandle,
+  featureKept,
+  outputDatabases,
+  outputView,
   previewIndex,
   sweepSelect,
   conversionNote,
@@ -429,5 +432,51 @@ describe('sweep selection (Biên tập)', () => {
     const all = new Set(['duong', 'lo']);
     expect(sweepSelect(d2, box, all, false)).toEqual([]);
     expect(sweepSelect(d2, box, all, true)).toEqual([0, 1]);
+  });
+});
+
+describe('edit view: what the geodatabases get', () => {
+  const ranh = 'QuyHoach/ViTriRanhGioi/RanhGioiQuyHoach_A';
+  const dat = 'QuyHoach/QuyHoachSuDungDat/ChucNangSuDungDat_A';
+  // Drawing a: a lot (hatch) + a boundary in 2 pieces; drawing b: the same lot again (duplicate).
+  const a = doc([
+    poly('dat', sq(X0, Y0, 50)),
+    line('ranh', [[X0 - 10, Y0 - 10], [X0 + 100, Y0 - 10], [X0 + 100, Y0 + 100]]),
+    line('ranh', [[X0 + 100, Y0 + 100], [X0 - 10, Y0 + 100], [X0 - 10, Y0 - 10]]),
+  ]);
+  const b = doc([poly('dat', sq(X0, Y0, 50))]);
+  const m = new Map<string, MappingEntry>([
+    [rowKey('a', 'dat', 'A'), { target: dat, phanLoai: 'Đất ở' }],
+    [rowKey('b', 'dat', 'A'), { target: dat, phanLoai: 'Đất ở' }],
+    [rowKey('a', 'ranh', 'L'), { target: ranh, phanLoai: '' }],
+  ]);
+  const built = buildFeatures(
+    [
+      { id: 'a', name: 'a.dwg', doc: a, inside: new Uint8Array(3).fill(1) },
+      { id: 'b', name: 'b.dwg', doc: b, inside: new Uint8Array(1).fill(1) },
+    ],
+    m,
+    { boundary: null, sourceInGhiChu: false },
+  );
+
+  it('remembers the CAD objects of every feature (duplicates as alternatives, chained pieces together)', () => {
+    const lot = built.classes.find((c) => c.target === dat)!.features;
+    expect(lot).toHaveLength(1);
+    expect(lot[0].refs).toEqual([[['a', 0]], [['b', 0]]]);
+    const outline = built.classes.find((c) => c.target === ranh)!.features;
+    expect(outline[0].refs).toEqual([[['a', 1], ['a', 2]]]);
+  });
+
+  it('builds one view per geodatabase and tells which features are still written', () => {
+    expect(outputDatabases(built.classes)).toEqual([{ db: 'QuyHoach', count: 2 }]);
+    const v = outputView(built.classes, 'QuyHoach');
+    expect(v.doc.layers.map((l) => l.name)).toEqual(['QuyHoachSuDungDat / ChucNangSuDungDat_A', 'ViTriRanhGioi / RanhGioiQuyHoach_A']);
+    expect(v.doc.entities.every((e) => previewIndex(e.handle) !== null)).toBe(true);
+    const lotRefs = v.refs[previewIndex(v.doc.entities[0].handle)!];
+    // Left out in one drawing only: the duplicate of the other one is still written.
+    expect(featureKept(lotRefs, new Map([['a', new Set([0])]]))).toBe(true);
+    expect(featureKept(lotRefs, new Map([['a', new Set([0])], ['b', new Set([0])]]))).toBe(false);
+    // One piece of a chained outline left out: the outline is gone.
+    expect(featureKept([[['a', 1], ['a', 2]]], new Map([['a', new Set([2])]]))).toBe(false);
   });
 });

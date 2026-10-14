@@ -41,7 +41,7 @@ function MapArt() {
   const base = slab(210, 330, 140, 14);
   const sheet = slab(210, 330, 140, 2);
   return (
-    <svg viewBox="0 0 440 460" className="h-full w-full overflow-visible" aria-hidden>
+    <svg viewBox="40 80 340 380" className="h-full w-full overflow-visible" aria-hidden>
       <ellipse cx="210" cy="420" rx="150" ry="22" fill="#0e1f3b" opacity="0.06" />
       {/* Base map: imagery-like patches. */}
       <polygon points={base.left} fill="#a7c4a0" />
@@ -88,7 +88,7 @@ function CheckArt() {
     { y: 105, top: '#f1f5f9', side: '#cbd5e1', ink: '#0e1f3b' },
   ];
   return (
-    <svg viewBox="0 0 440 460" className="h-full w-full overflow-visible" aria-hidden>
+    <svg viewBox="45 20 360 440" className="h-full w-full overflow-visible" aria-hidden>
       <defs>
         <linearGradient id="ts-beam" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor="#3b82f6" stopOpacity="0" />
@@ -153,7 +153,7 @@ function ExtractArt() {
   ];
   const s = slab(200, 372, 124, 12);
   return (
-    <svg viewBox="0 0 440 460" className="h-full w-full overflow-visible" aria-hidden>
+    <svg viewBox="40 40 370 420" className="h-full w-full overflow-visible" aria-hidden>
       <ellipse cx="200" cy="440" rx="140" ry="20" fill="#0e1f3b" opacity="0.06" />
       {layers.map((l, k) => (
         <g key={k} className="ui-ts-explode" style={{ ['--lift' as string]: `${l.lift}px` }}>
@@ -195,6 +195,7 @@ export default function ToolStart({
   onActivate,
   zoneProps,
   children,
+  footer,
   after,
   panel,
 }: {
@@ -213,7 +214,9 @@ export default function ToolStart({
   zoneProps?: HTMLAttributes<HTMLDivElement>;
   /** Hidden file inputs. */
   children?: ReactNode;
-  /** Messages under the drop zone. */
+  /** Buttons in the same card, under the drop zone (centred). */
+  footer?: ReactNode;
+  /** Messages under the card. */
   after?: ReactNode;
   /** Shown instead of the drop zone and the illustration (e.g. the map tool's coordinate-system step). */
   panel?: ReactNode;
@@ -246,10 +249,12 @@ export default function ToolStart({
     <main className="relative flex flex-1 items-center overflow-hidden">
       <Backdrop />
       {home}
-      <div className="relative mx-auto grid w-full max-w-6xl items-center gap-6 px-4 pb-8 pt-20 sm:px-6 lg:grid-cols-[1fr_1fr] lg:gap-10 lg:py-16">
-        <div className="ui-fade-up order-2 lg:order-1">
+      <div className="relative mx-auto grid w-full max-w-6xl items-center gap-6 px-4 pb-10 pt-20 sm:px-6 lg:grid-cols-2 lg:gap-16 lg:py-16">
+        <div className="ui-fade-up order-2 w-full lg:order-1">
           <h1 className="text-4xl font-semibold tracking-tight text-zinc-900 sm:text-5xl">{title}</h1>
           <div className="mt-3 text-[15px] text-zinc-500">{subtitle}</div>
+          {/* One card: the drop zone and, under it, the other ways to start. */}
+          <div className="mt-7 rounded-[1.75rem] border border-zinc-200/80 bg-white/75 p-2 shadow-[0_24px_70px_rgba(14,31,59,0.10)] backdrop-blur-md">
           <div
             {...zoneProps}
             role="button"
@@ -258,10 +263,8 @@ export default function ToolStart({
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') onActivate();
             }}
-            className={`group relative mt-7 rounded-3xl border-2 border-dashed px-5 py-9 text-center backdrop-blur-md transition sm:py-10 ${
-              over
-                ? 'scale-[1.01] border-blue-500 bg-blue-50/80 ring-8 ring-blue-500/10'
-                : 'border-zinc-300/80 bg-white/70 shadow-[0_20px_60px_rgba(14,31,59,0.08)] hover:border-blue-300'
+            className={`group relative rounded-[1.4rem] border-2 border-dashed px-5 py-9 text-center transition sm:py-10 ${
+              over ? 'border-blue-500 bg-blue-50/80' : 'border-zinc-300/70 bg-white/60 hover:border-blue-300 hover:bg-white'
             }`}
           >
             <span className="relative mx-auto flex h-14 w-14 items-center justify-center">
@@ -275,10 +278,16 @@ export default function ToolStart({
             {actions && <div className="mt-4 flex flex-wrap justify-center gap-2">{actions}</div>}
             {children}
           </div>
+          {footer && <div className="flex flex-wrap items-center justify-center gap-2.5 px-3 pb-2 pt-3">{footer}</div>}
+          </div>
           {after && <div className="mt-4">{after}</div>}
         </div>
-        <div className="ui-fade-up order-1 mx-auto h-40 w-full max-w-[22rem] sm:h-56 lg:order-2 lg:h-[26rem] lg:max-w-none" style={{ animationDelay: '0.15s' }}>
-          {art === 'map' ? <MapArt /> : art === 'check' ? <CheckArt /> : <ExtractArt />}
+        {/* The illustration, centred in its column on a soft halo so both columns carry the same weight. */}
+        <div className="ui-fade-up relative order-1 mx-auto flex h-44 w-full max-w-[22rem] items-center justify-center sm:h-60 lg:order-2 lg:h-[30rem] lg:max-w-[30rem]" style={{ animationDelay: '0.15s' }}>
+          <div aria-hidden className="absolute inset-[6%] rounded-full bg-[radial-gradient(circle_at_50%_45%,rgba(191,219,254,0.75),rgba(224,231,255,0.35)_45%,transparent_70%)]" />
+          <div className="relative h-full w-full">
+            {art === 'map' ? <MapArt /> : art === 'check' ? <CheckArt /> : <ExtractArt />}
+          </div>
         </div>
       </div>
     </main>

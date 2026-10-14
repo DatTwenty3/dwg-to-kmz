@@ -124,30 +124,30 @@ export default function Landing({
           },
         }}
         after={
+          error && (
+            <p className="flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2 text-left text-xs leading-relaxed text-red-700">
+              <IconAlert className="mt-px shrink-0" width={14} height={14} />
+              {error}
+            </p>
+          )
+        }
+        footer={
           <>
-            {error && (
-              <p className="mb-3 flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2 text-left text-xs leading-relaxed text-red-700">
-                <IconAlert className="mt-px shrink-0" width={14} height={14} />
-                {error}
-              </p>
+            {onBlankMap && (
+              <button className="ui-cta group" onClick={onBlankMap} disabled={busy}>
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 ring-1 ring-white/30">
+                  <IconPen width={15} height={15} className="transition-transform duration-300 group-hover:-rotate-12" />
+                </span>
+                <span>Tạo bản đồ mới</span>
+                <IconArrowRight width={16} height={16} className="transition-transform duration-300 group-hover:translate-x-1" />
+              </button>
             )}
-            <div className="flex flex-wrap items-center gap-2.5">
-              {onBlankMap && (
-                <button className="ui-cta group" onClick={onBlankMap} disabled={busy}>
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/20 ring-1 ring-white/30">
-                    <IconPen width={15} height={15} className="transition-transform duration-300 group-hover:-rotate-12" />
-                  </span>
-                  <span>Tạo bản đồ mới</span>
-                  <IconArrowRight width={16} height={16} className="transition-transform duration-300 group-hover:translate-x-1" />
-                </button>
-              )}
-              {resumeName && onResume && (
-                <button className="ui-btn" onClick={onResume} disabled={busy}>
-                  Tiếp tục <b className="max-w-[14rem] truncate font-semibold">{resumeName}</b>
-                  <IconArrowRight width={14} height={14} />
-                </button>
-              )}
-            </div>
+            {resumeName && onResume && (
+              <button className="ui-btn" onClick={onResume} disabled={busy}>
+                Tiếp tục <b className="max-w-[14rem] truncate font-semibold">{resumeName}</b>
+                <IconArrowRight width={14} height={14} />
+              </button>
+            )}
           </>
         }
       >

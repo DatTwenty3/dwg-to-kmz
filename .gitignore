@@ -63,4 +63,5 @@ next-env.d.ts
 /public/gdal/
 /dwg_to_gdb/
 /templete/
+/shapefile/
 /public/sqljs/

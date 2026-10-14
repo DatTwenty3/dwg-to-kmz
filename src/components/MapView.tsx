@@ -2,6 +2,7 @@
 // MapLibre (raster basemap) + deck.gl overlay. Client-only: load with dynamic(..., { ssr: false }).
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
+  addProtocol,
   AttributionControl,
   GeolocateControl,
   Map as MlMap,
@@ -9,8 +10,10 @@ import {
   NavigationControl,
   ScaleControl,
   setWorkerUrl,
+  type IControl,
   type StyleSpecification,
 } from 'maplibre-gl';
+import { Protocol as PmtilesProtocol } from 'pmtiles';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import type { Layer, PickingInfo } from '@deck.gl/core';
@@ -37,6 +40,7 @@ import MeasureCard from './MeasureCard';
 import MeasureToolbar from './MeasureToolbar';
 import { useMeasure } from './useMeasure';
 import { useDraw } from './useDraw';
+import { BUILDING_LAYER, BUILDINGS_MIN_ZOOM, buildingSource, viewHasBuildings } from '@/lib/map/buildings';
 
 // See src/app/maplibre/[file]/route.ts.
 setWorkerUrl('/maplibre/maplibre-gl-worker.mjs');
@@ -44,14 +48,60 @@ setWorkerUrl('/maplibre/maplibre-gl-worker.mjs');
 const VIETNAM_CENTER: [number, number] = [106.3, 16.2];
 const VIETNAM_ZOOM = 4.8;
 
-function styleFor(b: Basemap): StyleSpecification {
-  return {
+// 3D buildings are PMTiles (one static file read with HTTP range requests): the protocol is registered once.
+let pmtilesRegistered = false;
+function registerPmtiles() {
+  if (pmtilesRegistered) return;
+  pmtilesRegistered = true;
+  addProtocol('pmtiles', new PmtilesProtocol().tile);
+}
+
+function styleFor(b: Basemap, threeD = false): StyleSpecification {
+  const style: StyleSpecification = {
     version: 8,
     sources: {
       basemap: { type: 'raster', tiles: b.tiles, tileSize: 256, maxzoom: b.maxzoom, attribution: b.attribution },
     },
     layers: [{ id: 'basemap', type: 'raster', source: 'basemap' }],
   };
+  if (threeD) {
+    registerPmtiles();
+    style.sources.buildings = buildingSource(window.location.origin);
+    style.layers.push(BUILDING_LAYER);
+  }
+  return style;
+}
+
+/** The 2D / 3D switch, a button in MapLibre's control column (above the zoom buttons). */
+class ThreeDControl implements IControl {
+  private box: HTMLDivElement | null = null;
+  private btn: HTMLButtonElement | null = null;
+  constructor(private readonly onToggle: () => void) {}
+  onAdd() {
+    const box = document.createElement('div');
+    box.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ui-3d-btn';
+    btn.addEventListener('click', () => this.onToggle());
+    box.appendChild(btn);
+    this.box = box;
+    this.btn = btn;
+    this.setActive(false);
+    return box;
+  }
+  onRemove() {
+    this.box?.remove();
+    this.box = this.btn = null;
+  }
+  setActive(on: boolean) {
+    if (!this.btn) return;
+    this.btn.textContent = on ? '2D' : '3D';
+    this.btn.setAttribute('aria-pressed', String(on));
+    const label = on ? 'Về bản đồ phẳng (2D)' : 'Xem 3D: nghiêng bản đồ, dựng khối nhà';
+    this.btn.title = label;
+    this.btn.setAttribute('aria-label', label);
+  }
 }
 
 export interface MapPick {
@@ -146,6 +196,9 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
   const mapRef = useRef<MlMap | null>(null);
   const overlayRef = useRef<MapboxOverlay | null>(null);
   const basemapRef = useRef(basemapId);
+  const [threeD, setThreeD] = useState(false);
+  const threeDRef = useRef(false);
+  const threeDControlRef = useRef<ThreeDControl | null>(null);
   const onPickRef = useRef(onPick);
   const onBasemapRef = useRef(onBasemapChange);
   const monitorRef = useRef(new TileErrorMonitor(20, 30_000));
@@ -244,7 +297,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
       canvasContextAttributes: { antialias: true },
     });
     map.addControl(new AttributionControl({ compact: true }), 'bottom-right');
-    map.addControl(new NavigationControl({ visualizePitch: false }), 'bottom-right');
+    map.addControl(new NavigationControl({ visualizePitch: true }), 'bottom-right');
     // Live position: one small button above the zoom buttons. First press follows the user (blue dot +
     // accuracy circle, updated as they move); panning stops following, pressing again resumes / turns it off.
     const geolocate = new GeolocateControl({
@@ -263,6 +316,9 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
       );
     });
     map.addControl(geolocate, 'bottom-right');
+    const threeD = new ThreeDControl(() => setThreeD((v) => !v));
+    threeDControlRef.current = threeD;
+    map.addControl(threeD, 'bottom-right');
     map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-right');
 
     // Phones: a direction cone under the position dot, turned by the compass (like Google Maps). Started from
@@ -446,8 +502,26 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
     if (!map || basemapRef.current === basemapId) return;
     basemapRef.current = basemapId;
     monitorRef.current.reset();
-    map.setStyle(styleFor(getBasemap(basemapId)));
+    map.setStyle(styleFor(getBasemap(basemapId), threeDRef.current));
   }, [basemapId]);
+
+  // 2D / 3D: tilt the map and add the extruded buildings (their tiles load only in 3D).
+  useEffect(() => {
+    const map = mapRef.current;
+    threeDControlRef.current?.setActive(threeD);
+    if (!map || threeDRef.current === threeD) return;
+    threeDRef.current = threeD;
+    map.setStyle(styleFor(getBasemap(basemapRef.current), threeD));
+    if (threeD) {
+      map.easeTo({ pitch: 60, duration: 900 });
+      const b = map.getBounds();
+      if (!viewHasBuildings([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]))
+        toast.info('Dữ liệu nhà 3D hiện có cho Vĩnh Long — nơi khác chỉ nghiêng bản đồ.');
+      else if (map.getZoom() < BUILDINGS_MIN_ZOOM) toast.info('Phóng to thêm để thấy các khối nhà 3D.');
+    } else {
+      map.easeTo({ pitch: 0, bearing: 0, duration: 700 });
+    }
+  }, [threeD]);
 
   // deck.gl layers.
   const measureLayers = measure.layers;

@@ -1086,7 +1086,8 @@ export default function GdbChecker() {
         // A symmetric frame: tree and issue list full height on both sides, the attribute table between them at
         // the bottom; the map's own buttons sit above the table.
         const GAP = 12;
-        const leftInset = treeOpen ? 320 + GAP : 0;
+        // Collapsed, the tree is a fixed-width button in the corner: the object card opens right of it.
+        const leftInset = treeOpen ? 320 + GAP : 160 + GAP;
         const rightInset = issuesOpen ? mapW + GAP : 0;
         const tableShown = !!selectedClass && tableOpen;
         return (
@@ -1119,7 +1120,7 @@ export default function GdbChecker() {
               </aside>
             ) : (
               <button
-                className="ui-floating ui-pop-in absolute left-3 top-3 z-20 flex items-center gap-2 px-3 py-2 text-[12.5px] font-medium text-zinc-800 hover:bg-white"
+                className="ui-floating ui-pop-in absolute left-3 top-3 z-20 flex w-40 items-center justify-center gap-2 py-2 text-[12.5px] font-medium text-zinc-800 hover:bg-white"
                 onClick={() => setTreeOpen(true)}
                 title="Mở cây lớp dữ liệu"
               >
@@ -1169,7 +1170,7 @@ export default function GdbChecker() {
             {selectedClass && tableShown ? (
               <div
                 className="ui-floating ui-pop-in absolute bottom-3 z-20 flex flex-col overflow-hidden"
-                style={{ left: leftInset + GAP, right: rightInset + GAP, height: bottomH }}
+                style={{ left: (treeOpen ? leftInset : 0) + GAP, right: rightInset + GAP, height: bottomH }}
               >
                 {/* Grip (drag to resize) with the close button: the table's own header already names the class. */}
                 <div className="relative flex h-5 shrink-0 items-center justify-center">

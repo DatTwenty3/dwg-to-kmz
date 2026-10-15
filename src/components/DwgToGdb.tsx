@@ -1016,7 +1016,9 @@ export default function DwgToGdb() {
 
         // ---------- Wider screens: the map fills the page, the panels float over it ----------
         const GAP = 12;
-        const leftInset = listOpen ? 320 + GAP : 0;
+        // Collapsed, the list is a fixed-width button in the corner: the map's own overlays ("Biên tập", the edit
+        // panel, the object card) start right of it instead of under it.
+        const leftInset = listOpen ? 320 + GAP : 112 + GAP;
         const rightInset = tableOpen ? tableW + GAP : 0;
         return (
           <div className="relative min-h-0 flex-1 overflow-hidden">
@@ -1037,7 +1039,7 @@ export default function DwgToGdb() {
               </aside>
             ) : (
               <button
-                className="ui-floating ui-pop-in absolute left-3 top-14 z-20 flex items-center gap-2 px-3 py-2 text-[12.5px] font-medium text-zinc-800 hover:bg-white"
+                className="ui-floating ui-pop-in absolute left-3 top-3 z-20 flex w-28 items-center justify-center gap-2 py-2 text-[12.5px] font-medium text-zinc-800 hover:bg-white"
                 onClick={() => setListOpen(true)}
                 title="Mở danh sách bản vẽ"
               >

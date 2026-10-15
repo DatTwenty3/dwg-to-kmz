@@ -19,6 +19,7 @@ import {
 import { buildVn2000, checkLocation, getProvince, PROVINCES, suggestCrs } from '@/lib/geo';
 import { decodeSharedMap, sharePayloadOf, type SharedMap } from '@/lib/cad/share';
 import {
+  basemapPaper,
   createFileLayerCache,
   DEFAULT_BASEMAP_ID,
   DEFAULT_FONT_FAMILY,
@@ -1020,8 +1021,11 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     [sketchDoc, sketchVisible, sketchOpacity, sketchShown, sketchSel],
   );
   const layers = useMemo(
-    () => orderFileLayers([sketchRender, ...renderList], (f) => layerCache.get(f, { fontFamily: font.family, showText: font.ready })),
-    [sketchRender, renderList, font, layerCache],
+    () =>
+      orderFileLayers([sketchRender, ...renderList], (f) =>
+        layerCache.get(f, { fontFamily: font.family, showText: font.ready, paper: basemapPaper(basemapId) }),
+      ),
+    [sketchRender, renderList, font, layerCache, basemapId],
   );
 
   /** Everything shown on the map as one document, for the "Gộp tất cả" export. */

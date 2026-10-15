@@ -34,6 +34,8 @@ import {
   IconGeomLine,
   IconGeomPoint,
   IconGeomPolygon,
+  IconLayers,
+  IconPanel,
   IconPlusCircle,
   IconSearch,
   IconSpinner,
@@ -44,6 +46,7 @@ import { pickedFromDrop, pickedFromInput } from './dropFiles';
 import { clearCheckerHandoff, peekCheckerHandoff } from './handoff';
 import GdbMap from './GdbMap';
 import GdbNormalizeDialog from './GdbNormalizeDialog';
+import { useIsPhone } from './useIsPhone';
 
 type Picked = { path: string; file: File };
 type Filter = 'all' | 'issues' | 'present';
@@ -558,8 +561,13 @@ export default function GdbChecker() {
   const [mapDoc, setMapDoc] = useState<CadDocument | null>(null);
   const [mapLoading, setMapLoading] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
-  /** Issue list column width (px) on wide screens; dragged with the splitter. */
-  const [mapW, setMapW] = useState(460);
+  /** Issue panel width (px) on wide screens; dragged by its left edge. */
+  const [mapW, setMapW] = useState(400);
+  /** Floating panels over the map (wider than a phone): class tree, issue list, attribute table. */
+  const [treeOpen, setTreeOpen] = useState(true);
+  const [issuesOpen, setIssuesOpen] = useState(true);
+  const [tableOpen, setTableOpen] = useState(true);
+  const phone = useIsPhone();
   /** Province chosen by the user for the KTT check (null = read from maHoSoQH / maThongTinQH). */
   const [province, setProvince] = useState<string | null>(null);
   /** Province question, asked once right after each upload (and from the top-bar chip). */
@@ -798,13 +806,14 @@ export default function GdbChecker() {
   const select = (s: Selection) => {
     setSel(s);
     setFocusField(null);
+    setTableOpen(true);
   };
 
   const startResize = (e: React.PointerEvent) => {
     const box = mainRef.current?.getBoundingClientRect();
     if (!box) return;
     e.preventDefault();
-    const move = (ev: PointerEvent) => setBottomH(Math.max(140, Math.min(box.height - 120, box.bottom - ev.clientY)));
+    const move = (ev: PointerEvent) => setBottomH(Math.max(140, Math.min(box.height - 120, box.bottom - 12 - ev.clientY)));
     const up = () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
@@ -815,7 +824,7 @@ export default function GdbChecker() {
   /** Vertical splitter between the map and the issue list. */
   const startMapResize = (e: React.PointerEvent) => {
     e.preventDefault();
-    const move = (ev: PointerEvent) => setMapW(Math.max(320, Math.min(window.innerWidth - 700, window.innerWidth - ev.clientX)));
+    const move = (ev: PointerEvent) => setMapW(Math.max(300, Math.min(window.innerWidth * 0.45, window.innerWidth - 12 - ev.clientX)));
     const up = () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
@@ -825,7 +834,7 @@ export default function GdbChecker() {
   };
 
   return (
-    <div className="flex min-h-dvh flex-col bg-zinc-100 md:h-dvh" {...dropHandlers}>
+    <div className={`flex flex-col bg-zinc-100 ${phone ? 'min-h-dvh' : 'h-dvh'}`} {...dropHandlers}>
       {/* Toolbar: logo (home), one tab per geodatabase (main databases not uploaded are listed dimmed), actions. */}
       <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-zinc-200 bg-white px-3 py-2">
         <HomeLogo wordmark={false} />
@@ -900,159 +909,102 @@ export default function GdbChecker() {
           {pickers}
         </div>
       </header>
-      {error && <div className="px-3 pt-2">{errorBox}</div>}
-
-      <div className="flex flex-1 flex-col md:min-h-0 md:flex-row">
-        {/* Left: dataset / class tree */}
-        <aside className="flex max-h-[45dvh] shrink-0 flex-col border-b border-zinc-200 bg-white md:max-h-none md:w-80 md:border-b-0 md:border-r">
-          <div className="space-y-2 border-b border-zinc-100 p-2.5">
-            <button
-              onClick={() => select({ ds: null, cls: null })}
-              className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12.5px] ${
-                !sel.ds && !sel.cls ? 'bg-blue-50 text-blue-800' : 'text-zinc-700 hover:bg-zinc-100'
-              }`}
-            >
-              <IconDatabaseCheck width={15} height={15} />
-              <span className="font-medium">Feature Dataset ({presentDs})</span>
-              <IconChevron width={12} height={12} className="text-zinc-400" />
-              <span className="font-medium">Feature Class ({presentCls})</span>
-            </button>
-            <label className="relative block">
-              <IconSearch width={14} height={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm kiếm" className="ui-input w-full pl-8" />
-            </label>
-            <div className="ui-segment" role="group" aria-label="Bộ lọc cây">
-              {(
-                [
-                  ['all', 'Tất cả'],
-                  ['issues', 'Có vấn đề'],
-                  ['present', 'Đang có'],
-                ] as const
-              ).map(([k, label]) => (
-                <button key={k} className="whitespace-nowrap" aria-pressed={filter === k} onClick={() => setFilter(k)}>
-                  {label}
-                </button>
-              ))}
+      {(() => {
+        // Pieces shared by the phone layout (stacked) and the wide one (floating over the map).
+        const tree = (
+          <>
+            <div className="space-y-2 border-b border-zinc-100 p-2.5">
+              <button
+                onClick={() => select({ ds: null, cls: null })}
+                className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12.5px] ${
+                  !sel.ds && !sel.cls ? 'bg-blue-50 text-blue-800' : 'text-zinc-700 hover:bg-zinc-100'
+                }`}
+              >
+                <IconDatabaseCheck width={15} height={15} />
+                <span className="font-medium">Feature Dataset ({presentDs})</span>
+                <IconChevron width={12} height={12} className="text-zinc-400" />
+                <span className="font-medium">Feature Class ({presentCls})</span>
+              </button>
+              <label className="relative block">
+                <IconSearch width={14} height={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm kiếm" className="ui-input w-full pl-8" />
+              </label>
+              <div className="ui-segment" role="group" aria-label="Bộ lọc cây">
+                {(
+                  [
+                    ['all', 'Tất cả'],
+                    ['issues', 'Có vấn đề'],
+                    ['present', 'Đang có'],
+                  ] as const
+                ).map(([k, label]) => (
+                  <button key={k} className="whitespace-nowrap" aria-pressed={filter === k} onClick={() => setFilter(k)}>
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-          <ul className="ui-scroll min-h-0 flex-1 space-y-0.5 overflow-y-auto p-1.5">
-            {datasets.map((d) => {
-              const key = d.actualName ?? d.name;
-              const startsOpen = d.status !== 'missing';
-              const open = q ? true : startsOpen !== toggled.has(key);
-              return (
-                <DatasetNode
-                  key={key}
-                  d={d}
-                  open={open}
-                  onToggle={() =>
-                    setToggled((s) => {
-                      const n = new Set(s);
-                      if (n.has(key)) n.delete(key);
-                      else n.add(key);
-                      return n;
-                    })
-                  }
-                  sel={sel}
-                  onSelect={select}
-                  filter={filter}
-                  q={q}
-                />
-              );
-            })}
-            {roots.length > 0 && (
-              <li className="pt-1">
-                <button
-                  className={`w-full rounded-md px-2 py-1 text-left text-[13px] font-medium text-amber-700 ${sel.ds === ROOT && !sel.cls ? 'bg-blue-50' : ''}`}
-                  onClick={() => select({ ds: ROOT, cls: null })}
-                >
-                  Lớp ngoài nhóm dữ liệu ({roots.length})
-                </button>
-                <div className="ml-[18px] space-y-px border-l border-zinc-200 pl-1.5">
-                  {roots.map((c) => (
-                    <ClassNode key={c.name} c={c} selected={sel.ds === ROOT && sel.cls === c.name} onSelect={() => select({ ds: ROOT, cls: c.name })} />
-                  ))}
-                </div>
-              </li>
-            )}
-            {!datasets.length && !roots.length && <li className="p-3 text-center text-[12.5px] text-zinc-400">Không có mục nào khớp.</li>}
-          </ul>
-        </aside>
-
-        {/* Centre: summary, the satellite map, and the attribute table of the selected class under it. */}
-        <div ref={mainRef} className="flex min-w-0 flex-1 flex-col bg-white md:min-h-0">
-          {!sel.ds && !sel.cls && <SummaryBar rep={rep} g={g} />}
-          <div className="relative h-[60dvh] min-h-[240px] shrink-0 md:h-auto md:flex-1">
-            <GdbMap
-              doc={mapDoc}
-              gdbName={g.fileName}
-              focusClass={selectedClass ? (selectedClass.actualName ?? selectedClass.name) : null}
-              loading={mapLoading}
-              error={mapError}
-              onSelectClass={(name) => {
-                const lower = name.toLowerCase();
-                const hit = (list: ClassReport[]) => list.find((c) => (c.actualName ?? c.name).toLowerCase() === lower);
-                for (const d of g.datasets) {
-                  const c = hit(d.classes);
-                  if (c) return select({ ds: d.actualName ?? d.name, cls: c.name });
-                }
-                const r = hit(g.rootClasses);
-                if (r) select({ ds: ROOT, cls: r.name });
-              }}
-            />
-          </div>
-
-          {selectedClass && (
-            <>
-              <div
-                role="separator"
-                aria-orientation="horizontal"
-                aria-label="Kéo để đổi chiều cao bảng thuộc tính"
-                onPointerDown={startResize}
-                className="hidden h-2 shrink-0 cursor-row-resize touch-none items-center justify-center border-y border-zinc-200 bg-emerald-50 hover:bg-emerald-100 md:flex"
-              >
-                <span className="h-0.5 w-10 rounded-full bg-emerald-400" />
-              </div>
-              <div
-                className="h-[65dvh] shrink-0 border-t border-zinc-200 md:h-[var(--bh)] md:border-t-0"
-                style={{ '--bh': `${bottomH}px` } as React.CSSProperties}
-              >
-                <AttributeTable c={selectedClass} focusField={focusField} />
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Right: the numbered issues of what is selected (drag the splitter to widen). */}
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Kéo để đổi độ rộng danh sách lỗi"
-          onPointerDown={startMapResize}
-          className="hidden w-2 shrink-0 cursor-col-resize touch-none items-center justify-center border-x border-zinc-200 bg-emerald-50 hover:bg-emerald-100 md:flex"
-        >
-          <span className="h-10 w-0.5 rounded-full bg-emerald-400" />
-        </div>
-        <div
-          className="flex min-w-0 shrink-0 flex-col border-t border-zinc-200 bg-white md:min-h-0 md:w-[min(var(--iw),45vw)] md:border-t-0"
-          style={{ '--iw': `${mapW}px` } as React.CSSProperties}
-        >
-          <div className="flex flex-wrap items-center gap-2 border-b border-zinc-200 px-3 py-1.5">
-            <span className="min-w-0 truncate text-[12.5px] text-zinc-500">
-              {sel.cls ? (
-                <>
-                  Feature Class <b className="text-zinc-900">{selectedClass?.actualName ?? sel.cls}</b>
-                </>
-              ) : sel.ds ? (
-                <>
-                  Feature Dataset <b className="text-zinc-900">{sel.ds}</b>
-                </>
-              ) : (
-                <>
-                  Toàn bộ <b className="text-zinc-900">{g.fileName}</b>
-                </>
+            <ul className="ui-scroll min-h-0 flex-1 space-y-0.5 overflow-y-auto p-1.5">
+              {datasets.map((d) => {
+                const key = d.actualName ?? d.name;
+                const startsOpen = d.status !== 'missing';
+                const open = q ? true : startsOpen !== toggled.has(key);
+                return (
+                  <DatasetNode
+                    key={key}
+                    d={d}
+                    open={open}
+                    onToggle={() =>
+                      setToggled((s) => {
+                        const n = new Set(s);
+                        if (n.has(key)) n.delete(key);
+                        else n.add(key);
+                        return n;
+                      })
+                    }
+                    sel={sel}
+                    onSelect={select}
+                    filter={filter}
+                    q={q}
+                  />
+                );
+              })}
+              {roots.length > 0 && (
+                <li className="pt-1">
+                  <button
+                    className={`w-full rounded-md px-2 py-1 text-left text-[13px] font-medium text-amber-700 ${sel.ds === ROOT && !sel.cls ? 'bg-blue-50' : ''}`}
+                    onClick={() => select({ ds: ROOT, cls: null })}
+                  >
+                    Lớp ngoài nhóm dữ liệu ({roots.length})
+                  </button>
+                  <div className="ml-[18px] space-y-px border-l border-zinc-200 pl-1.5">
+                    {roots.map((c) => (
+                      <ClassNode key={c.name} c={c} selected={sel.ds === ROOT && sel.cls === c.name} onSelect={() => select({ ds: ROOT, cls: c.name })} />
+                    ))}
+                  </div>
+                </li>
               )}
-            </span>
+              {!datasets.length && !roots.length && <li className="p-3 text-center text-[12.5px] text-zinc-400">Không có mục nào khớp.</li>}
+            </ul>
+          </>
+        );
+        const scopeLabel = (
+          <span className="min-w-0 truncate text-[12.5px] text-zinc-500">
+            {sel.cls ? (
+              <>
+                Feature Class <b className="text-zinc-900">{selectedClass?.actualName ?? sel.cls}</b>
+              </>
+            ) : sel.ds ? (
+              <>
+                Feature Dataset <b className="text-zinc-900">{sel.ds}</b>
+              </>
+            ) : (
+              <>
+                Toàn bộ <b className="text-zinc-900">{g.fileName}</b>
+              </>
+            )}
+          </span>
+        );
+        const levelChips = (
             <div className="ml-auto flex gap-1">
               {(
                 [
@@ -1073,9 +1025,9 @@ export default function GdbChecker() {
                 </button>
               ))}
             </div>
-          </div>
-
-          <div className="ui-scroll max-h-[55dvh] min-h-[120px] flex-1 overflow-auto md:max-h-none">
+        );
+        const issueList = (
+          <>
             <IssueGroups
               rows={shown}
               lookup={(ds, name) => (ds === ROOT ? g.rootClasses : (g.datasets.find((d) => (d.actualName ?? d.name) === ds)?.classes ?? [])).find((c) => c.name === name)}
@@ -1093,9 +1045,170 @@ export default function GdbChecker() {
                 {rows.length ? 'Không có mục nào ở mức đang chọn.' : 'Không có lỗi hay cảnh báo.'}
               </p>
             )}
+          </>
+        );
+        const onMapClass = (name: string) => {
+          const lower = name.toLowerCase();
+          const hit = (list: ClassReport[]) => list.find((c) => (c.actualName ?? c.name).toLowerCase() === lower);
+          for (const d of g.datasets) {
+            const c = hit(d.classes);
+            if (c) return select({ ds: d.actualName ?? d.name, cls: c.name });
+          }
+          const r = hit(g.rootClasses);
+          if (r) select({ ds: ROOT, cls: r.name });
+        };
+        const focusClass = selectedClass ? (selectedClass.actualName ?? selectedClass.name) : null;
+
+        // ---------- Phones: everything stacked, the page scrolls ----------
+        if (phone)
+          return (
+            <>
+              {error && <div className="px-3 pt-2">{errorBox}</div>}
+              <aside className="flex max-h-[45dvh] shrink-0 flex-col border-b border-zinc-200 bg-white">{tree}</aside>
+              {!sel.ds && !sel.cls && <SummaryBar rep={rep} g={g} />}
+              <div className="relative h-[60dvh] min-h-[240px] shrink-0">
+                <GdbMap doc={mapDoc} gdbName={g.fileName} focusClass={focusClass} loading={mapLoading} error={mapError} onSelectClass={onMapClass} />
+              </div>
+              {selectedClass && (
+                <div className="h-[65dvh] shrink-0 border-t border-zinc-200 bg-white">
+                  <AttributeTable c={selectedClass} focusField={focusField} />
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-2 border-y border-zinc-200 bg-white px-3 py-1.5">
+                {scopeLabel}
+                {levelChips}
+              </div>
+              <div className="bg-white">{issueList}</div>
+            </>
+          );
+
+        // ---------- Wider screens: the map fills the page, the panels float over it ----------
+        // A symmetric frame: tree and issue list full height on both sides, the attribute table between them at
+        // the bottom; the map's own buttons sit above the table.
+        const GAP = 12;
+        const leftInset = treeOpen ? 320 + GAP : 0;
+        const rightInset = issuesOpen ? mapW + GAP : 0;
+        const tableShown = !!selectedClass && tableOpen;
+        return (
+          <div ref={mainRef} className="relative min-h-0 flex-1 overflow-hidden">
+            <div className="absolute inset-0">
+              <GdbMap
+                doc={mapDoc}
+                gdbName={g.fileName}
+                focusClass={focusClass}
+                loading={mapLoading}
+                error={mapError}
+                onSelectClass={onMapClass}
+                insetLeft={leftInset}
+                insetRight={rightInset}
+                insetBottom={tableShown ? bottomH + GAP : 0}
+              />
+            </div>
+
+            {/* Left: dataset / class tree */}
+            {treeOpen ? (
+              <aside className="ui-floating ui-pop-in absolute bottom-3 left-3 top-3 z-20 flex w-80 flex-col overflow-hidden">
+                <div className="flex items-center gap-2 border-b border-zinc-100 py-1.5 pl-3 pr-1.5">
+                  <IconLayers width={15} height={15} className="text-blue-600" />
+                  <span className="flex-1 text-[13px] font-semibold text-zinc-900">Lớp dữ liệu</span>
+                  <button className="ui-icon-btn" onClick={() => setTreeOpen(false)} aria-label="Thu gọn cây lớp dữ liệu" title="Thu gọn">
+                    <IconPanel width={16} height={16} />
+                  </button>
+                </div>
+                {tree}
+              </aside>
+            ) : (
+              <button
+                className="ui-floating ui-pop-in absolute left-3 top-3 z-20 flex items-center gap-2 px-3 py-2 text-[12.5px] font-medium text-zinc-800 hover:bg-white"
+                onClick={() => setTreeOpen(true)}
+                title="Mở cây lớp dữ liệu"
+              >
+                <IconLayers width={15} height={15} className="text-blue-600" />
+                Lớp dữ liệu <span className="text-zinc-400">{fmt(presentCls)}</span>
+              </button>
+            )}
+
+            {/* Right: summary + the numbered issues of what is selected (drag the left edge to widen). */}
+            {issuesOpen ? (
+              <section
+                className="ui-floating ui-pop-in absolute bottom-3 right-3 top-3 z-20 flex flex-col overflow-hidden"
+                style={{ width: mapW }}
+                aria-label="Lỗi và cảnh báo"
+              >
+                <div
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-label="Kéo để đổi độ rộng danh sách lỗi"
+                  onPointerDown={startMapResize}
+                  className="absolute inset-y-0 left-0 z-10 w-1.5 cursor-col-resize touch-none hover:bg-blue-500/20"
+                />
+                <div className="flex items-center gap-2 border-b border-zinc-100 py-1.5 pl-3 pr-1.5">
+                  {scopeLabel}
+                  <button className="ui-icon-btn ml-auto shrink-0" onClick={() => setIssuesOpen(false)} aria-label="Thu gọn danh sách lỗi" title="Thu gọn">
+                    <IconX width={15} height={15} />
+                  </button>
+                </div>
+                {!sel.ds && !sel.cls && <SummaryBar rep={rep} g={g} />}
+                <div className="flex flex-wrap items-center gap-1 border-b border-zinc-100 px-3 py-1.5">{levelChips}</div>
+                <div className="ui-scroll min-h-0 flex-1 overflow-auto">{issueList}</div>
+              </section>
+            ) : (
+              <button
+                className="ui-floating ui-pop-in absolute right-[3.75rem] top-3 z-20 flex items-center gap-1.5 px-2 py-1.5 hover:bg-white"
+                onClick={() => setIssuesOpen(true)}
+                title="Mở danh sách lỗi và cảnh báo"
+              >
+                <span className={`rounded-full px-2 py-0.5 text-[11.5px] font-semibold ${count('error') ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
+                  Lỗi {fmt(count('error'))}
+                </span>
+                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11.5px] font-semibold text-amber-800">Cảnh báo {fmt(count('warn'))}</span>
+              </button>
+            )}
+
+            {/* Bottom, between the panels: the attribute table of the selected class. */}
+            {selectedClass && tableShown ? (
+              <div
+                className="ui-floating ui-pop-in absolute bottom-3 z-20 flex flex-col overflow-hidden"
+                style={{ left: leftInset + GAP, right: rightInset + GAP, height: bottomH }}
+              >
+                {/* Grip (drag to resize) with the close button: the table's own header already names the class. */}
+                <div className="relative flex h-5 shrink-0 items-center justify-center">
+                  <div
+                    role="separator"
+                    aria-orientation="horizontal"
+                    aria-label="Kéo để đổi chiều cao bảng thuộc tính"
+                    onPointerDown={startResize}
+                    className="absolute inset-0 cursor-row-resize touch-none hover:bg-zinc-50"
+                  />
+                  <span className="pointer-events-none relative h-1 w-10 rounded-full bg-zinc-300" />
+                  <button className="ui-icon-btn absolute right-1 top-0.5 !p-0.5" onClick={() => setTableOpen(false)} aria-label="Đóng bảng thuộc tính" title="Đóng">
+                    <IconX width={13} height={13} />
+                  </button>
+                </div>
+                <div className="min-h-0 flex-1">
+                  <AttributeTable c={selectedClass} focusField={focusField} />
+                </div>
+              </div>
+            ) : (
+              selectedClass && (
+                <button
+                  className="ui-floating ui-pop-in absolute bottom-3 z-20 -translate-x-1/2 px-3 py-1.5 text-[12.5px] font-medium text-zinc-800 hover:bg-white"
+                  style={{ left: `calc(${leftInset}px + (100% - ${leftInset + rightInset}px) / 2)` }}
+                  onClick={() => setTableOpen(true)}
+                >
+                  Bảng thuộc tính · {focusClass}
+                </button>
+              )
+            )}
+
+            {error && (
+              <div className="absolute top-3 z-30" style={{ left: leftInset + GAP, right: rightInset + GAP }}>
+                {errorBox}
+              </div>
+            )}
           </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {normalizeOpen && (
         <GdbNormalizeDialog

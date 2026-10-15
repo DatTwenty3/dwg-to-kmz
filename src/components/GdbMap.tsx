@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
 import { robustBBox } from '@/lib/cad/normalize/bbox';
 import type { CadDocument, Vec2 } from '@/lib/cad/types';
-import { buildLayers, DEFAULT_BASEMAP_ID, DEFAULT_FONT_FAMILY, documentBounds } from '@/lib/map';
+import { basemapPaper, buildLayers, DEFAULT_BASEMAP_ID, DEFAULT_FONT_FAMILY, documentBounds } from '@/lib/map';
 import EntityPopup from './EntityPopup';
 import { IconSpinner } from './icons';
 import { loadTextFont } from './mapFont';
@@ -26,6 +26,9 @@ export default function GdbMap({
   onSelectClass,
   loading,
   error,
+  insetLeft = 0,
+  insetRight = 0,
+  insetBottom = 0,
 }: {
   /** WGS84 document of every uploaded geodatabase (layers "<gdb> · <class>" when several). */
   doc: CadDocument | null;
@@ -36,6 +39,10 @@ export default function GdbMap({
   onSelectClass: (className: string) => void;
   loading: boolean;
   error?: string | null;
+  /** Widths (px) covered by the page's floating panels over the map. */
+  insetLeft?: number;
+  insetRight?: number;
+  insetBottom?: number;
 }) {
   const [basemapId, setBasemapId] = useState(DEFAULT_BASEMAP_ID);
   const [font, setFont] = useState({ family: DEFAULT_FONT_FAMILY, ready: false });
@@ -59,10 +66,10 @@ export default function GdbMap({
 
   const layers = useMemo(() => {
     if (!doc) return [];
-    const opts = { fontFamily: font.family, showText: font.ready, highlightHandle: pick?.ref.entity.handle };
-    const all = buildLayers(doc, { ...opts, visibleLayers: own, idPrefix: 'all:', opacity: focusLayer ? 0.3 : 1 });
-    return focusLayer ? [...all, ...buildLayers(doc, { ...opts, visibleLayers: new Set([focusLayer]), idPrefix: 'focus:' })] : all;
-  }, [doc, own, focusLayer, font, pick]);
+    const opts = { fontFamily: font.family, showText: font.ready, highlightHandle: pick?.ref.entity.handle, paper: basemapPaper(basemapId) };
+    // A class is selected: only its objects are drawn, the other classes are hidden until it is deselected.
+    return buildLayers(doc, { ...opts, visibleLayers: focusLayer ? new Set([focusLayer]) : own, idPrefix: 'all:' });
+  }, [doc, own, focusLayer, font, pick, basemapId]);
 
   // Zoom to the geodatabase, then to the selected class (`seq` changes with what is in view → MapView refits).
   const fit = useMemo(() => {
@@ -82,8 +89,11 @@ export default function GdbMap({
     : null;
 
   return (
-    <div className="relative h-full w-full bg-zinc-200">
+    <div className="relative h-full w-full bg-zinc-200" style={{ '--map-il': `${insetLeft}px`, '--map-ir': `${insetRight}px` } as React.CSSProperties}>
       <MapView
+        insetLeft={insetLeft}
+        insetRight={insetRight}
+        insetBottom={insetBottom}
         basemapId={basemapId}
         onBasemapChange={setBasemapId}
         layers={layers}
@@ -98,7 +108,7 @@ export default function GdbMap({
         }}
       />
       {(loading || error || (doc && own.size === 0)) && (
-        <div className="pointer-events-none absolute inset-x-3 top-14 z-10 flex justify-center">
+        <div className="pointer-events-none absolute left-[calc(var(--map-il,0px)+0.75rem)] right-[calc(var(--map-ir,0px)+0.75rem)] top-14 z-10 flex justify-center">
           <span className="ui-floating flex items-center gap-2 px-3 py-1.5 text-[12.5px] text-zinc-700">
             {loading && <IconSpinner width={14} height={14} className="text-blue-600" />}
             {loading ? 'Đang vẽ geodatabase lên bản đồ…' : error ? `Không vẽ được: ${error}` : 'Geodatabase này không có đối tượng có hình học.'}

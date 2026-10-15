@@ -1,4 +1,5 @@
 // Several documents stacked on one map: layer ids, draw order, per-file memoisation. Pure (no DOM).
+import type { Paper } from './cadGrid';
 import type { Layer } from '@deck.gl/core';
 import type { CadDocument, Vec2 } from '@/lib/cad/types';
 import { buildLayers, documentBounds } from './layers';
@@ -61,6 +62,8 @@ export interface FileRender {
 export interface SharedRenderOptions {
   fontFamily?: string;
   showText?: boolean;
+  /** CAD grid sheet under the map (see BuildLayersOptions.paper). */
+  paper?: Paper;
 }
 
 /**
@@ -77,7 +80,7 @@ export function createFileLayerCache() {
         cache.delete(f.id);
         return [];
       }
-      const sig = [f.doc, f.visibleLayers, f.opacity, f.highlightHandle, shared.fontFamily, shared.showText];
+      const sig = [f.doc, f.visibleLayers, f.opacity, f.highlightHandle, shared.fontFamily, shared.showText, shared.paper];
       const hit = cache.get(f.id);
       if (hit && hit.sig.length === sig.length && hit.sig.every((v, i) => v === sig[i])) return hit.layers;
       const layers = buildLayers(f.doc, {
@@ -87,6 +90,7 @@ export function createFileLayerCache() {
         showText: shared.showText,
         idPrefix: fileLayerPrefix(f.id),
         opacity: f.opacity,
+        paper: shared.paper,
       });
       cache.set(f.id, { sig, layers });
       return layers;

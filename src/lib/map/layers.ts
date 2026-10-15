@@ -9,6 +9,7 @@
 //   regenerates attributes. Toggling a layer regenerates only the affected kinds.
 // - One deck layer per entity kind (not per CAD layer): a drawing with hundreds of CAD layers
 //   would otherwise cost hundreds of draw calls per frame.
+import { inkForPaper, type Paper } from './cadGrid';
 import type { Layer } from '@deck.gl/core';
 import { PathStyleExtension, type PathStyleExtensionProps } from '@deck.gl/extensions';
 import { PathLayer, PolygonLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers';
@@ -52,6 +53,8 @@ export interface BuildLayersOptions {
   idPrefix?: string;
   /** Whole-document opacity 0..1 (deck.gl layer `opacity`); default 1. Highlight layers stay opaque. */
   opacity?: number;
+  /** CAD grid sheet under the drawing: on 'light', white objects are drawn dark (like AutoCAD's colour 7). */
+  paper?: Paper;
 }
 
 /** What a picked deck object refers to (the original entity + table cell, if any). */
@@ -430,7 +433,7 @@ function textLayer(
     // SDF atlas: crisp at any scale and enables the contrast outline over imagery.
     fontSettings: { sdf: true, fontSize: 64, buffer: 8, radius: 16, cutoff: 0.25 },
     outlineWidth: 2,
-    outlineColor: light ? [0, 0, 0, 200] : [255, 255, 255, 220],
+    outlineColor: light && opts.paper !== 'light' ? [0, 0, 0, 200] : [255, 255, 255, 220],
     lineHeight: 1.2,
     getText,
     getPosition: getTextPos,
@@ -438,7 +441,8 @@ function textLayer(
     getAngle: getTextAngle,
     getTextAnchor,
     getAlignmentBaseline: getTextBaseline,
-    getColor: getTextColor,
+    getColor: opts.paper === 'light' ? (d: TextItem) => inkForPaper(d.color, 'light') : getTextColor,
+    updateTriggers: { getColor: opts.paper ?? '' },
     extensions: [cullExtension(minCap / CAP_HEIGHT_RATIO)],
   });
 }
@@ -456,7 +460,12 @@ function styleSignature(doc: CadDocument): string {
 export function buildLayers(doc: CadDocument, opts: BuildLayersOptions): Layer[] {
   const data = visibleData(doc, opts.visibleLayers);
   const layers: Layer[] = [];
-  const sig = styleSignature(doc);
+  // Colours depend on the styles and on the paper (white → dark on the white sheet).
+  const sig = `${styleSignature(doc)}|${opts.paper ?? ''}`;
+  const paper = opts.paper;
+  const pathColor = paper === 'light' ? (d: PathItem) => inkForPaper(d.color, paper) : getPathColor;
+  const polyColor = paper === 'light' ? (d: PolygonItem) => inkForPaper(d.color, paper) : getPolyColor;
+  const pointColor = paper === 'light' ? (d: PointItem) => inkForPaper(d.color, paper) : getPointColor;
   const prefix = opts.idPrefix ?? '';
   const opacity = Math.min(1, Math.max(0, opts.opacity ?? 1));
 
@@ -470,7 +479,7 @@ export function buildLayers(doc: CadDocument, opts: BuildLayersOptions): Layer[]
         stroked: false,
         filled: true,
         getPolygon,
-        getFillColor: getPolyColor,
+        getFillColor: polyColor,
         updateTriggers: { getFillColor: sig },
       }),
     );
@@ -484,7 +493,7 @@ export function buildLayers(doc: CadDocument, opts: BuildLayersOptions): Layer[]
         widthUnits: 'pixels',
         widthMinPixels: 1,
         getPath,
-        getColor: getPathColor,
+        getColor: pathColor,
         getWidth: getPathWidth,
         updateTriggers: { getColor: sig, getWidth: sig },
       }),
@@ -499,7 +508,7 @@ export function buildLayers(doc: CadDocument, opts: BuildLayersOptions): Layer[]
         widthUnits: 'pixels',
         widthMinPixels: 1,
         getPath,
-        getColor: getPathColor,
+        getColor: pathColor,
         getWidth: getPathWidth,
         getDashArray: getPathDash,
         dashUnits: 'pixels',
@@ -522,7 +531,7 @@ export function buildLayers(doc: CadDocument, opts: BuildLayersOptions): Layer[]
         getLineWidth: 1,
         getLineColor: [0, 0, 0, 200],
         getPosition: getPointPos,
-        getFillColor: getPointColor,
+        getFillColor: pointColor,
         updateTriggers: { getFillColor: sig },
       }),
     );

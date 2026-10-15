@@ -715,3 +715,6 @@ input[type="color"].ui-color::-moz-color-swatch { border: 0; border-radius: 999p
   background: #0e1f3b;
   color: #fff;
 }
+
+/* MapView `insetRight`: MapLibre's control column moves clear of floating panels on the right. */
+.ui-map .maplibregl-ctrl-bottom-right { right: var(--map-ir, 0px); bottom: var(--map-ib, 0px); transition: right 0.3s ease-out, bottom 0.3s ease-out; }

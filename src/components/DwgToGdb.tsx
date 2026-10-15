@@ -44,6 +44,7 @@ import BrandLoader from './BrandLoader';
 import DwgPreviewMap from './DwgPreviewMap';
 import HomeLogo from './HomeLogo';
 import ToolStart from './ToolStart';
+import { useIsPhone } from './useIsPhone';
 import { pickedFromDrop, pickedFromInput } from './dropFiles';
 import { handOffToChecker } from './handoff';
 import {
@@ -55,6 +56,8 @@ import {
   IconGeomLine,
   IconGeomPoint,
   IconGeomPolygon,
+  IconLayers,
+  IconPanel,
   IconSave,
   IconSearch,
   IconSpinner,
@@ -502,6 +505,22 @@ export default function DwgToGdb() {
     </p>
   );
 
+  /** Floating panels over the map (wider than a phone): drawing list and mapping table. */
+  const [listOpen, setListOpen] = useState(true);
+  const [tableOpen, setTableOpen] = useState(true);
+  const [tableW, setTableW] = useState(460);
+  const phone = useIsPhone();
+  const startTableResize = (e: React.PointerEvent) => {
+    e.preventDefault();
+    const move = (ev: PointerEvent) => setTableW(Math.max(340, Math.min(window.innerWidth * 0.5, window.innerWidth - 12 - ev.clientX)));
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
   // Every wait (reading the folder, drawing a map, building the edit view, writing HoSoGIS): the brand loader.
   const exporting = !!exportState.progress && !exportState.result && !exportState.error;
   const loader = (
@@ -677,7 +696,7 @@ export default function DwgToGdb() {
         : null;
 
   return (
-    <div className="flex min-h-dvh flex-col bg-zinc-100 md:h-dvh" {...dropHandlers}>
+    <div className={`flex flex-col bg-zinc-100 ${phone ? 'min-h-dvh' : 'h-dvh'}`} {...dropHandlers}>
       <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-zinc-200 bg-white px-3 py-2">
         <HomeLogo wordmark={false} />
         <span className="hidden h-5 w-px bg-zinc-200 sm:block" />
@@ -747,45 +766,221 @@ export default function DwgToGdb() {
           {pickers}
         </div>
       </header>
-      {(error || notice) && <div className="px-3 pt-2">{messageBox}</div>}
-
-      <div className="flex flex-1 flex-col md:min-h-0 md:flex-row">
-        {/* Left: drawings */}
-        <aside className="flex max-h-[40dvh] shrink-0 flex-col border-b border-zinc-200 bg-white md:max-h-none md:w-80 md:border-b-0 md:border-r">
-          <div className="flex items-baseline gap-2 border-b border-zinc-100 px-3 py-2">
-            <span className="text-[12.5px] font-semibold text-zinc-900">Bản vẽ</span>
-            <span className="text-[11.5px] text-zinc-400">
-              {fmt(included.length)}/{fmt(mainDrawings.length)} xuất
-            </span>
-            <span className="ml-auto text-[11px] text-zinc-400" title="Bấm tên để xem và ghép layer; ô Xuất = đưa bản vẽ vào HoSoGIS">
-              bấm để ghép layer
-            </span>
-          </div>
-          {missingXrefs.length > 0 && (
-            <p className="border-b border-amber-100 bg-amber-50 px-3 py-1.5 text-[11.5px] text-amber-800" title={missingXrefs.join('\n')}>
-              Thiếu {fmt(missingXrefs.length)} file xref của bản vẽ đang dùng
-            </p>
-          )}
-          <div className="ui-scroll min-h-0 flex-1 overflow-y-auto p-1.5">
-            <ul className="space-y-0.5">{withXrefs(mainDrawings).map(drawingItem)}</ul>
-            {(otherDrawings.length > 0 || data.unused.length > 0) && (
-              <details className="mt-2 border-t border-zinc-100 pt-1.5">
-                <summary className="cursor-pointer select-none px-2 py-1 text-[11.5px] text-zinc-500 hover:text-zinc-800">
-                  Không dùng ({fmt(otherDrawings.length + data.unused.length)}) — sơ đồ vị trí, khung tên, xref thừa
-                </summary>
-                <ul className="mt-1 space-y-0.5">{withXrefs(otherDrawings).map(drawingItem)}</ul>
-                {data.unused.length > 0 && (
-                  <p className="px-2 pt-1 text-[11px] leading-relaxed text-zinc-400" title={data.unused.map((u) => u.path).join('\n')}>
-                    Không bản vẽ nào tham chiếu: {data.unused.map((u) => u.name.replace(/\.(dwg|dxf)$/i, '')).join(', ')}
-                  </p>
-                )}
-              </details>
+      {(() => {
+        // Pieces shared by the phone layout (stacked) and the wide one (floating over the map).
+        const drawingsBody = (
+          <>
+            <div className="flex items-baseline gap-2 border-b border-zinc-100 py-2 pl-3 pr-11">
+              <span className="text-[12.5px] font-semibold text-zinc-900">Bản vẽ</span>
+              <span className="text-[11.5px] text-zinc-400">
+                {fmt(included.length)}/{fmt(mainDrawings.length)} xuất
+              </span>
+              <span className="ml-auto text-[11px] text-zinc-400" title="Bấm tên để xem và ghép layer; ô Xuất = đưa bản vẽ vào HoSoGIS">
+                bấm để ghép layer
+              </span>
+            </div>
+            {missingXrefs.length > 0 && (
+              <p className="border-b border-amber-100 bg-amber-50 px-3 py-1.5 text-[11.5px] text-amber-800" title={missingXrefs.join('\n')}>
+                Thiếu {fmt(missingXrefs.length)} file xref của bản vẽ đang dùng
+              </p>
             )}
-          </div>
-        </aside>
-
-        {/* Center: map */}
-        <section className="relative h-[50dvh] min-w-0 shrink-0 md:h-auto md:flex-1 md:shrink">
+            <div className="ui-scroll min-h-0 flex-1 overflow-y-auto p-1.5">
+              <ul className="space-y-0.5">{withXrefs(mainDrawings).map(drawingItem)}</ul>
+              {(otherDrawings.length > 0 || data.unused.length > 0) && (
+                <details className="mt-2 border-t border-zinc-100 pt-1.5">
+                  <summary className="cursor-pointer select-none px-2 py-1 text-[11.5px] text-zinc-500 hover:text-zinc-800">
+                    Không dùng ({fmt(otherDrawings.length + data.unused.length)}) — sơ đồ vị trí, khung tên, xref thừa
+                  </summary>
+                  <ul className="mt-1 space-y-0.5">{withXrefs(otherDrawings).map(drawingItem)}</ul>
+                  {data.unused.length > 0 && (
+                    <p className="px-2 pt-1 text-[11px] leading-relaxed text-zinc-400" title={data.unused.map((u) => u.path).join('\n')}>
+                      Không bản vẽ nào tham chiếu: {data.unused.map((u) => u.name.replace(/\.(dwg|dxf)$/i, '')).join(', ')}
+                    </p>
+                  )}
+                </details>
+              )}
+            </div>
+          </>
+        );
+        const mappingBody = (
+          <>
+            <div className="space-y-2 border-b border-zinc-100 p-2.5">
+              <div className="flex items-baseline gap-2 pr-8">
+                <h2 className="min-w-0 flex-1 truncate text-[13px] font-semibold text-zinc-900" title={selDrawing?.title ?? undefined}>
+                  {selDrawing ? selDrawing.name.replace(/\.(dwg|dxf)$/i, '') : 'Chọn một bản vẽ'}
+                </h2>
+                {role && (
+                  <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${role.db ? 'bg-blue-50 text-blue-700' : 'bg-zinc-100 text-zinc-500'}`}>
+                    {role.db ? `→ ${role.db}.gdb` : 'không dùng'}
+                  </span>
+                )}
+              </div>
+              {selDrawing && role?.db && (
+                <p className="-mt-1 text-[11.5px] text-zinc-500">
+                  {role.label} · {fmt(mappedCount(selDrawing.id))}/{fmt(selDrawing.inside)} đối tượng đã ghép
+                  {selDrawing.owner ? ` · xref của ${selDrawing.owner.name.replace(/.(dwg|dxf)$/i, '')}` : ''}
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="ui-segment" role="group" aria-label="Lọc layer">
+                  {(
+                    [
+                      ['review', `Cần xem (${sel ? reviewCount(sel) : 0})`],
+                      ['mapped', 'Đã ghép'],
+                      ['all', 'Tất cả'],
+                    ] as const
+                  ).map(([k, label]) => (
+                    <button key={k} className="whitespace-nowrap" aria-pressed={view === k} onClick={() => setView(k)}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <label className="relative min-w-[8rem] flex-1">
+                  <IconSearch width={14} height={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                  <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm layer" className="ui-input w-full pl-8" />
+                </label>
+              </div>
+            </div>
+            <div className="ui-scroll min-h-0 flex-1 overflow-y-auto">
+              {drawingRows.length === 0 ? (
+                <div className="px-4 py-10 text-center text-[13px] text-zinc-400">
+                  {view === 'review' ? (
+                    <>
+                      <IconCheckCircle width={22} height={22} className="mx-auto mb-2 text-emerald-500" />
+                      Mọi layer có dữ liệu của bản vẽ này đã được ghép hoặc bỏ qua.
+                      <div className="mt-3 flex justify-center gap-2">
+                        <button className="ui-btn" onClick={() => setView('mapped')}>
+                          Xem layer đã ghép
+                        </button>
+                        <button className="ui-btn-ghost" onClick={() => setView('all')}>
+                          Tất cả
+                        </button>
+                      </div>
+                    </>
+                  ) : query ? (
+                    'Không có layer nào khớp.'
+                  ) : (
+                    'Không có layer nào.'
+                  )}
+                </div>
+              ) : (
+                <table className="w-full text-[12.5px]">
+                  <thead className="sticky top-0 z-10 bg-zinc-50 text-left text-[11.5px] text-zinc-500">
+                    <tr>
+                      <th className="px-2.5 py-1.5 font-medium">Layer</th>
+                      <th className="px-1 py-1.5 text-right font-medium">SL</th>
+                      <th className="px-2.5 py-1.5 font-medium">Lớp dữ liệu TT16 · phân loại</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {drawingRows.map((r) => {
+                      const m = mapping.get(r.key);
+                      const Icon = KIND_ICON[r.kind];
+                      const active = r.key === rowSel;
+                      // A target that gets nothing from this row (open lines → vùng) is flagged like a row to review.
+                      const geom = targetOption(m?.target)?.geom;
+                      const status = m?.target ? (geom && !rowFeatureCount(r, geom) ? 'review' : 'ok') : isReview(r) ? 'review' : 'skip';
+                      return (
+                        <tr
+                          key={r.key}
+                          onClick={() => setRowSel(r.key)}
+                          className={`cursor-pointer border-t border-zinc-100 align-top ${active ? 'bg-blue-50/70' : 'hover:bg-zinc-50'}`}
+                        >
+                          <td className="max-w-[11rem] px-2.5 py-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="h-2.5 w-2.5 shrink-0 rounded-sm ring-1 ring-black/10" style={{ background: r.color }} />
+                              <Icon width={13} height={13} className="shrink-0 text-zinc-500" />
+                              <span className={`truncate ${status === 'skip' ? 'text-zinc-400' : 'text-zinc-900'}`} title={`${r.layer} — ${KIND_LABEL[r.kind]}`}>
+                                {r.layer}
+                              </span>
+                            </div>
+                            {r.kind === 'T' && r.samples.length > 0 && <p className="truncate pl-8 text-[11px] text-zinc-400">{r.samples.join(' · ')}</p>}
+                          </td>
+                          <td className="px-1 py-1.5 text-right tabular-nums text-zinc-600">{fmt(r.count)}</td>
+                          <td className="px-2.5 py-1.5">
+                            {editing === r.key ? (
+                              <select
+                                autoFocus
+                                className="w-full rounded-md bg-white px-1 py-0.5 text-[12px] ring-1 ring-blue-400"
+                                value={m?.target ?? ''}
+                                onChange={(e) => setTarget(r, e.target.value || null)}
+                                onBlur={() => setEditing(null)}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <option value="">— Bỏ qua layer này —</option>
+                                {targetGroups(r.kind, role?.db ?? null).map((g) => (
+                                  <optgroup key={g.label} label={g.label}>
+                                    {g.options.map((o) => (
+                                      <option key={o.path} value={o.path}>
+                                        {o.cls} — {o.alias}
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                ))}
+                              </select>
+                            ) : (
+                              <button
+                                className={`flex w-full items-center gap-1.5 rounded-md px-1.5 py-0.5 text-left ring-1 ring-inset ${
+                                  status === 'ok' ? 'ring-emerald-200' : status === 'review' ? 'bg-amber-50 ring-amber-300' : 'ring-zinc-200'
+                                }`}
+                                title={m?.reason}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRowSel(r.key);
+                                  setEditing(r.key);
+                                }}
+                              >
+                                {status === 'ok' ? (
+                                  <IconCheckCircle width={12} height={12} className="shrink-0 text-emerald-600" />
+                                ) : status === 'review' ? (
+                                  <IconAlert width={12} height={12} className="shrink-0 text-amber-600" />
+                                ) : (
+                                  <IconXCircle width={12} height={12} className="shrink-0 text-zinc-300" />
+                                )}
+                                <span className={`truncate ${m?.target ? 'font-mono text-[11.5px] text-zinc-800' : 'text-zinc-400'}`}>
+                                  {m?.target ? targetLabel(m.target) : status === 'review' ? 'Chọn lớp…' : 'Bỏ qua'}
+                                </span>
+                                {m?.source === 'template' && <span className="ml-auto shrink-0 text-[10.5px] text-blue-600">mẫu</span>}
+                              </button>
+                            )}
+                            {m?.target &&
+                              (() => {
+                                const conv = conversionNote(r, targetOption(m.target)?.geom ?? 'A');
+                                return (
+                                  conv && (
+                                    <p className="mt-0.5 px-1.5 text-[11px] leading-snug text-zinc-500">
+                                      {conv.text}
+                                      {conv.warn && (
+                                        <span className="mt-0.5 flex items-start gap-1 text-amber-700">
+                                          <IconAlert width={11} height={11} className="mt-px shrink-0" />
+                                          {conv.warn}
+                                        </span>
+                                      )}
+                                    </p>
+                                  )
+                                );
+                              })()}
+                            {m?.target && (
+                              <input
+                                className="mt-1 w-full rounded-md bg-transparent px-1.5 py-0.5 text-[12px] text-zinc-700 ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus:bg-white focus:ring-blue-400 focus:outline-none"
+                                value={m.phanLoai}
+                                placeholder="Phân loại (phanLoai)"
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => setPhanLoai(r, e.target.value)}
+                                aria-label={`Phân loại của ${r.layer}`}
+                              />
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </>
+        );
+        const map = (insetLeft: number, insetRight: number) => (
           <DwgPreviewMap
             doc={editMode ? (editView?.doc ?? null) : preview && preview.id === sel ? preview.doc : null}
             used={editMode ? editLayers : usedLayers}
@@ -803,187 +998,97 @@ export default function DwgToGdb() {
             views={editMode ? (output?.dbs ?? []).map((d) => ({ id: d.db, label: `${d.db}.gdb`, count: d.db === editView?.db ? d.count - removedFeatures.size : d.count })) : []}
             view={editDb}
             onView={setEditDb}
+            insetLeft={insetLeft}
+            insetRight={insetRight}
           />
-        </section>
+        );
 
-        {/* Right: mapping table */}
-        <section className="flex min-h-[50dvh] flex-col border-t border-zinc-200 bg-white md:min-h-0 md:w-[min(500px,40vw)] md:border-l md:border-t-0">
-          <div className="space-y-2 border-b border-zinc-100 p-2.5">
-            <div className="flex items-baseline gap-2">
-              <h2 className="min-w-0 flex-1 truncate text-[13px] font-semibold text-zinc-900" title={selDrawing?.title ?? undefined}>
-                {selDrawing ? selDrawing.name.replace(/\.(dwg|dxf)$/i, '') : 'Chọn một bản vẽ'}
-              </h2>
-              {role && (
-                <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${role.db ? 'bg-blue-50 text-blue-700' : 'bg-zinc-100 text-zinc-500'}`}>
-                  {role.db ? `→ ${role.db}.gdb` : 'không dùng'}
-                </span>
-              )}
-            </div>
-            {selDrawing && role?.db && (
-              <p className="-mt-1 text-[11.5px] text-zinc-500">
-                {role.label} · {fmt(mappedCount(selDrawing.id))}/{fmt(selDrawing.inside)} đối tượng đã ghép
-                {selDrawing.owner ? ` · xref của ${selDrawing.owner.name.replace(/.(dwg|dxf)$/i, '')}` : ''}
-              </p>
-            )}
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="ui-segment" role="group" aria-label="Lọc layer">
-                {(
-                  [
-                    ['review', `Cần xem (${sel ? reviewCount(sel) : 0})`],
-                    ['mapped', 'Đã ghép'],
-                    ['all', 'Tất cả'],
-                  ] as const
-                ).map(([k, label]) => (
-                  <button key={k} className="whitespace-nowrap" aria-pressed={view === k} onClick={() => setView(k)}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <label className="relative min-w-[8rem] flex-1">
-                <IconSearch width={14} height={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
-                <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm layer" className="ui-input w-full pl-8" />
-              </label>
-            </div>
-          </div>
-          <div className="ui-scroll min-h-0 flex-1 overflow-y-auto">
-            {drawingRows.length === 0 ? (
-              <div className="px-4 py-10 text-center text-[13px] text-zinc-400">
-                {view === 'review' ? (
-                  <>
-                    <IconCheckCircle width={22} height={22} className="mx-auto mb-2 text-emerald-500" />
-                    Mọi layer có dữ liệu của bản vẽ này đã được ghép hoặc bỏ qua.
-                    <div className="mt-3 flex justify-center gap-2">
-                      <button className="ui-btn" onClick={() => setView('mapped')}>
-                        Xem layer đã ghép
-                      </button>
-                      <button className="ui-btn-ghost" onClick={() => setView('all')}>
-                        Tất cả
-                      </button>
-                    </div>
-                  </>
-                ) : query ? (
-                  'Không có layer nào khớp.'
-                ) : (
-                  'Không có layer nào.'
-                )}
-              </div>
+        // ---------- Phones: everything stacked, the page scrolls ----------
+        if (phone)
+          return (
+            <>
+              {(error || notice) && <div className="px-3 pt-2">{messageBox}</div>}
+              <aside className="flex max-h-[40dvh] shrink-0 flex-col border-b border-zinc-200 bg-white">{drawingsBody}</aside>
+              <section className="relative h-[50dvh] shrink-0">{map(0, 0)}</section>
+              <section className="flex min-h-[50dvh] flex-col border-t border-zinc-200 bg-white">{mappingBody}</section>
+            </>
+          );
+
+        // ---------- Wider screens: the map fills the page, the panels float over it ----------
+        const GAP = 12;
+        const leftInset = listOpen ? 320 + GAP : 0;
+        const rightInset = tableOpen ? tableW + GAP : 0;
+        return (
+          <div className="relative min-h-0 flex-1 overflow-hidden">
+            <div className="absolute inset-0">{map(leftInset, rightInset)}</div>
+
+            {/* Left: drawings */}
+            {listOpen ? (
+              <aside className="ui-floating ui-pop-in absolute bottom-3 left-3 top-3 z-20 flex w-80 flex-col overflow-hidden">
+                <button
+                  className="ui-icon-btn absolute right-1.5 top-1 z-10"
+                  onClick={() => setListOpen(false)}
+                  aria-label="Thu gọn danh sách bản vẽ"
+                  title="Thu gọn"
+                >
+                  <IconPanel width={16} height={16} />
+                </button>
+                {drawingsBody}
+              </aside>
             ) : (
-              <table className="w-full text-[12.5px]">
-                <thead className="sticky top-0 z-10 bg-zinc-50 text-left text-[11.5px] text-zinc-500">
-                  <tr>
-                    <th className="px-2.5 py-1.5 font-medium">Layer</th>
-                    <th className="px-1 py-1.5 text-right font-medium">SL</th>
-                    <th className="px-2.5 py-1.5 font-medium">Lớp dữ liệu TT16 · phân loại</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {drawingRows.map((r) => {
-                    const m = mapping.get(r.key);
-                    const Icon = KIND_ICON[r.kind];
-                    const active = r.key === rowSel;
-                    // A target that gets nothing from this row (open lines → vùng) is flagged like a row to review.
-                    const geom = targetOption(m?.target)?.geom;
-                    const status = m?.target ? (geom && !rowFeatureCount(r, geom) ? 'review' : 'ok') : isReview(r) ? 'review' : 'skip';
-                    return (
-                      <tr
-                        key={r.key}
-                        onClick={() => setRowSel(r.key)}
-                        className={`cursor-pointer border-t border-zinc-100 align-top ${active ? 'bg-blue-50/70' : 'hover:bg-zinc-50'}`}
-                      >
-                        <td className="max-w-[11rem] px-2.5 py-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <span className="h-2.5 w-2.5 shrink-0 rounded-sm ring-1 ring-black/10" style={{ background: r.color }} />
-                            <Icon width={13} height={13} className="shrink-0 text-zinc-500" />
-                            <span className={`truncate ${status === 'skip' ? 'text-zinc-400' : 'text-zinc-900'}`} title={`${r.layer} — ${KIND_LABEL[r.kind]}`}>
-                              {r.layer}
-                            </span>
-                          </div>
-                          {r.kind === 'T' && r.samples.length > 0 && <p className="truncate pl-8 text-[11px] text-zinc-400">{r.samples.join(' · ')}</p>}
-                        </td>
-                        <td className="px-1 py-1.5 text-right tabular-nums text-zinc-600">{fmt(r.count)}</td>
-                        <td className="px-2.5 py-1.5">
-                          {editing === r.key ? (
-                            <select
-                              autoFocus
-                              className="w-full rounded-md bg-white px-1 py-0.5 text-[12px] ring-1 ring-blue-400"
-                              value={m?.target ?? ''}
-                              onChange={(e) => setTarget(r, e.target.value || null)}
-                              onBlur={() => setEditing(null)}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <option value="">— Bỏ qua layer này —</option>
-                              {targetGroups(r.kind, role?.db ?? null).map((g) => (
-                                <optgroup key={g.label} label={g.label}>
-                                  {g.options.map((o) => (
-                                    <option key={o.path} value={o.path}>
-                                      {o.cls} — {o.alias}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                              ))}
-                            </select>
-                          ) : (
-                            <button
-                              className={`flex w-full items-center gap-1.5 rounded-md px-1.5 py-0.5 text-left ring-1 ring-inset ${
-                                status === 'ok' ? 'ring-emerald-200' : status === 'review' ? 'bg-amber-50 ring-amber-300' : 'ring-zinc-200'
-                              }`}
-                              title={m?.reason}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setRowSel(r.key);
-                                setEditing(r.key);
-                              }}
-                            >
-                              {status === 'ok' ? (
-                                <IconCheckCircle width={12} height={12} className="shrink-0 text-emerald-600" />
-                              ) : status === 'review' ? (
-                                <IconAlert width={12} height={12} className="shrink-0 text-amber-600" />
-                              ) : (
-                                <IconXCircle width={12} height={12} className="shrink-0 text-zinc-300" />
-                              )}
-                              <span className={`truncate ${m?.target ? 'font-mono text-[11.5px] text-zinc-800' : 'text-zinc-400'}`}>
-                                {m?.target ? targetLabel(m.target) : status === 'review' ? 'Chọn lớp…' : 'Bỏ qua'}
-                              </span>
-                              {m?.source === 'template' && <span className="ml-auto shrink-0 text-[10.5px] text-blue-600">mẫu</span>}
-                            </button>
-                          )}
-                          {m?.target &&
-                            (() => {
-                              const conv = conversionNote(r, targetOption(m.target)?.geom ?? 'A');
-                              return (
-                                conv && (
-                                  <p className="mt-0.5 px-1.5 text-[11px] leading-snug text-zinc-500">
-                                    {conv.text}
-                                    {conv.warn && (
-                                      <span className="mt-0.5 flex items-start gap-1 text-amber-700">
-                                        <IconAlert width={11} height={11} className="mt-px shrink-0" />
-                                        {conv.warn}
-                                      </span>
-                                    )}
-                                  </p>
-                                )
-                              );
-                            })()}
-                          {m?.target && (
-                            <input
-                              className="mt-1 w-full rounded-md bg-transparent px-1.5 py-0.5 text-[12px] text-zinc-700 ring-1 ring-inset ring-transparent hover:ring-zinc-200 focus:bg-white focus:ring-blue-400 focus:outline-none"
-                              value={m.phanLoai}
-                              placeholder="Phân loại (phanLoai)"
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => setPhanLoai(r, e.target.value)}
-                              aria-label={`Phân loại của ${r.layer}`}
-                            />
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <button
+                className="ui-floating ui-pop-in absolute left-3 top-14 z-20 flex items-center gap-2 px-3 py-2 text-[12.5px] font-medium text-zinc-800 hover:bg-white"
+                onClick={() => setListOpen(true)}
+                title="Mở danh sách bản vẽ"
+              >
+                <IconLayers width={15} height={15} className="text-blue-600" />
+                Bản vẽ <span className="text-zinc-400">{fmt(included.length)}</span>
+              </button>
+            )}
+
+            {/* Right: mapping table of the selected drawing (drag the left edge to widen). */}
+            {tableOpen ? (
+              <section
+                className="ui-floating ui-pop-in absolute bottom-3 right-3 top-3 z-20 flex flex-col overflow-hidden"
+                style={{ width: tableW }}
+                aria-label="Bảng ghép layer"
+              >
+                <div
+                  role="separator"
+                  aria-orientation="vertical"
+                  aria-label="Kéo để đổi độ rộng bảng ghép"
+                  onPointerDown={startTableResize}
+                  className="absolute inset-y-0 left-0 z-20 w-1.5 cursor-col-resize touch-none hover:bg-blue-500/20"
+                />
+                <button
+                  className="ui-icon-btn absolute right-1.5 top-1.5 z-20"
+                  onClick={() => setTableOpen(false)}
+                  aria-label="Thu gọn bảng ghép"
+                  title="Thu gọn"
+                >
+                  <IconX width={15} height={15} />
+                </button>
+                {mappingBody}
+              </section>
+            ) : (
+              <button
+                className="ui-floating ui-pop-in absolute right-[3.75rem] top-3 z-20 flex items-center gap-2 px-3 py-2 text-[12.5px] font-medium text-zinc-800 hover:bg-white"
+                onClick={() => setTableOpen(true)}
+                title="Mở bảng ghép layer"
+              >
+                Ghép layer
+                {totalReview > 0 && <span className="rounded-full bg-amber-50 px-1.5 text-[11px] font-semibold text-amber-800">{fmt(totalReview)} cần xem</span>}
+              </button>
+            )}
+
+            {(error || notice) && (
+              <div className="absolute top-3 z-30" style={{ left: leftInset + GAP, right: rightInset + GAP }}>
+                {messageBox}
+              </div>
             )}
           </div>
-        </section>
-      </div>
+        );
+      })()}
 
       {exportOpen && (
         <ExportDialog

@@ -10,6 +10,8 @@ const NAME: Record<string, string> = {
   'google-satellite': 'Vệ tinh',
   'google-roadmap': 'Đường phố',
   'esri-imagery': 'Esri (dự phòng)',
+  'cad-dark': 'Nền đen',
+  'cad-light': 'Nền trắng',
 };
 
 export default function BasemapPicker({
@@ -35,7 +37,7 @@ export default function BasemapPicker({
   }, [open]);
 
   return (
-    <div ref={boxRef} className="absolute right-3 top-3 z-20">
+    <div ref={boxRef} className="absolute right-[calc(var(--map-ir,0px)+0.75rem)] top-3 z-20">
       <button
         className={`ui-floating ui-drop-in flex h-10 w-10 items-center justify-center transition ${open ? 'text-blue-600' : 'text-zinc-700'}`}
         style={{ animationDelay: '0.3s' }}
@@ -69,14 +71,18 @@ export default function BasemapPicker({
                       active ? 'ring-blue-600' : 'ring-transparent group-active:ring-zinc-300'
                     }`}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element -- a raw map tile, not a page image */}
-                    <img
-                      src={basemapThumbUrl(b, open.lng, open.lat, z)}
-                      alt=""
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                      draggable={false}
-                    />
+                    {b.swatch ? (
+                      <span className="block h-full w-full" style={{ background: b.swatch }} />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element -- a raw map tile, not a page image
+                      <img
+                        src={basemapThumbUrl(b, open.lng, open.lat, z)}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                        draggable={false}
+                      />
+                    )}
                   </span>
                   <span className={active ? 'font-semibold text-blue-700' : 'text-zinc-700'}>{NAME[b.id] ?? b.label}</span>
                 </button>

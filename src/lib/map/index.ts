@@ -8,7 +8,10 @@ export {
   isGoogleBasemap,
   TileErrorMonitor,
   basemapThumbUrl,
+  basemapPaper,
 } from './basemaps';
+export type { Paper } from './cadGrid';
+export { drawGridTile, GRID_PROTOCOL, inkForPaper, parseGridUrl } from './cadGrid';
 export type {
   BuildLayersOptions,
   PickRef,

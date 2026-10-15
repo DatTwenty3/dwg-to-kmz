@@ -13,7 +13,7 @@ import { robustBBox } from '@/lib/cad/normalize/bbox';
 import type { CadDocument, CadEntity, Vec2 } from '@/lib/cad/types';
 import { BOUNDARY_LAYER, previewIndex } from '@/lib/dwg2gdb/inventory';
 import { sweepSelect } from '@/lib/dwg2gdb/sweep';
-import { buildLayers, DEFAULT_BASEMAP_ID, DEFAULT_FONT_FAMILY, documentBounds } from '@/lib/map';
+import { basemapPaper, buildLayers, DEFAULT_BASEMAP_ID, DEFAULT_FONT_FAMILY, documentBounds } from '@/lib/map';
 import EntityPopup from './EntityPopup';
 import { IconPen, IconSpinner, IconTrash, IconUndo } from './icons';
 import { loadTextFont } from './mapFont';
@@ -55,6 +55,8 @@ export default function DwgPreviewMap({
   views,
   view,
   onView,
+  insetLeft = 0,
+  insetRight = 0,
 }: {
   doc: CadDocument | null;
   /** Layers that go to the geodatabase (drawn at full strength). */
@@ -80,6 +82,9 @@ export default function DwgPreviewMap({
   views: { id: string; label: string; count: number }[];
   view: string;
   onView: (id: string) => void;
+  /** Widths (px) covered by the page's floating panels over the map. */
+  insetLeft?: number;
+  insetRight?: number;
 }) {
   const [basemapId, setBasemapId] = useState(DEFAULT_BASEMAP_ID);
   const [font, setFont] = useState({ family: DEFAULT_FONT_FAMILY, ready: false });
@@ -104,7 +109,7 @@ export default function DwgPreviewMap({
 
   const layers = useMemo(() => {
     if (!doc) return [];
-    const opts = { fontFamily: font.family, showText: font.ready, highlightHandle: pick?.ref.entity.handle };
+    const opts = { fontFamily: font.family, showText: font.ready, highlightHandle: pick?.ref.entity.handle, paper: basemapPaper(basemapId) };
     // Removed and selected objects are drawn only by their overlays.
     const hidden = (e: CadEntity) => {
       const i = previewIndex(e.handle);
@@ -116,14 +121,17 @@ export default function DwgPreviewMap({
     const weak = new Set(all.filter((n) => !strong.has(n)));
     const ghost = editMode ? overlayDoc(doc, (i) => excluded.has(i) && !selected.has(i), GHOST, '#ef4444') : null;
     const picked = overlayDoc(doc, (i) => selected.has(i), PICKED, '#f59e0b');
+    // A layer is selected: only it (and the red planning boundary, kept for orientation) is drawn; the other
+    // layers are hidden until it is deselected.
+    const focus = focusLayer && all.includes(focusLayer) ? focusLayer : null;
+    const shown = focus ? new Set([focus, ...(strong.has(BOUNDARY_LAYER) ? [BOUNDARY_LAYER] : [])]) : null;
     return [
-      ...buildLayers(base, { ...opts, visibleLayers: weak, idPrefix: 'weak:', opacity: 0.25 }),
-      ...buildLayers(base, { ...opts, visibleLayers: strong, idPrefix: 'used:', opacity: focusLayer ? 0.55 : 1 }),
-      ...(focusLayer ? buildLayers(base, { ...opts, visibleLayers: new Set([focusLayer]), idPrefix: 'focus:' }) : []),
+      ...(shown ? [] : buildLayers(base, { ...opts, visibleLayers: weak, idPrefix: 'weak:', opacity: 0.25 })),
+      ...buildLayers(base, { ...opts, visibleLayers: shown ?? strong, idPrefix: 'used:' }),
       ...(ghost ? buildLayers(ghost, { ...opts, visibleLayers: new Set([GHOST]), idPrefix: 'ghost:', opacity: 0.45 }) : []),
       ...(picked ? buildLayers(picked, { ...opts, visibleLayers: new Set([PICKED]), idPrefix: 'picked:' }) : []),
     ];
-  }, [doc, used, focusLayer, font, pick, excluded, selected, editMode]);
+  }, [doc, used, focusLayer, font, pick, excluded, selected, editMode, basemapId]);
 
   // Zoom to the drawing, then to the selected layer.
   const fit = useMemo(() => {
@@ -193,8 +201,10 @@ export default function DwgPreviewMap({
   };
 
   return (
-    <div className="relative h-full w-full bg-zinc-200">
+    <div className="relative h-full w-full bg-zinc-200" style={{ '--map-il': `${insetLeft}px`, '--map-ir': `${insetRight}px` } as React.CSSProperties}>
       <MapView
+        insetLeft={insetLeft}
+        insetRight={insetRight}
         basemapId={basemapId}
         onBasemapChange={setBasemapId}
         layers={layers}
@@ -216,7 +226,7 @@ export default function DwgPreviewMap({
       />
       {doc && !editMode && (
         <button
-          className="ui-floating absolute left-3 top-3 z-10 flex items-center gap-1.5 px-2.5 py-1.5 text-[12.5px] font-medium text-zinc-800 hover:bg-zinc-50"
+          className="ui-floating absolute left-[calc(var(--map-il,0px)+0.75rem)] top-3 z-10 flex items-center gap-1.5 px-2.5 py-1.5 text-[12.5px] font-medium text-zinc-800 hover:bg-zinc-50"
           onClick={() => {
             setPick(null);
             onEditMode(true);
@@ -229,7 +239,7 @@ export default function DwgPreviewMap({
         </button>
       )}
       {editMode && (
-        <div className="ui-floating ui-pop-in absolute left-3 top-3 z-20 w-[min(23rem,calc(100%-1.5rem))] space-y-2 p-2.5 text-[12.5px] text-zinc-700">
+        <div className="ui-floating ui-pop-in absolute left-[calc(var(--map-il,0px)+0.75rem)] top-3 z-20 w-[min(23rem,calc(100%-1.5rem))] space-y-2 p-2.5 text-[12.5px] text-zinc-700">
           <div>
             <p className="mb-1 text-[11.5px] text-zinc-500">Đang xem đúng những gì sẽ ghi vào geodatabase (và tệp .qgz):</p>
             <div className="flex flex-wrap gap-1" role="group" aria-label="Geodatabase">
@@ -303,7 +313,7 @@ export default function DwgPreviewMap({
         </div>
       )}
       {(loading || note) && (
-        <div className="pointer-events-none absolute inset-x-3 top-14 z-10 flex justify-center">
+        <div className="pointer-events-none absolute left-[calc(var(--map-il,0px)+0.75rem)] right-[calc(var(--map-ir,0px)+0.75rem)] top-14 z-10 flex justify-center">
           <span className="ui-floating flex items-center gap-2 px-3 py-1.5 text-[12.5px] text-zinc-700">
             {loading && <IconSpinner width={14} height={14} className="text-blue-600" />}
             {loading ? (loadingText ?? 'Đang vẽ bản vẽ lên bản đồ…') : note}

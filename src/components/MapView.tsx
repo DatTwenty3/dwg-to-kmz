@@ -28,7 +28,10 @@ import { useIsPhone } from './useIsPhone';
 import { useEditSketch } from './useEditSketch';
 import {
   BASEMAPS,
+  drawGridTile,
   FALLBACK_BASEMAP_ID,
+  GRID_PROTOCOL,
+  parseGridUrl,
   fileIdOfLayerId,
   getBasemap,
   isGoogleBasemap,
@@ -56,7 +59,26 @@ function registerPmtiles() {
   addProtocol('pmtiles', new PmtilesProtocol().tile);
 }
 
+// CAD grid sheets: tiles drawn on a canvas (no network), see src/lib/map/cadGrid.ts.
+let gridRegistered = false;
+function registerCadGrid() {
+  if (gridRegistered) return;
+  gridRegistered = true;
+  addProtocol(GRID_PROTOCOL, async (params) => {
+    const paper = parseGridUrl(params.url) ?? 'dark';
+    const scale = Math.min(2, Math.max(1, Math.round(window.devicePixelRatio || 1)));
+    const size = 256 * scale;
+    const canvas = new OffscreenCanvas(size, size);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('canvas');
+    drawGridTile(ctx, size, paper, scale);
+    const blob = await canvas.convertToBlob({ type: 'image/png' });
+    return { data: await blob.arrayBuffer() };
+  });
+}
+
 function styleFor(b: Basemap, threeD = false): StyleSpecification {
+  if (b.paper) registerCadGrid();
   const style: StyleSpecification = {
     version: 8,
     sources: {
@@ -122,6 +144,10 @@ export interface MapViewProps {
   popup?: { lngLat: Vec2; content: ReactNode } | null;
   /** Pixels covered by the floating panel on the left; fitBounds keeps the drawing clear of it. */
   insetLeft?: number;
+  /** Width (px) covered by floating panels on the right: the map's own controls and fits move clear of it. */
+  insetRight?: number;
+  /** Height (px) covered by a floating panel along the bottom: zoom/3D buttons, status pill and fits move above it. */
+  insetBottom?: number;
   /** Drawing CRS (not WGS84): when set, the status bar also shows the cursor in drawing coordinates. */
   drawingCrs?: CrsOptions | null;
   /** A document is being parsed / transformed: show the indeterminate load bar. */
@@ -163,10 +189,11 @@ const DRAW_LABEL: Record<SketchKind, string> = { line: 'đường', polygon: 'v�
  * fitBounds padding. MapLibre refuses to fit at all when padding leaves no room, so on small screens the
  * margins shrink and the panel inset is dropped (there the panel covers the whole map anyway).
  */
-function fitPadding(width: number, height: number, inset: number) {
+function fitPadding(width: number, height: number, inset: number, insetRight = 0, insetBottom = 0) {
   const m = Math.min(48, Math.round(Math.min(width, height) * 0.08));
-  const left = width - inset - 2 * m >= 240 ? m + inset : m;
-  return { top: m, bottom: m, right: m, left };
+  const roomy = width - inset - insetRight - 2 * m >= 240;
+  const tall = height - insetBottom - 2 * m >= 200;
+  return { top: m, bottom: tall ? m + insetBottom : m, right: roomy ? m + insetRight : m, left: roomy ? m + inset : m };
 }
 
 /** Short labels for the basemap switcher. */
@@ -175,9 +202,11 @@ const SHORT_LABEL: Record<string, string> = {
   'google-satellite': 'Vệ tinh',
   'google-roadmap': 'Đường phố',
   'esri-imagery': 'Esri',
+  'cad-dark': 'Nền đen',
+  'cad-light': 'Nền trắng',
 };
 
-export default function MapView({ basemapId, onBasemapChange, layers, fit, onPick, popup, insetLeft = 0, drawingCrs = null,
+export default function MapView({ basemapId, onBasemapChange, layers, fit, onPick, popup, insetLeft = 0, insetRight = 0, insetBottom = 0, drawingCrs = null,
   loading = false,
   fontFamily,
   drawingCrsLabel = 'hệ bản vẽ',
@@ -210,6 +239,8 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
     phoneRef.current = phone;
   });
   const insetRef = useRef(insetLeft);
+  const insetRightRef = useRef(insetRight);
+  const insetBottomRef = useRef(insetBottom);
   const firstFitRef = useRef(true);
   const llRef = useRef<HTMLSpanElement>(null);
   const xyRef = useRef<HTMLSpanElement>(null);
@@ -275,6 +306,8 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
     onPickRef.current = onPick;
     onBasemapRef.current = onBasemapChange;
     insetRef.current = insetLeft;
+    insetRightRef.current = insetRight;
+    insetBottomRef.current = insetBottom;
   });
 
   // Create the map once.
@@ -589,7 +622,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
           [e, n],
         ],
         {
-          padding: fitPadding(map.getContainer().clientWidth, map.getContainer().clientHeight, insetRef.current),
+          padding: fitPadding(map.getContainer().clientWidth, map.getContainer().clientHeight, insetRef.current, insetRightRef.current, insetBottomRef.current),
           maxZoom: 19,
           // First fit after the map opens: a slow fly-in from the Vietnam overview; later fits are quick.
           duration: first ? 2600 : 700,
@@ -626,7 +659,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
   }, [popupLng, popupLat]);
 
   return (
-    <div className="relative h-full w-full">
+    <div className="ui-map relative h-full w-full" style={{ '--map-ir': `${insetRight}px`, '--map-ib': `${insetBottom}px` } as React.CSSProperties}>
       {/* maplibre's CSS forces position:relative on the container, so size it with h/w-full. */}
       <div ref={containerRef} className="h-full w-full" />
       {onBoxSelect && <BoxSelectLayer mapRef={mapRef} onBox={onBoxSelect} />}
@@ -644,7 +677,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
         />
       )}
       <div
-        className={`ui-floating ui-drop-in ui-scroll absolute right-3 top-3 z-10 overflow-x-auto rounded-xl p-1 ${phone || compact ? 'hidden' : ''}`}
+        className={`ui-floating ui-drop-in ui-scroll absolute right-[calc(var(--map-ir,0px)+0.75rem)] top-3 z-10 overflow-x-auto rounded-xl p-1 ${phone || compact ? 'hidden' : ''}`}
         style={{ animationDelay: '0.3s' }}
       >
         <div className="flex gap-0.5" role="group" aria-label="Chọn bản đồ nền">
@@ -670,7 +703,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
       </div>
 
       {/* Measurement tools sit under the basemap pill; the result card hangs below them. */}
-      <div className="absolute right-3 top-[58px] z-10 flex flex-col items-end gap-2">
+      <div className="absolute right-[calc(var(--map-ir,0px)+0.75rem)] top-[58px] z-10 flex flex-col items-end gap-2">
         <MeasureToolbar
           tool={measure.tool}
           onTool={(t) => {
@@ -782,7 +815,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
 
       {/* Cursor (phones: map centre) / zoom status pill */}
       <div
-        className={`ui-floating ui-fade-up absolute bottom-3 z-10 flex items-center overflow-hidden whitespace-nowrap font-mono tabular-nums text-zinc-600 transition-[left] duration-300 ease-out ${
+        className={`ui-floating ui-fade-up absolute bottom-[calc(var(--map-ib,0px)+0.75rem)] z-10 flex items-center overflow-hidden whitespace-nowrap font-mono tabular-nums text-zinc-600 transition-[left] duration-300 ease-out ${
           phone
             ? 'pointer-events-auto cursor-pointer flex-wrap gap-x-3 gap-y-0.5 rounded-2xl px-3.5 py-1.5 text-[11.5px] active:bg-zinc-50'
             : 'pointer-events-none gap-3 rounded-full px-4 py-1.5 text-[11px]'
@@ -824,7 +857,10 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
       )}
       {popup && !phone && compact && (
         // Map pane: docked in the top-left corner, scrolls inside the map instead of spilling over the page.
-        <div className="ui-pop-in pointer-events-auto absolute left-3 top-3 z-20 max-h-[calc(100%-4.5rem)] w-80 max-w-[calc(100%-4.5rem)] overflow-y-auto rounded-2xl">
+        <div
+          className="ui-pop-in pointer-events-auto absolute top-3 z-20 max-h-[calc(100%-4.5rem)] w-80 max-w-[calc(100%-4.5rem)] overflow-y-auto rounded-2xl"
+          style={{ left: insetLeft + 12 }}
+        >
           {popup.content}
         </div>
       )}

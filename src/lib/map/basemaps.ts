@@ -1,4 +1,5 @@
 // Basemap definitions. All tile URLs live here (see CLAUDE.md), nowhere else.
+import { gridTileUrl, GRID_THEMES, type Paper } from './cadGrid';
 
 export interface Basemap {
   id: string;
@@ -6,7 +7,17 @@ export interface Basemap {
   tiles: string[];
   attribution: string;
   maxzoom: number;
+  /** CAD-like plain sheet (no imagery): objects are coloured for it (white → dark on 'light'). */
+  paper?: Paper;
+  /** CSS background for the picker thumbnail when the tiles are drawn locally. */
+  swatch?: string;
 }
+
+/** Grid sheet thumbnail: the paper colour with a few grid lines. */
+const gridSwatch = (p: Paper) => {
+  const t = GRID_THEMES[p];
+  return `linear-gradient(${t.major} 1px, transparent 1px) 0 0 / 100% 50%, linear-gradient(90deg, ${t.major} 1px, transparent 1px) 0 0 / 33.4% 100%, linear-gradient(${t.minor} 1px, transparent 1px) 0 0 / 100% 10%, linear-gradient(90deg, ${t.minor} 1px, transparent 1px) 0 0 / 6.7% 100%, ${t.background}`;
+};
 
 const googleTiles = (lyrs: string) =>
   [0, 1, 2, 3].map((n) => `https://mt${n}.google.com/vt/lyrs=${lyrs}&hl=vi&x={x}&y={y}&z={z}`);
@@ -24,6 +35,9 @@ export const BASEMAPS: Basemap[] = [
     attribution: '© Esri, Maxar, Earthstar Geographics',
     maxzoom: 19,
   },
+  // Plain sheets with a grid, like AutoCAD's model space (drawn in the browser, see cadGrid.ts).
+  { id: 'cad-dark', label: 'Nền đen (lưới CAD)', tiles: [gridTileUrl('dark')], attribution: '', maxzoom: 24, paper: 'dark', swatch: gridSwatch('dark') },
+  { id: 'cad-light', label: 'Nền trắng (lưới CAD)', tiles: [gridTileUrl('light')], attribution: '', maxzoom: 24, paper: 'light', swatch: gridSwatch('light') },
 ];
 
 export const DEFAULT_BASEMAP_ID = 'google-hybrid';
@@ -44,6 +58,11 @@ export function basemapThumbUrl(b: Basemap, lng: number, lat: number, z: number)
     .replace('{z}', String(zz))
     .replace('{x}', String(x))
     .replace('{y}', String(y));
+}
+
+/** Paper of a basemap: 'dark' / 'light' for the CAD grid sheets, undefined for imagery and street maps. */
+export function basemapPaper(id: string): Paper | undefined {
+  return getBasemap(id).paper;
 }
 
 /** True for basemaps served by Google (subject to auto-fallback). */

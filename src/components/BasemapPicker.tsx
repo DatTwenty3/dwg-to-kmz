@@ -37,7 +37,7 @@ export default function BasemapPicker({
   }, [open]);
 
   return (
-    <div ref={boxRef} className="absolute right-[calc(var(--map-ir,0px)+0.75rem)] top-3 z-20">
+    <div ref={boxRef} className="absolute right-[calc(var(--map-ir,0px)+0.75rem)] top-[calc(var(--map-it,0px)+0.75rem)] z-20">
       <button
         className={`ui-floating ui-drop-in flex h-10 w-10 items-center justify-center transition ${open ? 'text-blue-600' : 'text-zinc-700'}`}
         style={{ animationDelay: '0.3s' }}

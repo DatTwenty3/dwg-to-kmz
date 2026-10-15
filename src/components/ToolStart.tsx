@@ -240,7 +240,7 @@ export default function ToolStart({
         <Backdrop />
         {home}
         <div className="relative mx-auto w-full max-w-2xl px-4 pb-10 pt-20 sm:px-6">
-          <h1 className="ui-fade-up text-3xl font-semibold tracking-tight text-zinc-900 sm:text-4xl">{title}</h1>
+          <h1 className="ui-fade-up text-3xl font-bold tracking-[-0.03em] text-zinc-900 sm:text-[2.75rem] sm:leading-[1.05]">{title}</h1>
           <div className="mt-6">{panel}</div>
         </div>
       </main>
@@ -251,10 +251,11 @@ export default function ToolStart({
       {home}
       <div className="relative mx-auto grid w-full max-w-6xl items-center gap-6 px-4 pb-10 pt-20 sm:px-6 lg:grid-cols-2 lg:gap-16 lg:py-16">
         <div className="ui-fade-up order-2 w-full lg:order-1">
-          <h1 className="text-4xl font-semibold tracking-tight text-zinc-900 sm:text-5xl">{title}</h1>
-          <div className="mt-3 text-[15px] text-zinc-500">{subtitle}</div>
+          {/* Planpoint-like headline: large, bold, tight tracking — reads like a drawing title block. */}
+          <h1 className="text-[2.4rem] font-bold leading-[1.04] tracking-[-0.035em] text-zinc-900 sm:text-[3.4rem] [&_span]:whitespace-nowrap">{title}</h1>
+          <div className="mt-4 text-base text-zinc-600 sm:text-[17px]">{subtitle}</div>
           {/* One card: the drop zone and, under it, the other ways to start. */}
-          <div className="mt-7 rounded-[1.75rem] border border-zinc-200/80 bg-white/75 p-2 shadow-[0_24px_70px_rgba(14,31,59,0.10)] backdrop-blur-md">
+          <div className="mt-8 rounded-[2rem] border border-zinc-200 bg-white/80 p-2 shadow-[0_20px_60px_rgba(11,53,88,0.06),0_1px_2px_rgba(11,53,88,0.05)] backdrop-blur-md">
           <div
             {...zoneProps}
             role="button"
@@ -263,7 +264,7 @@ export default function ToolStart({
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') onActivate();
             }}
-            className={`group relative rounded-[1.4rem] border-2 border-dashed px-5 py-9 text-center transition sm:py-10 ${
+            className={`group relative rounded-[1.6rem] border-2 border-dashed px-5 py-9 text-center transition sm:py-10 ${
               over ? 'border-blue-500 bg-blue-50/80' : 'border-zinc-300/70 bg-white/60 hover:border-blue-300 hover:bg-white'
             }`}
           >
@@ -275,10 +276,10 @@ export default function ToolStart({
             </span>
             <p className="mt-4 text-[15px] font-medium text-zinc-900">{prompt}</p>
             {hint && <p className="mt-1.5 text-[12.5px] tracking-wide text-zinc-400">{hint}</p>}
-            {actions && <div className="mt-4 flex flex-wrap justify-center gap-2">{actions}</div>}
+            {actions && <div className="ui-pills mt-4 flex flex-wrap justify-center gap-2">{actions}</div>}
             {children}
           </div>
-          {footer && <div className="flex flex-wrap items-center justify-center gap-2.5 px-3 pb-2 pt-3">{footer}</div>}
+          {footer && <div className="ui-pills flex flex-wrap items-center justify-center gap-2.5 px-3 pb-2 pt-3">{footer}</div>}
           </div>
           {after && <div className="mt-4">{after}</div>}
         </div>

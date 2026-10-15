@@ -64,7 +64,7 @@ export default function CrsStep({
         </p>
       </div>
 
-      <div className="ui-card ui-pop-in mt-6 flex items-start gap-3 p-4 shadow-[0_8px_32px_rgba(15,23,42,0.06)]" style={{ animationDelay: '0.2s' }}>
+      <div className="ui-card ui-pop-in mt-6 flex items-start gap-3 p-4 shadow-[0_8px_32px_rgba(11,53,88,0.06)]" style={{ animationDelay: '0.2s' }}>
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
           <IconFile width={20} height={20} />
         </span>
@@ -87,7 +87,7 @@ export default function CrsStep({
         </button>
       </div>
 
-      <div className="ui-card ui-pop-in mt-3 p-5 shadow-[0_8px_32px_rgba(15,23,42,0.06)]" style={{ animationDelay: '0.28s' }}>
+      <div className="ui-card ui-pop-in mt-3 p-5 shadow-[0_8px_32px_rgba(11,53,88,0.06)]" style={{ animationDelay: '0.28s' }}>
         {children}
       </div>
 

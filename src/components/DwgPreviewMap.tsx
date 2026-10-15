@@ -57,6 +57,7 @@ export default function DwgPreviewMap({
   onView,
   insetLeft = 0,
   insetRight = 0,
+  insetTop = 0,
 }: {
   doc: CadDocument | null;
   /** Layers that go to the geodatabase (drawn at full strength). */
@@ -85,6 +86,7 @@ export default function DwgPreviewMap({
   /** Widths (px) covered by the page's floating panels over the map. */
   insetLeft?: number;
   insetRight?: number;
+  insetTop?: number;
 }) {
   const [basemapId, setBasemapId] = useState(DEFAULT_BASEMAP_ID);
   const [font, setFont] = useState({ family: DEFAULT_FONT_FAMILY, ready: false });
@@ -201,10 +203,11 @@ export default function DwgPreviewMap({
   };
 
   return (
-    <div className="relative h-full w-full bg-zinc-200" style={{ '--map-il': `${insetLeft}px`, '--map-ir': `${insetRight}px` } as React.CSSProperties}>
+    <div className="relative h-full w-full bg-zinc-200" style={{ '--map-il': `${insetLeft}px`, '--map-ir': `${insetRight}px`, '--map-it': `${insetTop}px` } as React.CSSProperties}>
       <MapView
         insetLeft={insetLeft}
         insetRight={insetRight}
+        insetTop={insetTop}
         basemapId={basemapId}
         onBasemapChange={setBasemapId}
         layers={layers}
@@ -226,7 +229,7 @@ export default function DwgPreviewMap({
       />
       {doc && !editMode && (
         <button
-          className="ui-floating absolute left-[calc(var(--map-il,0px)+0.75rem)] top-3 z-10 flex items-center gap-1.5 px-2.5 py-1.5 text-[12.5px] font-medium text-zinc-800 hover:bg-zinc-50"
+          className="ui-floating absolute left-[calc(var(--map-il,0px)+0.75rem)] top-[calc(var(--map-it,0px)+0.75rem)] z-10 flex items-center gap-1.5 px-2.5 py-1.5 text-[12.5px] font-medium text-zinc-800 hover:bg-zinc-50"
           onClick={() => {
             setPick(null);
             onEditMode(true);
@@ -239,7 +242,7 @@ export default function DwgPreviewMap({
         </button>
       )}
       {editMode && (
-        <div className="ui-floating ui-pop-in absolute left-[calc(var(--map-il,0px)+0.75rem)] top-3 z-20 w-[min(23rem,calc(100%-1.5rem))] space-y-2 p-2.5 text-[12.5px] text-zinc-700">
+        <div className="ui-floating ui-pop-in absolute left-[calc(var(--map-il,0px)+0.75rem)] top-[calc(var(--map-it,0px)+0.75rem)] z-20 w-[min(23rem,calc(100%-1.5rem))] space-y-2 p-2.5 text-[12.5px] text-zinc-700">
           <div>
             <p className="mb-1 text-[11.5px] text-zinc-500">Đang xem đúng những gì sẽ ghi vào geodatabase (và tệp .qgz):</p>
             <div className="flex flex-wrap gap-1" role="group" aria-label="Geodatabase">
@@ -313,7 +316,7 @@ export default function DwgPreviewMap({
         </div>
       )}
       {(loading || note) && (
-        <div className="pointer-events-none absolute left-[calc(var(--map-il,0px)+0.75rem)] right-[calc(var(--map-ir,0px)+0.75rem)] top-14 z-10 flex justify-center">
+        <div className="pointer-events-none absolute left-[calc(var(--map-il,0px)+0.75rem)] right-[calc(var(--map-ir,0px)+0.75rem)] top-[calc(var(--map-it,0px)+3.5rem)] z-10 flex justify-center">
           <span className="ui-floating flex items-center gap-2 px-3 py-1.5 text-[12.5px] text-zinc-700">
             {loading && <IconSpinner width={14} height={14} className="text-blue-600" />}
             {loading ? (loadingText ?? 'Đang vẽ bản vẽ lên bản đồ…') : note}

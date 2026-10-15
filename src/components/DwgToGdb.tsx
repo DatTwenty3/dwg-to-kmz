@@ -696,8 +696,17 @@ export default function DwgToGdb() {
         : null;
 
   return (
-    <div className={`flex flex-col bg-zinc-100 ${phone ? 'min-h-dvh' : 'h-dvh'}`} {...dropHandlers}>
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-zinc-200 bg-white px-3 py-2">
+    <div className={`relative flex flex-col bg-zinc-100 ${phone ? 'min-h-dvh' : 'h-dvh'}`} {...dropHandlers}>
+      {/* Toolbar: logo + title on the left, actions on the right; wider than a phone, two cards floating over the
+          map like the map tool's buttons. */}
+      <header
+        className={
+          phone
+            ? 'flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-zinc-200 bg-white px-3 py-2'
+            : 'pointer-events-none absolute inset-x-3 top-3 z-30 flex items-start justify-between gap-3'
+        }
+      >
+        <div className={phone ? 'contents' : 'ui-floating ui-toolbar ui-drop-in pointer-events-auto flex h-[52px] min-w-0 items-center gap-2.5 py-1.5 pl-2.5 pr-3.5'}>
         <HomeLogo wordmark={false} />
         <span className="hidden h-5 w-px bg-zinc-200 sm:block" />
         <div className="min-w-0">
@@ -707,8 +716,13 @@ export default function DwgToGdb() {
             {totalReview > 0 && <span className="text-amber-700"> · {fmt(totalReview)} layer cần xem</span>}
           </p>
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-1.5">
-          <label className={`flex items-center gap-1.5 rounded-lg px-2 py-1 text-[12.5px] ring-1 ring-inset ${unit ? 'ring-zinc-200' : 'bg-amber-50 ring-amber-300'}`}>
+        </div>
+        <div className={phone ? 'ml-auto flex flex-wrap items-center gap-1.5' : 'ui-floating ui-toolbar ui-drop-in pointer-events-auto flex h-[52px] shrink-0 items-center gap-1 p-1.5'}>
+          <label
+            className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[12.5px] ${
+              unit ? (phone ? 'ring-1 ring-inset ring-zinc-200' : 'hover:bg-zinc-100') : 'bg-amber-50 ring-1 ring-inset ring-amber-300'
+            }`}
+          >
             <span className="text-zinc-400">VN-2000</span>
             <select className="max-w-[13rem] bg-transparent font-medium text-zinc-800 outline-none" value={unitKey} onChange={(e) => setUnitKey(e.target.value)} aria-label="Kinh tuyến trục">
               <option value="">Chọn tỉnh / KTT…</option>
@@ -727,7 +741,7 @@ export default function DwgToGdb() {
               <option value={6}>múi 6°</option>
             </select>
           </label>
-          <div className="relative">
+          {!phone && <span className="mx-0.5 h-6 w-px shrink-0 bg-zinc-200" aria-hidden />}          <div className="relative">
             <button className="ui-btn" onClick={() => setMenu((v) => !v)} aria-expanded={menu} title="Mẫu ghép layer: lưu để dùng lại cho đồ án sau">
               <IconSave width={15} height={15} /> <span className="hidden md:inline">Mẫu ghép</span>
               {template && <span className="text-[11px] text-zinc-400">{fmt(template.rules.length)}</span>}
@@ -1000,6 +1014,9 @@ export default function DwgToGdb() {
             onView={setEditDb}
             insetLeft={insetLeft}
             insetRight={insetRight}
+            // The floating toolbar takes the top 64 px (12 margin + 52): the map's own buttons start under it, the
+            // panels 14 px below (top 76 px).
+            insetTop={phone ? 0 : 64}
           />
         );
 
@@ -1026,7 +1043,7 @@ export default function DwgToGdb() {
 
             {/* Left: drawings */}
             {listOpen ? (
-              <aside className="ui-floating ui-pop-in absolute bottom-3 left-3 top-3 z-20 flex w-80 flex-col overflow-hidden">
+              <aside className="ui-floating ui-pop-in absolute bottom-3 left-3 top-[4.75rem] z-20 flex w-80 flex-col overflow-hidden">
                 <button
                   className="ui-icon-btn absolute right-1.5 top-1 z-10"
                   onClick={() => setListOpen(false)}
@@ -1039,7 +1056,7 @@ export default function DwgToGdb() {
               </aside>
             ) : (
               <button
-                className="ui-floating ui-pop-in absolute left-3 top-3 z-20 flex w-28 items-center justify-center gap-2 py-2 text-[12.5px] font-medium text-zinc-800 hover:bg-white"
+                className="ui-floating ui-pop-in absolute left-3 top-[4.75rem] z-20 flex w-28 items-center justify-center gap-2 py-2 text-[12.5px] font-medium text-zinc-800 hover:bg-white"
                 onClick={() => setListOpen(true)}
                 title="Mở danh sách bản vẽ"
               >
@@ -1051,7 +1068,7 @@ export default function DwgToGdb() {
             {/* Right: mapping table of the selected drawing (drag the left edge to widen). */}
             {tableOpen ? (
               <section
-                className="ui-floating ui-pop-in absolute bottom-3 right-3 top-3 z-20 flex flex-col overflow-hidden"
+                className="ui-floating ui-pop-in absolute bottom-3 right-3 top-[4.75rem] z-20 flex flex-col overflow-hidden"
                 style={{ width: tableW }}
                 aria-label="Bảng ghép layer"
               >
@@ -1074,7 +1091,7 @@ export default function DwgToGdb() {
               </section>
             ) : (
               <button
-                className="ui-floating ui-pop-in absolute right-[3.75rem] top-3 z-20 flex items-center gap-2 px-3 py-2 text-[12.5px] font-medium text-zinc-800 hover:bg-white"
+                className="ui-floating ui-pop-in absolute right-[3.75rem] top-[4.75rem] z-20 flex items-center gap-2 px-3 py-2 text-[12.5px] font-medium text-zinc-800 hover:bg-white"
                 onClick={() => setTableOpen(true)}
                 title="Mở bảng ghép layer"
               >
@@ -1084,7 +1101,7 @@ export default function DwgToGdb() {
             )}
 
             {(error || notice) && (
-              <div className="absolute top-3 z-30" style={{ left: leftInset + GAP, right: rightInset + GAP }}>
+              <div className="absolute top-[4.75rem] z-30" style={{ left: leftInset + GAP, right: rightInset + GAP }}>
                 {messageBox}
               </div>
             )}

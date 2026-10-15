@@ -72,18 +72,18 @@ export default function BrandHome() {
             <Link
               key={href}
               href={href}
-              className="ui-intro-card group flex gap-3.5 rounded-2xl border border-zinc-200/80 bg-white/75 p-4 text-left sm:flex-col sm:gap-0 sm:p-5 shadow-[0_8px_30px_rgba(14,31,59,0.06)] backdrop-blur-md transition hover:-translate-y-1 hover:border-blue-300 hover:bg-white hover:shadow-[0_18px_44px_rgba(14,31,59,0.12)]"
+              className="ui-intro-card group flex gap-3.5 rounded-3xl border border-zinc-200 bg-white/80 p-4 text-left sm:flex-col sm:gap-0 sm:p-6 shadow-[0_1px_2px_rgba(11,53,88,0.05),0_12px_32px_rgba(11,53,88,0.06)] backdrop-blur-md transition hover:-translate-y-1 hover:border-blue-300 hover:bg-white hover:shadow-[0_18px_44px_rgba(11,53,88,0.12)]"
               style={{ animationDelay: `${2.15 + k * 0.1}s` }}
             >
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-zinc-900 to-blue-700 text-white shadow-md transition group-hover:scale-105">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-zinc-900 to-blue-700 text-white shadow-md transition group-hover:scale-105">
                 <Icon width={20} height={20} />
               </span>
               <span className="min-w-0">
-                <span className="flex items-center gap-1.5 text-[15px] font-semibold text-zinc-900 sm:mt-4">
+                <span className="flex items-center gap-1.5 text-base font-bold tracking-[-0.01em] text-zinc-900 sm:mt-5">
                   {name}
                   <IconArrowRight width={15} height={15} className="text-zinc-400 transition group-hover:translate-x-1 group-hover:text-blue-600" />
                 </span>
-                <span className="mt-1 block text-[13px] leading-relaxed text-zinc-500 sm:mt-1.5">{desc}</span>
+                <span className="mt-1 block text-[13.5px] leading-relaxed text-zinc-600 sm:mt-2">{desc}</span>
               </span>
             </Link>
           ))}

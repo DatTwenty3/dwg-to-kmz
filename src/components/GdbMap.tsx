@@ -29,6 +29,7 @@ export default function GdbMap({
   insetLeft = 0,
   insetRight = 0,
   insetBottom = 0,
+  insetTop = 0,
 }: {
   /** WGS84 document of every uploaded geodatabase (layers "<gdb> · <class>" when several). */
   doc: CadDocument | null;
@@ -43,6 +44,7 @@ export default function GdbMap({
   insetLeft?: number;
   insetRight?: number;
   insetBottom?: number;
+  insetTop?: number;
 }) {
   const [basemapId, setBasemapId] = useState(DEFAULT_BASEMAP_ID);
   const [font, setFont] = useState({ family: DEFAULT_FONT_FAMILY, ready: false });
@@ -89,10 +91,11 @@ export default function GdbMap({
     : null;
 
   return (
-    <div className="relative h-full w-full bg-zinc-200" style={{ '--map-il': `${insetLeft}px`, '--map-ir': `${insetRight}px` } as React.CSSProperties}>
+    <div className="relative h-full w-full bg-zinc-200" style={{ '--map-il': `${insetLeft}px`, '--map-ir': `${insetRight}px`, '--map-it': `${insetTop}px` } as React.CSSProperties}>
       <MapView
         insetLeft={insetLeft}
         insetRight={insetRight}
+        insetTop={insetTop}
         insetBottom={insetBottom}
         basemapId={basemapId}
         onBasemapChange={setBasemapId}
@@ -108,7 +111,7 @@ export default function GdbMap({
         }}
       />
       {(loading || error || (doc && own.size === 0)) && (
-        <div className="pointer-events-none absolute left-[calc(var(--map-il,0px)+0.75rem)] right-[calc(var(--map-ir,0px)+0.75rem)] top-14 z-10 flex justify-center">
+        <div className="pointer-events-none absolute left-[calc(var(--map-il,0px)+0.75rem)] right-[calc(var(--map-ir,0px)+0.75rem)] top-[calc(var(--map-it,0px)+3.5rem)] z-10 flex justify-center">
           <span className="ui-floating flex items-center gap-2 px-3 py-1.5 text-[12.5px] text-zinc-700">
             {loading && <IconSpinner width={14} height={14} className="text-blue-600" />}
             {loading ? 'Đang vẽ geodatabase lên bản đồ…' : error ? `Không vẽ được: ${error}` : 'Geodatabase này không có đối tượng có hình học.'}

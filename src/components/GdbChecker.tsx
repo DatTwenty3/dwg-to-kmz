@@ -47,6 +47,7 @@ import { clearCheckerHandoff, peekCheckerHandoff } from './handoff';
 import GdbMap from './GdbMap';
 import GdbNormalizeDialog from './GdbNormalizeDialog';
 import { useIsPhone } from './useIsPhone';
+import MenuButton from './MenuButton';
 
 type Picked = { path: string; file: File };
 type Filter = 'all' | 'issues' | 'present';
@@ -834,9 +835,17 @@ export default function GdbChecker() {
   };
 
   return (
-    <div className={`flex flex-col bg-zinc-100 ${phone ? 'min-h-dvh' : 'h-dvh'}`} {...dropHandlers}>
-      {/* Toolbar: logo (home), one tab per geodatabase (main databases not uploaded are listed dimmed), actions. */}
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-zinc-200 bg-white px-3 py-2">
+    <div className={`relative flex flex-col bg-zinc-100 ${phone ? 'min-h-dvh' : 'h-dvh'}`} {...dropHandlers}>
+      {/* Toolbar: logo (home) + one tab per geodatabase (main databases not uploaded are listed dimmed) on the left,
+          actions on the right. Wider than a phone, both float over the map as two cards, like the map tool's buttons. */}
+      <header
+        className={
+          phone
+            ? 'flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-zinc-200 bg-white px-3 py-2'
+            : 'pointer-events-none absolute inset-x-3 top-3 z-30 flex items-start justify-between gap-3'
+        }
+      >
+        <div className={phone ? 'contents' : 'ui-floating ui-toolbar ui-drop-in pointer-events-auto flex h-[52px] min-w-0 items-center gap-2 p-1.5 pl-2.5'}>
         <HomeLogo wordmark={false} />
         <span className="hidden h-5 w-px bg-zinc-200 sm:block" />
         <nav className="ui-scroll -mx-1 flex max-w-full gap-1 overflow-x-auto px-1" aria-label="Geodatabase">
@@ -867,36 +876,49 @@ export default function GdbChecker() {
             </span>
           ))}
         </nav>
-        <div className="ml-auto flex items-center gap-1.5">
+        </div>
+        <div className={phone ? 'ml-auto flex items-center gap-1.5' : 'ui-floating ui-toolbar ui-drop-in pointer-events-auto flex h-[52px] shrink-0 items-center gap-1 p-1.5'}>
           <button
             onClick={() => setAskProvince(true)}
             disabled={busy}
             title="Tỉnh dùng để kiểm tra kinh tuyến trục (KTT) của hệ tọa độ"
-            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] ring-1 ring-inset transition ${
-              provinceCode ? 'text-zinc-700 ring-zinc-200 hover:bg-zinc-50' : 'bg-amber-50 text-amber-800 ring-amber-300 hover:bg-amber-100'
+            className={`flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-[12.5px] transition ${
+              provinceCode
+                ? phone
+                  ? 'text-zinc-700 ring-1 ring-inset ring-zinc-200 hover:bg-zinc-50'
+                  : 'text-zinc-700 hover:bg-zinc-100'
+                : 'bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-300 hover:bg-amber-100'
             }`}
           >
             <span className="text-zinc-400">Tỉnh</span>
             <b className="font-medium">{provinceCode ? PROVINCE_CODES[provinceCode] : 'chưa chọn'}</b>
             <IconChevron width={12} height={12} className="rotate-90 text-zinc-400" />
           </button>
+          {!phone && <span className="mx-0.5 h-6 w-px shrink-0 bg-zinc-200" aria-hidden />}
           {busy ? (
             <span className="text-[12px] text-zinc-500">{progress?.name ? `Đang kiểm tra ${progress.name}…` : 'Đang đọc…'}</span>
           ) : (
             <>
-              <button className="ui-btn" onClick={() => folderRef.current?.click()} title="Mở thư mục khác (hoặc kéo thả vào cửa sổ)">
-                <IconFolderOpen width={15} height={15} /> <span className="hidden md:inline">Mở thư mục</span>
-              </button>
-              <button className="ui-btn" onClick={() => zipRef.current?.click()} title="Mở file .zip">
-                .zip
-              </button>
-              <button className="ui-btn" onClick={download} title="Tải báo cáo CSV (mở bằng Excel)">
-                CSV
-              </button>
-              <button className="ui-btn" onClick={downloadPdf} disabled={pdfBusy} title="Tải báo cáo PDF">
-                {pdfBusy ? <IconSpinner width={15} height={15} /> : <IconDownload width={15} height={15} />}
-                <span className="hidden md:inline">{pdfBusy ? 'Đang tạo PDF…' : 'PDF'}</span>
-              </button>
+              <MenuButton
+                label="Mở"
+                icon={<IconFolderOpen width={15} height={15} />}
+                title="Mở dữ liệu khác (hoặc kéo thả vào cửa sổ)"
+                items={[
+                  { label: 'Thư mục…', hint: 'HoSoGIS hoặc thư mục .gdb', icon: <IconFolderOpen width={15} height={15} />, onSelect: () => folderRef.current?.click() },
+                  { label: 'File .zip…', hint: 'Các gdb đã nén (dùng trên iPhone/iPad)', onSelect: () => zipRef.current?.click() },
+                ]}
+              />
+              <MenuButton
+                label={pdfBusy ? 'Đang tạo PDF…' : 'Báo cáo'}
+                icon={pdfBusy ? <IconSpinner width={15} height={15} /> : <IconDownload width={15} height={15} />}
+                title="Tải báo cáo kết quả kiểm tra"
+                disabled={pdfBusy}
+                items={[
+                  { label: 'Báo cáo PDF', hint: 'Kết luận, bảng tổng hợp và danh sách lỗi', onSelect: downloadPdf },
+                  { label: 'Bảng CSV', hint: 'Mở bằng Excel', onSelect: download },
+                ]}
+              />
+              {!phone && <span className="mx-0.5 h-6 w-px shrink-0 bg-zinc-200" aria-hidden />}
               <button
                 className="ui-btn-primary"
                 onClick={() => setNormalizeOpen(true)}
@@ -1084,8 +1106,9 @@ export default function GdbChecker() {
 
         // ---------- Wider screens: the map fills the page, the panels float over it ----------
         // A symmetric frame: tree and issue list full height on both sides, the attribute table between them at
-        // the bottom; the map's own buttons sit above the table.
+        // the bottom; the map's own buttons sit above the table. The floating toolbar takes the top 64 px.
         const GAP = 12;
+        const TOOLBAR_H = 64; // 12 px margin + 52 px toolbar: the panels start 14 px below it (top 76 px)
         // Collapsed, the tree is a fixed-width button in the corner: the object card opens right of it.
         const leftInset = treeOpen ? 320 + GAP : 160 + GAP;
         const rightInset = issuesOpen ? mapW + GAP : 0;
@@ -1103,12 +1126,13 @@ export default function GdbChecker() {
                 insetLeft={leftInset}
                 insetRight={rightInset}
                 insetBottom={tableShown ? bottomH + GAP : 0}
+                insetTop={TOOLBAR_H}
               />
             </div>
 
             {/* Left: dataset / class tree */}
             {treeOpen ? (
-              <aside className="ui-floating ui-pop-in absolute bottom-3 left-3 top-3 z-20 flex w-80 flex-col overflow-hidden">
+              <aside className="ui-floating ui-pop-in absolute bottom-3 left-3 top-[4.75rem] z-20 flex w-80 flex-col overflow-hidden">
                 <div className="flex items-center gap-2 border-b border-zinc-100 py-1.5 pl-3 pr-1.5">
                   <IconLayers width={15} height={15} className="text-blue-600" />
                   <span className="flex-1 text-[13px] font-semibold text-zinc-900">Lớp dữ liệu</span>
@@ -1120,7 +1144,7 @@ export default function GdbChecker() {
               </aside>
             ) : (
               <button
-                className="ui-floating ui-pop-in absolute left-3 top-3 z-20 flex w-40 items-center justify-center gap-2 py-2 text-[12.5px] font-medium text-zinc-800 hover:bg-white"
+                className="ui-floating ui-pop-in absolute left-3 top-[4.75rem] z-20 flex w-40 items-center justify-center gap-2 py-2 text-[12.5px] font-medium text-zinc-800 hover:bg-white"
                 onClick={() => setTreeOpen(true)}
                 title="Mở cây lớp dữ liệu"
               >
@@ -1132,7 +1156,7 @@ export default function GdbChecker() {
             {/* Right: summary + the numbered issues of what is selected (drag the left edge to widen). */}
             {issuesOpen ? (
               <section
-                className="ui-floating ui-pop-in absolute bottom-3 right-3 top-3 z-20 flex flex-col overflow-hidden"
+                className="ui-floating ui-pop-in absolute bottom-3 right-3 top-[4.75rem] z-20 flex flex-col overflow-hidden"
                 style={{ width: mapW }}
                 aria-label="Lỗi và cảnh báo"
               >
@@ -1155,7 +1179,7 @@ export default function GdbChecker() {
               </section>
             ) : (
               <button
-                className="ui-floating ui-pop-in absolute right-[3.75rem] top-3 z-20 flex items-center gap-1.5 px-2 py-1.5 hover:bg-white"
+                className="ui-floating ui-pop-in absolute right-[3.75rem] top-[4.75rem] z-20 flex items-center gap-1.5 px-2 py-1.5 hover:bg-white"
                 onClick={() => setIssuesOpen(true)}
                 title="Mở danh sách lỗi và cảnh báo"
               >
@@ -1203,7 +1227,7 @@ export default function GdbChecker() {
             )}
 
             {error && (
-              <div className="absolute top-3 z-30" style={{ left: leftInset + GAP, right: rightInset + GAP }}>
+              <div className="absolute top-[4.75rem] z-30" style={{ left: leftInset + GAP, right: rightInset + GAP }}>
                 {errorBox}
               </div>
             )}

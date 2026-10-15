@@ -705,16 +705,5 @@ input[type="color"].ui-color::-moz-color-swatch { border: 0; border-radius: 999p
   .ui-intro-letter, .ui-intro-card { animation-name: ui-fade !important; }
 }
 
-/* 2D / 3D switch in MapLibre's control column (MapView ThreeDControl). */
-.maplibregl-ctrl-group button.ui-3d-btn {
-  font: 700 11px/1 var(--font-ui), system-ui, sans-serif;
-  letter-spacing: 0.02em;
-  color: #0e1f3b;
-}
-.maplibregl-ctrl-group button.ui-3d-btn[aria-pressed="true"] {
-  background: #0e1f3b;
-  color: #fff;
-}
-
 /* MapView `insetRight`: MapLibre's control column moves clear of floating panels on the right. */
 .ui-map .maplibregl-ctrl-bottom-right { right: var(--map-ir, 0px); bottom: var(--map-ib, 0px); transition: right 0.3s ease-out, bottom 0.3s ease-out; }

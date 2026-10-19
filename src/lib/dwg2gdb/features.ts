@@ -4,8 +4,9 @@
 // non-numeric text inside it (labels like "TRƯỜNG TIỂU HỌC LONG HIỆP").
 import type { CadDocument, CadEntity, Vec2 } from '@/lib/cad/types';
 import { foldVietnamese } from '@/lib/geo/provinces';
-import { bboxOf, chainRings, cleanRing, interiorPoint, isClosedLine, lineMidpoint, PointGrid, pointInRing, ringsToPolygons } from './geometry';
-import { KIND_OF, rowKey } from './inventory';
+import { chainRings, cleanRing, interiorPoint, isClosedLine, labelIn, labelIndex, lineMidpoint, ringsToPolygons } from './geometry';
+import { entityRowKey } from './inventory';
+import type { ColorContext } from './colorClass';
 import { parseTarget, type TargetPath } from './suggest';
 import { targetOption, type MappingEntry } from './template';
 
@@ -52,6 +53,8 @@ export interface CategoryStyle {
 
 export interface DrawingInput {
   id: string;
+  /** Colour classification of the hatches (colourClass.ts): same context as when the mapping rows were made. */
+  color?: ColorContext;
   /** File name, for ghiChu. */
   name: string;
   doc: CadDocument;
@@ -74,32 +77,9 @@ export interface BuildResult {
   notes: string[];
 }
 
-const NUMERIC = /^[+\-±]?\d{1,4}([.,]\d{1,3})?$/;
 const r3 = (v: number) => Math.round(v * 1000) / 1000;
 const pt = (p: Vec2) => [r3(p[0]), r3(p[1])];
 const closeRing = (ring: Vec2[]) => [...ring.map(pt), pt(ring[0])];
-
-/** Label texts of a drawing (inside the area, not numbers), indexed for point-in-polygon lookups. */
-function labelIndex(d: DrawingInput) {
-  const grid = new PointGrid<{ text: string; height: number }>(200);
-  d.doc.entities.forEach((e, i) => {
-    if (e.kind !== 'text' || !d.inside[i]) return;
-    const text = e.text.replace(/\s+/g, ' ').trim();
-    if (text.length < 2 || NUMERIC.test(text) || !/\p{L}/u.test(text)) return;
-    grid.add(e.position, { text: text.slice(0, 100), height: e.height });
-  });
-  return grid;
-}
-
-function labelIn(grid: PointGrid<{ text: string; height: number }>, poly: Vec2[][]): string | null {
-  const [outer, ...holes] = poly;
-  let best: { text: string; height: number } | null = null;
-  for (const { p, v } of grid.query(bboxOf(outer))) {
-    if (!pointInRing(p, outer) || holes.some((h) => pointInRing(p, h))) continue;
-    if (!best || v.height > best.height || (v.height === best.height && v.text.length > best.text.length)) best = v;
-  }
-  return best?.text ?? null;
-}
 
 /**
  * Duplicate key: same geometry kind, vertex count and rounded extent (the same object drawn on two maps). Points
@@ -179,6 +159,8 @@ export function adminName(raw: string): { name: string; kind: string } | null {
   return null;
 }
 
+export { labelIn, labelIndex };
+
 export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, MappingEntry>, o: BuildOptions): BuildResult {
   const byTarget = new Map<TargetPath, Omit<ClassData, 'styles'> & { seen: Map<string, GisFeature>; tally: Map<string, Tally> }>();
   const notes: string[] = [];
@@ -215,9 +197,9 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
     const pieces = new Map<string, { c: ReturnType<typeof classOf>; base: { phanLoai: string | null; ghiChu: string | null }; lines: Vec2[][]; index: number[] }>();
     d.doc.entities.forEach((e, i) => {
       if (!d.inside[i]) return;
-      const kind = KIND_OF[e.kind];
-      if (!kind) return;
-      const m = mapping.get(rowKey(d.id, e.layer, kind));
+      const key = entityRowKey(d.id, e, d.color);
+      if (!key) return;
+      const m = mapping.get(key);
       if (!m?.target || !targetOption(m.target)) return;
       const c = classOf(m.target);
       const base = { phanLoai: m.phanLoai.trim().slice(0, 250) || null, ghiChu: o.sourceInGhiChu ? `Nguồn: ${d.name} · ${e.layer}`.slice(0, 250) : null };

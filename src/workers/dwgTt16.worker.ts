@@ -6,8 +6,10 @@ import { tt16Wkt } from '@/lib/gdb/tt16Schema';
 import { parseDwg, parseDxf } from '@/lib/cad';
 import type { CadDocument, CadEntity, CrsOptions, Vec2 } from '@/lib/cad/types';
 import {
+  analysisRows,
   analyzeDrawings,
   BOUNDARY_LAYER,
+  colorContexts,
   previewHandle,
   buildFeatures,
   outputDatabases,
@@ -46,6 +48,8 @@ declare const self: DedicatedWorkerGlobalScope;
 export type DwgTt16Request =
   | { type: 'load'; files: { path: string; file: File }[] }
   | { type: 'preview'; drawingId: string; crs: CrsOptions; layers: string[] | null }
+  /** Read the hatch colours against another Mục of Phụ lục I (null: colours off): the rows are made again. */
+  | { type: 'section'; section: number | null }
   /** What one geodatabase will get with this mapping ("Biên tập"), in WGS84. */
   | { type: 'output'; db: string; drawings: string[]; mapping: [string, MappingEntry][]; crs: CrsOptions; projectTitle: string | null }
   | {
@@ -79,6 +83,9 @@ export type DwgTt16Response =
       type: 'loaded';
       drawings: DrawingInfo[];
       rows: LayerRow[];
+      /** Mục of Phụ lục I the hatch colours are read against, and why. */
+      section: number | null;
+      sectionWhy: string;
       boundary: Vec2[] | null;
       boundaryArea: number;
       unused: FolderFile[];
@@ -94,6 +101,7 @@ export type DwgTt16Response =
       ms: number;
     }
   | { type: 'preview'; drawingId: string; doc: CadDocument; truncated: boolean }
+  | { type: 'rows'; rows: LayerRow[]; section: number | null; sectionWhy: string }
   | { type: 'output'; db: string; doc: CadDocument; refs: SourceRef[][][]; dbs: { db: string; count: number }[] }
   | {
       type: 'done';
@@ -155,6 +163,8 @@ async function load(files: { path: string; file: File }[]) {
     type: 'loaded',
     drawings: analysis.drawings,
     rows: analysis.rows,
+    section: analysis.section,
+    sectionWhy: analysis.sectionWhy,
     boundary: b?.ring ?? null,
     boundaryArea: b?.area ?? 0,
     unused: folder.unused,
@@ -194,6 +204,15 @@ function preview(drawingId: string, crs: CrsOptions, layers: string[] | null) {
   post({ type: 'preview', drawingId, doc: transformDocument(doc, crs), truncated: !!keep });
 }
 
+/** Another Mục: the rows split by colour group are made again, what was built for the edit view is dropped. */
+function changeSection(section: number | null) {
+  if (!analysis) throw new Error('Chưa đọc thư mục bản vẽ.');
+  analysis = { ...analysis, section, sectionWhy: section === null ? 'Không dùng màu' : 'Bạn đã chọn' };
+  analysis.rows = analysisRows(parsed, analysis);
+  outputCache = null;
+  post({ type: 'rows', rows: analysis.rows, section, sectionWhy: analysis.sectionWhy });
+}
+
 /** Last features built for the edit view, reused while only the geodatabase shown changes. */
 let outputCache: { key: string; classes: ClassData[] } | null = null;
 
@@ -202,9 +221,10 @@ function output(req: Extract<DwgTt16Request, { type: 'output' }>) {
   const key = JSON.stringify([req.drawings, req.mapping, req.projectTitle]);
   if (outputCache?.key !== key) {
     const ids = new Set(req.drawings);
+    const colors = colorContexts(analysis);
     // Every object inside the boundary, the removed ones too: the page draws those as ghosts (featureKept).
     const built = buildFeatures(
-      parsed.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: analysis!.inside.get(p.id)! })),
+      parsed.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: analysis!.inside.get(p.id)!, color: colors.get(p.id) })),
       new Map(req.mapping),
       { boundary: analysis.boundary?.ring ?? null, sourceInGhiChu: false, planUnit: planUnitFromTitle(req.projectTitle) },
     );
@@ -219,6 +239,7 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
   if (!analysis) throw new Error('Chưa đọc thư mục bản vẽ.');
   post({ type: 'progress', stage: 'Bóc tách đối tượng', done: 0, total: 1 });
   const ids = new Set(req.drawings);
+  const colors = colorContexts(analysis);
   /** Inside-the-boundary flags without the objects removed on the map. */
   const insideOf = (id: string) => {
     const flags = analysis!.inside.get(id)!;
@@ -229,7 +250,7 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
     return copy;
   };
   const built = buildFeatures(
-    parsed.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: insideOf(p.id) })),
+    parsed.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: insideOf(p.id), color: colors.get(p.id) })),
     new Map(req.mapping),
     { boundary: analysis.boundary?.ring ?? null, sourceInGhiChu: req.sourceInGhiChu, planUnit: planUnitFromTitle(req.projectTitle) },
   );
@@ -242,7 +263,7 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
     const doc = summaryDocument(
       parsed
         .filter((p) => ids.has(p.id))
-        .map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: insideOf(p.id), role: req.roles[p.id] ?? 'other' })),
+        .map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: insideOf(p.id), color: colors.get(p.id), role: req.roles[p.id] ?? 'other' })),
       new Map(req.mapping),
       { boundary: analysis.boundary?.ring ?? null, texts: true },
     );
@@ -340,6 +361,12 @@ self.onmessage = (ev: MessageEvent<DwgTt16Request>) => {
   else if (m.type === 'preview') {
     try {
       preview(m.drawingId, m.crs, m.layers);
+    } catch (e) {
+      fail('preview')(e);
+    }
+  } else if (m.type === 'section') {
+    try {
+      changeSection(m.section);
     } catch (e) {
       fail('preview')(e);
     }

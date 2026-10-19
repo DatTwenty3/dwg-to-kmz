@@ -5,12 +5,16 @@
 //   4. buildFeatures (features.ts) → planStage1 (plan.ts) → GDAL → "Chuẩn hóa TT16" (gdb/normalize.ts).
 // Pure functions (no DOM): the worker src/workers/dwgTt16.worker.ts runs them, tests run them in Node.
 import type { CadDocument, Vec2, XrefInsert } from '@/lib/cad/types';
+import { colorRole, colorSuggestion, type ColorContext } from './colorClass';
 import { drawingTexts, findBoundary, insideFlags, layerRows, pickBoundary, type BoundaryCandidate, type LayerRow } from './inventory';
 import { guessRole, roleById, type RoleId } from './roles';
-import { compactName, suggest } from './suggest';
+import { pickSection } from './section';
+import { compactName, sameLandUse, suggest, type GeomKind } from './suggest';
 import { templateLookup, type MappingEntry, type MappingTemplate, type TemplateRule } from './template';
 import { placeXref, resolveXref, xrefNameRole, xrefOwners, type FolderFile, type MainDrawing } from './xrefs';
 
+export * from './color';
+export * from './colorClass';
 export * from './features';
 export * from './inventory';
 export * from './output';
@@ -18,10 +22,12 @@ export * from './place';
 export * from './plan';
 export * from './qgis';
 export * from './roles';
+export * from './section';
 export * from './summary';
 export * from './suggest';
 export * from './sweep';
 export * from './template';
+export * from './tt16Symbols';
 export * from './xrefs';
 
 export interface ParsedDrawing {
@@ -156,12 +162,29 @@ export interface Analysis {
   boundary: BoundaryCandidate | null;
   /** Drawing id → inside flags (aligned with doc.entities). */
   inside: Map<string, Uint8Array>;
+  /** Mục of Phụ lục I the hatch colours are read against (null: colour classification off). */
+  section: number | null;
+  /** Why that Mục ("Tiêu đề: quy hoạch chung xã", "Bầu chọn: …", "Bạn đã chọn"). */
+  sectionWhy: string;
 }
 
-export function analyzeDrawings(parsed: ParsedDrawing[]): Analysis {
+/** Colour context of every drawing: its map kind at analysis time + the Mục in use. */
+export function colorContexts(a: Pick<Analysis, 'drawings' | 'section'>): Map<string, ColorContext> {
+  return new Map(a.drawings.map((d) => [d.id, { section: a.section, role: d.role }]));
+}
+
+/** Mapping rows of every drawing for one Mục (the rows split by colour group depend on it). */
+export function analysisRows(parsed: ParsedDrawing[], a: Pick<Analysis, 'drawings' | 'inside' | 'section'>): LayerRow[] {
+  const ctx = colorContexts(a);
+  return parsed.flatMap((p) => layerRows(p.id, p.doc, a.inside.get(p.id)!, ctx.get(p.id)));
+}
+
+/**
+ * `section` undefined = choose it (title of the drawings, else the hatch colours); a number or null = the user's choice.
+ */
+export function analyzeDrawings(parsed: ParsedDrawing[], section?: number | null): Analysis {
   const boundary = pickBoundary(parsed.map((p) => findBoundary(p.doc)));
   const drawings: DrawingInfo[] = [];
-  const rows: LayerRow[] = [];
   const inside = new Map<string, Uint8Array>();
   for (const p of parsed) {
     const g = p.owner ? { role: p.owner.role, title: null, year: null } : guessRole(p.name, drawingTexts(p.doc));
@@ -169,7 +192,6 @@ export function analyzeDrawings(parsed: ParsedDrawing[]): Analysis {
     inside.set(p.id, flags);
     let n = 0;
     for (const f of flags) n += f;
-    rows.push(...layerRows(p.id, p.doc, flags));
     const role = roleById(g.role);
     drawings.push({
       id: p.id,
@@ -203,7 +225,27 @@ export function analyzeDrawings(parsed: ParsedDrawing[]): Analysis {
       d.note = `${o.name} không được dùng`;
     }
   }
-  return { drawings, rows, boundary, inside };
+
+  // Mục of Phụ lục I: the user's choice, else the title blocks, else the vote of the hatch colours of the land-use maps.
+  let chosen: { section: number | null; why: string };
+  if (section !== undefined) chosen = { section, why: section === null ? 'Không dùng màu' : 'Bạn đã chọn' };
+  else {
+    const titles = parsed.filter((p) => !p.owner).flatMap((p) => drawingTexts(p.doc));
+    const roleOf = new Map(drawings.map((d) => [d.id, d.role]));
+    const counts = new Map<string, number>();
+    for (const p of parsed) {
+      if (!colorRole(roleOf.get(p.id)!)) continue;
+      const flags = inside.get(p.id)!;
+      p.doc.entities.forEach((e, i) => {
+        if (e.kind !== 'polygon' || !flags[i]) return;
+        const hex = e.color.toLowerCase();
+        counts.set(hex, (counts.get(hex) ?? 0) + 1);
+      });
+    }
+    chosen = pickSection(titles, counts);
+  }
+  const base = { drawings, inside, section: chosen.section };
+  return { drawings, rows: analysisRows(parsed, base), boundary, inside, section: chosen.section, sectionWhy: chosen.why };
 }
 
 export interface MappingState extends MappingEntry {
@@ -212,34 +254,83 @@ export interface MappingState extends MappingEntry {
   reason: string;
   /** Left unmapped because no rule applied (needs the user's eye). */
   unknown?: boolean;
+  /** A class is chosen but the colour and the layer name disagree: worth a look. */
+  review?: boolean;
+}
+
+/** Layers that have hatch rows in a drawing ("DrawingId|layer"), cached per rows array. */
+const polygonLayerCache = new WeakMap<readonly LayerRow[], Set<string>>();
+function polygonLayers(rows: readonly LayerRow[]): Set<string> {
+  let set = polygonLayerCache.get(rows);
+  if (!set) {
+    set = new Set(rows.filter((r) => r.kind === 'A' && r.count > 0).map((r) => `${r.drawing}\u0001${r.layer}`));
+    polygonLayerCache.set(rows, set);
+  }
+  return set;
 }
 
 /** Facts the suggestions need about a row (closed share, hatches on the same layer, numeric texts). */
-function factsOf(row: LayerRow, rows: Map<string, LayerRow>) {
-  const a = rows.get(`${row.drawing}\u0001${row.layer}\u0001A`);
+function factsOf(row: LayerRow, rows: readonly LayerRow[]) {
   return {
     closedShare: row.kind === 'L' && row.count ? row.closed / row.count : 0,
-    layerHasPolygons: !!a && a.count > 0,
+    layerHasPolygons: polygonLayers(rows).has(`${row.drawing}\u0001${row.layer}`),
     numericShare: row.numericShare,
   };
 }
 
-export function suggestRow(row: LayerRow, role: RoleId, rowsByKey: Map<string, LayerRow>): MappingState {
-  const s = suggest(role, row.layer, row.kind, factsOf(row, rowsByKey));
-  return { target: s.target, phanLoai: s.phanLoai, source: 'auto', reason: s.reason, unknown: s.unknown };
+const LAND_USE_CLASS = /\/ChucNangSuDungDat_A$/;
+
+/**
+ * Suggestion of a row: the layer name, and for a hatch colour group the colour of Phụ lục I (exact / near colours
+ * are adopted, shared or in-between colours need a choice). Colour and name disagreeing is flagged for review —
+ * unless both land uses end in the same ChucNangSuDungDatM1 value (giáo dục / công cộng): then the layer's more
+ * specific label stays.
+ */
+export function suggestRow(row: LayerRow, role: RoleId, rows: readonly LayerRow[]): MappingState {
+  const s = suggest(role, row.layer, row.kind, factsOf(row, rows));
+  const byName: MappingState = { target: s.target, phanLoai: s.phanLoai, source: 'auto', reason: s.reason, unknown: s.unknown };
+  const info = row.colorKey ? (row.colorMatch ?? null) : null;
+  const c = colorSuggestion(info, role);
+  if (!c || !info) return byName;
+  const nameLand = !!s.target && LAND_USE_CLASS.test(s.target);
+  // A decisive name rule (a building class, a deliberately dropped layer) is not overridden by a colour.
+  if ((s.target && !nameLand) || (!s.target && !s.unknown)) return byName;
+  const colour: MappingState = { target: c.target, phanLoai: c.phanLoai, source: 'auto', reason: c.reason, unknown: c.unknown };
+  if (info.level === 'ambiguous') {
+    const candidates = [info.landUse, info.alt?.landUse].filter((x): x is string => !!x);
+    // The layer name settles a colour two land uses share.
+    if (nameLand && candidates.some((u) => sameLandUse(u, s.phanLoai))) return { ...byName, reason: `${c.reason}; theo tên layer: ${s.phanLoai}` };
+    return colour;
+  }
+  if (!nameLand) return colour;
+  if (s.phanLoai === c.phanLoai) return colour;
+  if (sameLandUse(s.phanLoai, c.phanLoai)) return { ...byName, reason: `${c.reason}; giữ theo tên layer: ${s.phanLoai}` };
+  return { ...colour, review: true, reason: `${c.reason} (tên layer gợi ý "${s.phanLoai}")` };
+}
+
+/**
+ * Mapping of one row: a saved template rule first (for a colour group only a rule saved for that colour, or a
+ * colourless layer rule when the colour decides nothing), else the suggestion.
+ */
+export function resolveRow(row: LayerRow, role: RoleId, lookup: ReturnType<typeof templateLookup>, rows: readonly LayerRow[]): MappingState {
+  const fromTemplate = (t: MappingEntry): MappingState => ({ ...t, source: 'template', reason: 'Theo mẫu ghép đã lưu' });
+  if (!roleById(role).db) return suggestRow(row, role, rows);
+  const exact = lookup(role, row.layer, row.kind as GeomKind, row.colorKey ? row.color : undefined);
+  if (exact) return fromTemplate(exact);
+  const s = suggestRow(row, role, rows);
+  if (row.colorKey && s.unknown) {
+    const legacy = lookup(role, row.layer, row.kind as GeomKind);
+    if (legacy) return fromTemplate(legacy);
+  }
+  return s;
 }
 
 /** Mapping of every row: template first, else the built-in suggestion. */
 export function initialMapping(a: Pick<Analysis, 'drawings' | 'rows'>, template: MappingTemplate | null): Map<string, MappingState> {
   const lookup = templateLookup(template);
   const roleOf = new Map(a.drawings.map((d) => [d.id, d.role]));
-  const byKey = new Map(a.rows.map((r) => [r.key, r]));
   const out = new Map<string, MappingState>();
-  for (const r of a.rows) {
-    const role = roleOf.get(r.drawing) ?? 'other';
-    const t = roleById(role).db ? lookup(role, r.layer, r.kind) : null;
-    out.set(r.key, t ? { ...t, source: 'template', reason: 'Theo mẫu ghép đã lưu' } : suggestRow(r, role, byKey));
-  }
+  for (const r of a.rows) out.set(r.key, resolveRow(r, roleOf.get(r.drawing) ?? 'other', lookup, a.rows));
   return out;
 }
 
@@ -260,7 +351,7 @@ export function templateDecisions(drawings: Pick<DrawingInfo, 'id' | 'role'>[], 
     const m = mapping.get(r.key);
     if (!role || !roleById(role).db || !m || r.count === 0) continue;
     if (!m.target && m.source === 'auto') continue;
-    out.push({ role, layer: compactName(r.layer), kind: r.kind, target: m.target, phanLoai: m.phanLoai });
+    out.push({ role, layer: compactName(r.layer), kind: r.kind, ...(r.colorKey ? { color: r.color.toLowerCase() } : {}), target: m.target, phanLoai: m.phanLoai });
   }
   return out;
 }

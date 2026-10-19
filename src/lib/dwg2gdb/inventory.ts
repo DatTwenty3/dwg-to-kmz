@@ -2,8 +2,9 @@
 // lie inside it (legend swatches, title blocks, cross-sections and frames lie outside and are left out), and one
 // row per layer × geometry kind with its counts — the rows of the mapping table.
 import type { CadDocument, CadEntity, Vec2 } from '@/lib/cad/types';
-import { bboxOf, chainRings, interiorPoint, isClosedLine, ringArea } from './geometry';
-import { compactName, type GeomKind } from './suggest';
+import { colorKey, describeColorKey, keyColor, type ColorContext, type ColorInfo } from './colorClass';
+import { bboxOf, chainRings, interiorPoint, isClosedLine, labelIn, labelIndex, ringArea } from './geometry';
+import { compactName, landUseOf, sameLandUse, type GeomKind } from './suggest';
 
 /** Layer names of the planning boundary ("BV_Rg_Lapquyhoach", "Ranh giới lập quy hoạch", "RANH QH"…). */
 export const PLAN_BOUNDARY_LAYER = /rglap|ranh\w*lap|lapquyhoach|ranhquyhoach|ranhqh\b|rgqh|ranhnghiencuu|phamvinghiencuu|ranhgioilapqh/;
@@ -153,7 +154,21 @@ export function insideFlags(doc: CadDocument, boundary: Vec2[] | null): Uint8Arr
 
 export const KIND_OF: Record<CadEntity['kind'], GeomKind | null> = { polygon: 'A', polyline: 'L', point: 'P', text: 'T', table: null };
 
-export const rowKey = (drawing: string, layer: string, kind: GeomKind) => `${drawing}\u0001${layer}\u0001${kind}`;
+/**
+ * Key of a mapping row: drawing × layer × geometry kind, plus the colour group (colorClass.ts colorKey) of a hatch
+ * the colours of Phụ lục I tell apart. An empty colour keeps the plain three-part key (templates, tests).
+ */
+export const rowKey = (drawing: string, layer: string, kind: GeomKind, color = '') =>
+  `${drawing}\u0001${layer}\u0001${kind}${color ? `\u0001${color}` : ''}`;
+
+/**
+ * The row an entity belongs to — the ONE place that decides it, shared by the mapping table, buildFeatures,
+ * summaryDocument and the edit view so they never disagree. Null for entities no row covers (tables).
+ */
+export function entityRowKey(drawing: string, e: CadEntity, ctx?: ColorContext): string | null {
+  const kind = KIND_OF[e.kind];
+  return kind ? rowKey(drawing, e.layer, kind, ctx ? colorKey(e, ctx) : '') : null;
+}
 
 export interface LayerRow {
   key: string;
@@ -175,26 +190,43 @@ export interface LayerRow {
   /** T rows: a few distinct texts. */
   samples: string[];
   color: string;
+  /** A rows of a land-use map the colours of Phụ lục I tell apart: the colour group ('c<rrggbb>'), else ''. */
+  colorKey: string;
+  /** What that colour stands for (Số N, land use, confidence) — set when colorKey is. */
+  colorMatch?: ColorInfo;
+  /** Hatches of the group whose label text names another land use than the colour ("KHU THƯƠNG MẠI…" on số 34). */
+  labelConflicts?: number;
 }
 
 const NUMERIC = /^[+\-±]?\d{1,4}([.,]\d{1,3})?$/;
 
-export function layerRows(drawing: string, doc: CadDocument, flags: Uint8Array): LayerRow[] {
+export function layerRows(drawing: string, doc: CadDocument, flags: Uint8Array, ctx?: ColorContext): LayerRow[] {
   const rows = new Map<string, LayerRow & { numeric: number }>();
+  let labels: ReturnType<typeof labelIndex> | null = null;
   const colorOf = new Map(doc.layers.map((l) => [l.name, l.color]));
   const open = new Map<string, Vec2[][]>();
   doc.entities.forEach((e, i) => {
     const kind = KIND_OF[e.kind];
     if (!kind) return;
-    const key = rowKey(drawing, e.layer, kind);
+    const group = ctx ? colorKey(e, ctx) : '';
+    const key = rowKey(drawing, e.layer, kind, group);
     let r = rows.get(key);
     if (!r) {
-      r = { key, drawing, layer: e.layer, kind, count: 0, total: 0, closed: 0, chained: 0, openLeft: 0, numericShare: 0, samples: [], color: colorOf.get(e.layer) ?? e.color, numeric: 0 };
+      const info = group ? describeColorKey(group, ctx!.section) : null;
+      r = {
+        key, drawing, layer: e.layer, kind, count: 0, total: 0, closed: 0, chained: 0, openLeft: 0, numericShare: 0, samples: [],
+        color: (group && keyColor(group)) || (colorOf.get(e.layer) ?? e.color), colorKey: group, colorMatch: info ?? undefined, numeric: 0,
+      };
       rows.set(key, r);
     }
     r.total++;
     if (!flags[i]) return;
     r.count++;
+    if (e.kind === 'polygon' && r.colorMatch && (r.colorMatch.level === 'exact' || r.colorMatch.level === 'near')) {
+      const text = (labels ??= labelIndex({ doc, inside: flags })) && labelIn(labels, e.rings);
+      const use = text ? landUseOf(compactName(text)) : null;
+      if (use && !sameLandUse(use, r.colorMatch.landUse)) r.labelConflicts = (r.labelConflicts ?? 0) + 1;
+    }
     if (e.kind === 'polyline') {
       if (isClosedLine(e.points, e.closed)) r.closed++;
       else {

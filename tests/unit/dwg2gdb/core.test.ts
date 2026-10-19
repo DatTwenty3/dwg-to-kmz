@@ -7,6 +7,7 @@ import type { CadDocument, CadEntity, Vec2 } from '@/lib/cad/types';
 import {
   analyzeDrawings,
   buildFeatures,
+  colorContexts,
   emptyTemplate,
   findBoundary,
   guessRole,
@@ -59,7 +60,7 @@ const doc = (entities: CadEntity[]): CadDocument => ({
   ],
   warnings: [],
 });
-const poly = (layer: string, ring: Vec2[]): CadEntity => ({ kind: 'polygon', layer, color: '#00ff00', rings: [ring], fillOpacity: 0.5 });
+const poly = (layer: string, ring: Vec2[], color = '#00ff00'): CadEntity => ({ kind: 'polygon', layer, color, rings: [ring], fillOpacity: 0.5 });
 const line = (layer: string, points: Vec2[], closed = false): CadEntity => ({ kind: 'polyline', layer, color: '#ff0000', points, closed });
 const text = (layer: string, t: string, at: Vec2, height = 5): CadEntity => ({
   kind: 'text',
@@ -76,13 +77,13 @@ const text = (layer: string, t: string, at: Vec2, height = 5): CadEntity => ({
 /** A land use map: boundary 4 × 4 km, two parcels with a label, a legend swatch outside the boundary. */
 const sdd = doc([
   line('BV_Rg_Lapquyhoach', sq(X0, Y0, 4000), true),
-  poly('DAT_XD_Khudancu', sq(X0 + 100, Y0 + 100, 200)),
+  poly('DAT_XD_Khudancu', sq(X0 + 100, Y0 + 100, 200), '#7f7f3f'), // số 57 = đất ở
   poly('DAT_NN_Tronglua', sq(X0 + 1000, Y0 + 1000, 500)),
   text('G-CHU', 'TRƯỜNG TIỂU HỌC LONG HIỆP', [X0 + 200, Y0 + 200], 8),
   text('G-CHU', 'nhỏ', [X0 + 150, Y0 + 150], 2),
   text('TEXT', 'BẢN ĐỒ QUY HOẠCH SỬ DỤNG ĐẤT ĐẾN NĂM 2050', [X0 + 6000, Y0], 30),
   text('TEXT', 'XÃ LONG HIỆP, TỈNH VĨNH LONG', [X0 + 6000, Y0 + 100], 20),
-  poly('DAT_XD_Khudancu', sq(X0 + 6000, Y0 + 500, 10)), // legend, outside
+  poly('DAT_XD_Khudancu', sq(X0 + 6000, Y0 + 500, 10), '#7f7f3f'), // legend, outside
   line('long duong', [
     [X0 + 50, Y0 + 2000],
     [X0 + 3900, Y0 + 2000],
@@ -159,8 +160,10 @@ describe('boundary, inventory and features', () => {
     const a = analyzeDrawings(parsed);
     expect(a.drawings[0]).toMatchObject({ role: 'qh-sdd', year: 2050, included: true });
     const m = initialMapping(a, null);
-    expect(m.get(rowKey('d1', 'DAT_XD_Khudancu', 'A'))).toMatchObject({ target: 'QuyHoach/QuyHoachSuDungDat/ChucNangSuDungDat_A', source: 'auto' });
-    const built = buildFeatures([{ id: 'd1', name: 'QH06.dwg', doc: sdd, inside: a.inside.get('d1')! }], m, { boundary: a.boundary!.ring, sourceInGhiChu: true });
+    // The hatch colour (số 57) makes its own row inside the layer.
+    expect(a.section).toBe(7);
+    expect(m.get(rowKey('d1', 'DAT_XD_Khudancu', 'A', 'c7f7f3f'))).toMatchObject({ target: 'QuyHoach/QuyHoachSuDungDat/ChucNangSuDungDat_A', source: 'auto' });
+    const built = buildFeatures([{ id: 'd1', name: 'QH06.dwg', doc: sdd, inside: a.inside.get('d1')!, color: colorContexts(a).get('d1') }], m, { boundary: a.boundary!.ring, sourceInGhiChu: true });
     const cls = (t: string) => built.classes.find((c) => c.target === t);
     const lu = cls('QuyHoach/QuyHoachSuDungDat/ChucNangSuDungDat_A')!;
     expect(lu.features).toHaveLength(2);

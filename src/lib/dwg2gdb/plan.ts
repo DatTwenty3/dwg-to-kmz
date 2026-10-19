@@ -5,6 +5,7 @@
 import type { NormalizePlan, NormalizeStep } from '@/lib/gdb/normalize';
 import { domainCode, schemaClass } from '@/lib/gdb/tt16Schema';
 import type { ClassData, GeoJsonGeometry, GisFeature } from './features';
+import { LAND_USE_M1 } from './suggest';
 
 /** Level of an administrative unit for the LoaiTenDVHC domain (1 tỉnh, 2 huyện, 3 xã); ấp/khu phố have none. */
 function adminLevel(kind: string | null): string | null {
@@ -21,31 +22,6 @@ function lineLength(g: GeoJsonGeometry): number {
   for (const line of g.coordinates) for (let i = 1; i < line.length; i++) len += Math.hypot(line[i][0] - line[i - 1][0], line[i][1] - line[i - 1][1]);
   return len;
 }
-
-/** Land use labels of suggest.ts (QCVN 01:2021) worded differently from the ChucNangSuDungDatM1 values. */
-const LAND_USE_M1: Record<string, string> = {
-  'Đất bãi tắm': 'Đất xây dựng các chức năng khác',
-  'Đất chức năng khác': 'Đất xây dựng các chức năng khác',
-  'Đất du lịch': 'Đất xây dựng các chức năng khác',
-  'Đất cây xanh cách ly': 'Đất cây xanh, thể dục thể thao',
-  'Đất cây xanh sử dụng công cộng': 'Đất cây xanh, thể dục thể thao',
-  'Đất giáo dục': 'Đất công cộng',
-  'Đất y tế': 'Đất công cộng',
-  'Đất văn hóa': 'Đất công cộng',
-  'Đất thương mại, dịch vụ': 'Đất công cộng',
-  'Đất cơ quan, trụ sở': 'Đất công cộng',
-  'Đất công nghiệp, tiểu thủ công nghiệp': 'Đất công nghiệp, tiểu thủ công nghiệp và làng nghề',
-  'Đất di tích, danh thắng': 'Đất tôn giáo, danh lam di tích, đình đền',
-  'Đất tôn giáo, tín ngưỡng': 'Đất tôn giáo, danh lam di tích, đình đền',
-  'Đất giao thông': 'Giao thông',
-  'Đất hạ tầng kỹ thuật': 'Đất hạ tầng kỹ thuật khác',
-  'Đất khoáng sản, vật liệu xây dựng': 'Đất khoáng sản và sản xuất vật liệu xây dựng',
-  'Đất nghĩa trang, nhà tang lễ': 'Đất nghĩa trang, nghĩa địa',
-  'Đất sông, ngòi, kênh, rạch, suối, mặt nước': 'Đất sông ngòi, kênh rạch, mặt nước chuyên dùng',
-  'Đất trồng cây hàng năm khác': 'Đất trồng trọt khác',
-  'Đất trồng cây lâu năm': 'Đất trồng trọt khác',
-  'Đất xử lý chất thải': 'Đất xử lý chất thải rắn',
-};
 
 /**
  * Template attributes the drawing gives (tt16Schema.ts): the code of every coded value domain field whose value list

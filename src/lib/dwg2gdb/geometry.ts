@@ -1,5 +1,5 @@
 // Plane geometry on drawing coordinates (VN-2000 metres) for "Bóc tách DWG → TT16".
-import type { Vec2 } from '@/lib/cad/types';
+import type { CadDocument, Vec2 } from '@/lib/cad/types';
 
 /** Signed area (shoelace, around the first vertex: VN-2000 coordinates are large); > 0 counter-clockwise. */
 export function signedArea(ring: Vec2[]): number {
@@ -267,4 +267,29 @@ export function chainRings(lines: Vec2[][], tol = SNAP): { rings: Vec2[][]; used
     } else for (const i of members.slice(1)) live[i] = true; // a spur led nowhere: its pieces may still close from elsewhere
   }
   return { rings, used, members: ringMembers };
+}
+
+const NUMERIC = /^[+\-±]?\d{1,4}([.,]\d{1,3})?$/;
+type LabelGrid = PointGrid<{ text: string; height: number }>;
+
+/** Label texts of a drawing (inside the area, not numbers), indexed for point-in-polygon lookups. */
+export function labelIndex(d: { doc: CadDocument; inside: Uint8Array }) {
+  const grid = new PointGrid<{ text: string; height: number }>(200);
+  d.doc.entities.forEach((e, i) => {
+    if (e.kind !== 'text' || !d.inside[i]) return;
+    const text = e.text.replace(/\s+/g, ' ').trim();
+    if (text.length < 2 || NUMERIC.test(text) || !/\p{L}/u.test(text)) return;
+    grid.add(e.position, { text: text.slice(0, 100), height: e.height });
+  });
+  return grid;
+}
+
+export function labelIn(grid: LabelGrid, poly: Vec2[][]): string | null {
+  const [outer, ...holes] = poly;
+  let best: { text: string; height: number } | null = null;
+  for (const { p, v } of grid.query(bboxOf(outer))) {
+    if (!pointInRing(p, outer) || holes.some((h) => pointInRing(p, h))) continue;
+    if (!best || v.height > best.height || (v.height === best.height && v.text.length > best.text.length)) best = v;
+  }
+  return best?.text ?? null;
 }

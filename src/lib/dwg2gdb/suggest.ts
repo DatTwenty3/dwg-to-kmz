@@ -94,6 +94,47 @@ export const LAND_USE: [RegExp, string][] = [
   [/chucnangkhac|khac$/, 'Đất chức năng khác'],
 ];
 
+/**
+ * Labels only the TT16 colour table (tt16Symbols.ts) uses — no layer-name rule gives them, so layer suggestions are
+ * unchanged. LAND_USE_M1 below turns them into ChucNangSuDungDatM1 values.
+ */
+export const COLOR_ONLY_LAND_USE = ['Đất hỗn hợp', 'Đất cây xanh sử dụng hạn chế', 'Đất cây xanh chuyên dụng', 'Đất sản xuất nông nghiệp'];
+/** Every land use label a mapping row can carry (rules + colour table). */
+export const LAND_USE_LABELS: ReadonlySet<string> = new Set([...LAND_USE.map(([, l]) => l), ...COLOR_ONLY_LAND_USE]);
+
+/** Land use labels of suggest.ts (QCVN 01:2021) worded differently from the ChucNangSuDungDatM1 values. */
+export const LAND_USE_M1: Record<string, string> = {
+  'Đất bãi tắm': 'Đất xây dựng các chức năng khác',
+  'Đất chức năng khác': 'Đất xây dựng các chức năng khác',
+  'Đất du lịch': 'Đất xây dựng các chức năng khác',
+  'Đất cây xanh cách ly': 'Đất cây xanh, thể dục thể thao',
+  'Đất cây xanh sử dụng công cộng': 'Đất cây xanh, thể dục thể thao',
+  'Đất giáo dục': 'Đất công cộng',
+  'Đất y tế': 'Đất công cộng',
+  'Đất văn hóa': 'Đất công cộng',
+  'Đất thương mại, dịch vụ': 'Đất công cộng',
+  'Đất cơ quan, trụ sở': 'Đất công cộng',
+  'Đất công nghiệp, tiểu thủ công nghiệp': 'Đất công nghiệp, tiểu thủ công nghiệp và làng nghề',
+  'Đất di tích, danh thắng': 'Đất tôn giáo, danh lam di tích, đình đền',
+  'Đất tôn giáo, tín ngưỡng': 'Đất tôn giáo, danh lam di tích, đình đền',
+  'Đất giao thông': 'Giao thông',
+  'Đất hạ tầng kỹ thuật': 'Đất hạ tầng kỹ thuật khác',
+  'Đất khoáng sản, vật liệu xây dựng': 'Đất khoáng sản và sản xuất vật liệu xây dựng',
+  'Đất nghĩa trang, nhà tang lễ': 'Đất nghĩa trang, nghĩa địa',
+  'Đất sông, ngòi, kênh, rạch, suối, mặt nước': 'Đất sông ngòi, kênh rạch, mặt nước chuyên dùng',
+  'Đất trồng cây hàng năm khác': 'Đất trồng trọt khác',
+  'Đất trồng cây lâu năm': 'Đất trồng trọt khác',
+  'Đất xử lý chất thải': 'Đất xử lý chất thải rắn',
+  // Only given by the TT16 colour table (tt16Symbols.ts).
+  'Đất hỗn hợp': 'Hỗn hợp (Đơn vị ở và dịch vụ công cộng đô thị)',
+  'Đất cây xanh sử dụng hạn chế': 'Cây xanh sử dụng hạn chế',
+  'Đất cây xanh chuyên dụng': 'Cây xanh chuyên dụng',
+  'Đất sản xuất nông nghiệp': 'Sản xuất nông nghiệp',
+};
+
+/** Two labels that end in the same ChucNangSuDungDatM1 value ("Đất giáo dục" / "Đất công cộng"): no real disagreement. */
+export const sameLandUse = (a: string, b: string) => (LAND_USE_M1[a] ?? a) === (LAND_USE_M1[b] ?? b);
+
 export function landUseOf(compact: string): string | null {
   for (const [re, label] of LAND_USE) if (re.test(compact)) return label;
   return null;

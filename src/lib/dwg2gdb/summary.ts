@@ -6,7 +6,7 @@
 import type { CadDocument, CadEntity, CadLayer, Vec2 } from '@/lib/cad/types';
 import { normalizeHex } from '@/lib/export/color';
 import type { DrawingInput } from './features';
-import { KIND_OF, rowKey } from './inventory';
+import { entityRowKey } from './inventory';
 import { roleById, type RoleId } from './roles';
 import { parseTarget, prettyLayer } from './suggest';
 import type { MappingEntry } from './template';
@@ -47,9 +47,9 @@ export function summaryDocument(drawings: (DrawingInput & { role: RoleId })[], m
     if (!db) continue;
     d.doc.entities.forEach((e, i) => {
       if (!d.inside[i]) return;
-      const kind = KIND_OF[e.kind];
-      if (!kind) return;
-      const m = mapping.get(rowKey(d.id, e.layer, kind));
+      const key = entityRowKey(d.id, e, d.color);
+      if (!key) return;
+      const m = mapping.get(key);
       const t = m?.target ? parseTarget(m.target) : null;
       if (t) {
         if (t.cls === 'RanhGioiQuyHoach_A') hasBoundary = true;

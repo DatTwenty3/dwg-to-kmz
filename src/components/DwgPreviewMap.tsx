@@ -42,6 +42,7 @@ export default function DwgPreviewMap({
   doc,
   used,
   focusLayer,
+  focusColor = null,
   onPickLayer,
   loading,
   note,
@@ -64,7 +65,10 @@ export default function DwgPreviewMap({
   used: Set<string>;
   /** Layer selected in the table: drawn on top and zoomed to. */
   focusLayer: string | null;
-  onPickLayer: (layer: string) => void;
+  /** '#rrggbb': the selected row is one colour group of the layer — only its hatches are drawn. */
+  focusColor?: string | null;
+  /** `color` = colour of the object clicked (picks the colour group of the layer). */
+  onPickLayer: (layer: string, color: string) => void;
   loading: boolean;
   /** Message over the map (error, "only mapped layers shown"…). */
   note?: string | null;
@@ -117,7 +121,8 @@ export default function DwgPreviewMap({
       const i = previewIndex(e.handle);
       return i !== null && (excluded.has(i) || selected.has(i));
     };
-    const base = excluded.size || selected.size ? { ...doc, entities: doc.entities.filter((e) => !hidden(e)) } : doc;
+    const otherColor = (e: CadEntity) => !!focusColor && e.layer === focusLayer && e.kind === 'polygon' && e.color.toLowerCase() !== focusColor;
+    const base = excluded.size || selected.size || focusColor ? { ...doc, entities: doc.entities.filter((e) => !hidden(e) && !otherColor(e)) } : doc;
     const all = doc.layers.map((l) => l.name);
     const strong = new Set(all.filter((n) => used.has(n) || n === BOUNDARY_LAYER));
     const weak = new Set(all.filter((n) => !strong.has(n)));
@@ -133,18 +138,18 @@ export default function DwgPreviewMap({
       ...(ghost ? buildLayers(ghost, { ...opts, visibleLayers: new Set([GHOST]), idPrefix: 'ghost:', opacity: 0.45 }) : []),
       ...(picked ? buildLayers(picked, { ...opts, visibleLayers: new Set([PICKED]), idPrefix: 'picked:' }) : []),
     ];
-  }, [doc, used, focusLayer, font, pick, excluded, selected, editMode, basemapId]);
+  }, [doc, used, focusLayer, focusColor, font, pick, excluded, selected, editMode, basemapId]);
 
   // Zoom to the drawing, then to the selected layer.
   const fit = useMemo(() => {
     if (!doc) return undefined;
-    const entities = focusLayer ? doc.entities.filter((e) => e.layer === focusLayer) : doc.entities;
+    const entities = focusLayer ? doc.entities.filter((e) => e.layer === focusLayer && (!focusColor || e.kind !== 'polygon' || e.color.toLowerCase() === focusColor)) : doc.entities;
     const bounds = entities.length ? documentBounds({ ...doc, entities, bbox: robustBBox(entities) }) : null;
-    const key = `${doc.entities.length}|${doc.bbox.flat().join(',')}|${focusLayer ?? ''}`;
+    const key = `${doc.entities.length}|${doc.bbox.flat().join(',')}|${focusLayer ?? ''}|${focusColor ?? ''}`;
     let seq = 0;
     for (let i = 0; i < key.length; i++) seq = (seq * 31 + key.charCodeAt(i)) | 0;
     return bounds ? { bounds: bounds as [Vec2, Vec2], seq } : undefined;
-  }, [doc, focusLayer]);
+  }, [doc, focusLayer, focusColor]);
 
   const toggle = (indexes: number[], add?: boolean) =>
     setSelected((s) => {
@@ -224,7 +229,7 @@ export default function DwgPreviewMap({
             return;
           }
           setPick(p);
-          if (p && p.ref.layer !== BOUNDARY_LAYER) onPickLayer(p.ref.layer);
+          if (p && p.ref.layer !== BOUNDARY_LAYER) onPickLayer(p.ref.layer, p.ref.entity.color);
         }}
       />
       {doc && !editMode && (

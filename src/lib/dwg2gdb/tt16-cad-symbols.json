@@ -1,0 +1,1802 @@
+[
+ {
+  "section": 1,
+  "page": 58,
+  "layer": "BV_Khungten",
+  "name": "Khung tên",
+  "kind": "P",
+  "aci": 7,
+  "landUse": null,
+  "target": null
+ },
+ {
+  "section": 1,
+  "page": 58,
+  "layer": "BV_Khungbanve",
+  "name": "Khung bản vẽ",
+  "kind": "A",
+  "aci": 7,
+  "landUse": null,
+  "target": null
+ },
+ {
+  "section": 1,
+  "page": 58,
+  "layer": "BV_Khungbanve",
+  "name": "Khung bản vẽ",
+  "kind": "P",
+  "aci": 7,
+  "landUse": null,
+  "target": null
+ },
+ {
+  "section": 1,
+  "page": 59,
+  "layer": "BV_Rg_quocgia",
+  "name": "Ranh giới quốc gia",
+  "kind": "L",
+  "aci": 206,
+  "landUse": null,
+  "target": "RanhGioiHanhChinh_L"
+ },
+ {
+  "section": 1,
+  "page": 59,
+  "layer": "BV_Rg_captinh",
+  "name": "Ranh giới tỉnh, thành phố",
+  "kind": "L",
+  "aci": 238,
+  "landUse": null,
+  "target": "RanhGioiHanhChinh_L"
+ },
+ {
+  "section": 1,
+  "page": 59,
+  "layer": "BV_Rg_capcoso",
+  "name": "Ranh giới xã, phường, đặc khu",
+  "kind": "L",
+  "aci": 14,
+  "landUse": null,
+  "target": "RanhGioiHanhChinh_L"
+ },
+ {
+  "section": 1,
+  "page": 59,
+  "layer": "BV_Rg_lapquyhoach",
+  "name": "Ranh giới lập quy hoạch",
+  "kind": "L",
+  "aci": 1,
+  "landUse": null,
+  "target": "RanhGioiQuyHoach_A"
+ },
+ {
+  "section": 1,
+  "page": 59,
+  "layer": "BV_Ten_Diadanh",
+  "name": "Tên địa danh",
+  "kind": "T",
+  "aci": 7,
+  "landUse": null,
+  "target": null
+ },
+ {
+  "section": 2,
+  "page": 62,
+  "layer": "DAT_DD_Donvio",
+  "name": "Đơn vị ở",
+  "kind": "A",
+  "aci": 30,
+  "landUse": "Đất ở",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 62,
+  "layer": "DAT_DD_Honhop",
+  "name": "Hỗn hợp",
+  "kind": "A",
+  "aci": 22,
+  "landUse": "Đất hỗn hợp",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 62,
+  "layer": "DAT_DD_Coquandothi",
+  "name": "Cơ quan, trụ sở đô thị",
+  "kind": "A",
+  "aci": 34,
+  "landUse": "Đất cơ quan, trụ sở",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 62,
+  "layer": "DAT_DD_CayxanhCCdothi",
+  "name": "Cây xanh sử dụng công cộng đô thị",
+  "kind": "A",
+  "aci": 72,
+  "landUse": "Đất cây xanh sử dụng công cộng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 62,
+  "layer": "DAT_DD_DVCCdothi",
+  "name": "Dịch vụ - công cộng đô thị",
+  "kind": "A",
+  "aci": 1,
+  "landUse": "Đất công cộng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 62,
+  "layer": "DAT_DD_Giaothongdothi",
+  "name": "Giao thông đô thị",
+  "kind": "A",
+  "aci": 8,
+  "landUse": "Đất giao thông",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 62,
+  "layer": "DAT_DD_HTkhacdothi",
+  "name": "Hạ tầng kỹ thuật khác cấp đô thị",
+  "kind": "A",
+  "aci": 195,
+  "landUse": "Đất hạ tầng kỹ thuật",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 62,
+  "layer": "DAT_NDD_Daotao",
+  "name": "Đào tạo, nghiên cứu",
+  "kind": "A",
+  "aci": 144,
+  "landUse": "Đất giáo dục",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 62,
+  "layer": "DAT_NDD_Congnghiep",
+  "name": "Sản xuất công nghiệp, kho tàng",
+  "kind": "A",
+  "aci": 192,
+  "landUse": "Đất công nghiệp, tiểu thủ công nghiệp",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 63,
+  "layer": "DAT_NDD_Coquan",
+  "name": "Cơ quan, trụ sở",
+  "kind": "A",
+  "aci": 46,
+  "landUse": "Đất cơ quan, trụ sở",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 63,
+  "layer": "DAT_NDD_Yte",
+  "name": "Y tế",
+  "kind": "A",
+  "aci": 220,
+  "landUse": "Đất y tế",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 63,
+  "layer": "DAT_NDD_Dulich",
+  "name": "Dịch vụ du lịch",
+  "kind": "A",
+  "aci": 210,
+  "landUse": "Đất du lịch",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 63,
+  "layer": "DAT_NDD_CayxanhSDHC",
+  "name": "Cây xanh sử dụng hạn chế",
+  "kind": "A",
+  "aci": 94,
+  "landUse": "Đất cây xanh sử dụng hạn chế",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 63,
+  "layer": "DAT_NDD_Ditich",
+  "name": "Di tích, tôn giáo",
+  "kind": "A",
+  "aci": 16,
+  "landUse": "Đất di tích, danh thắng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 63,
+  "layer": "DAT_NDD_DancuNT",
+  "name": "Dân cư nông thôn",
+  "kind": "A",
+  "aci": 57,
+  "landUse": "Đất ở",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 63,
+  "layer": "DAT_NDD_Vanhoathethao",
+  "name": "Văn hóa, thể dục thể thao",
+  "kind": "A",
+  "aci": 94,
+  "landUse": "Đất văn hóa",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 63,
+  "layer": "DAT_NDD_CayxanhCD",
+  "name": "Cây xanh chuyên dụng",
+  "kind": "A",
+  "aci": 126,
+  "landUse": "Đất cây xanh chuyên dụng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 63,
+  "layer": "DAT_NDD_Anninh",
+  "name": "An ninh",
+  "kind": "A",
+  "aci": 64,
+  "landUse": "Đất quốc phòng, an ninh",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 63,
+  "layer": "DAT_NDD_Quocphong",
+  "name": "Quốc phòng",
+  "kind": "A",
+  "aci": 79,
+  "landUse": "Đất quốc phòng, an ninh",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 64,
+  "layer": "DAT_NNK_Nongnghiep",
+  "name": "Sản xuất nông nghiệp",
+  "kind": "A",
+  "aci": 3,
+  "landUse": "Đất sản xuất nông nghiệp",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 64,
+  "layer": "DAT_NNK_Thuysan",
+  "name": "Nuôi trồng thủy sản",
+  "kind": "A",
+  "aci": 150,
+  "landUse": "Đất nuôi trồng thủy sản",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 64,
+  "layer": "DAT_NNK_Honuoc",
+  "name": "Hồ, ao, đầm",
+  "kind": "A",
+  "aci": 154,
+  "landUse": "Đất sông, ngòi, kênh, rạch, suối, mặt nước",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 64,
+  "layer": "DAT_NNK_Songsuoi",
+  "name": "Sông, suối, kênh, rạch",
+  "kind": "A",
+  "aci": 152,
+  "landUse": "Đất sông, ngòi, kênh, rạch, suối, mặt nước",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 64,
+  "layer": "DAT_NNK_Chuasudung",
+  "name": "Chưa sử dụng",
+  "kind": "A",
+  "aci": 9,
+  "landUse": "Đất chưa sử dụng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 64,
+  "layer": "DAT_NNK_Rungdacdung",
+  "name": "Rừng đặc dụng",
+  "kind": "A",
+  "aci": 148,
+  "landUse": "Đất rừng đặc dụng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 64,
+  "layer": "DAT_NNK_Rungphongho",
+  "name": "Rừng phòng hộ",
+  "kind": "A",
+  "aci": 129,
+  "landUse": "Đất rừng phòng hộ",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 64,
+  "layer": "DAT_NNK_Rungsanxuat",
+  "name": "Rừng sản xuất",
+  "kind": "A",
+  "aci": 107,
+  "landUse": "Đất rừng sản xuất",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 2,
+  "page": 64,
+  "layer": "DAT_NNK_Matnuocbien",
+  "name": "Mặt nước ven biển",
+  "kind": "A",
+  "aci": 152,
+  "landUse": "Đất sông, ngòi, kênh, rạch, suối, mặt nước",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 67,
+  "layer": "DAT_DD_Honhop_Nhomo",
+  "name": "Hỗn hợp (nhóm nhà ở và dịch vụ)",
+  "kind": "A",
+  "aci": 22,
+  "landUse": "Đất hỗn hợp",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 67,
+  "layer": "DAT_DD_Nhomnhao",
+  "name": "Nhóm nhà ở",
+  "kind": "A",
+  "aci": 42,
+  "landUse": "Đất ở",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 67,
+  "layer": "DAT_DD_TruongTHPT",
+  "name": "Trường THPT",
+  "kind": "A",
+  "aci": 24,
+  "landUse": "Đất giáo dục",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 67,
+  "layer": "DAT_DD_Truonghoc",
+  "name": "Trường THCS, tiểu học, mầm non",
+  "kind": "A",
+  "aci": 15,
+  "landUse": "Đất giáo dục",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 67,
+  "layer": "DAT_DD_DVCCdothi",
+  "name": "Dịch vụ - công cộng đô thị",
+  "kind": "A",
+  "aci": 1,
+  "landUse": "Đất công cộng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 67,
+  "layer": "DAT_DD_Coquandothi",
+  "name": "Cơ quan, trụ sở đô thị",
+  "kind": "A",
+  "aci": 34,
+  "landUse": "Đất cơ quan, trụ sở",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 67,
+  "layer": "DAT_DD_CayxanhCCdothi",
+  "name": "Cây xanh sử dụng công cộng đô thị",
+  "kind": "A",
+  "aci": 72,
+  "landUse": "Đất cây xanh sử dụng công cộng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 67,
+  "layer": "DAT_DD_Giaothongdothi",
+  "name": "Giao thông đô thị",
+  "kind": "A",
+  "aci": 8,
+  "landUse": "Đất giao thông",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 67,
+  "layer": "DAT_DD_HTkhacdothi",
+  "name": "Hạ tầng kỹ thuật khác cấp đô thị",
+  "kind": "A",
+  "aci": 195,
+  "landUse": "Đất hạ tầng kỹ thuật",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 68,
+  "layer": "DAT_NDD_Daotao",
+  "name": "Đào tạo, nghiên cứu",
+  "kind": "A",
+  "aci": 144,
+  "landUse": "Đất giáo dục",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 68,
+  "layer": "DAT_NDD_Congnghiep",
+  "name": "Sản xuất công nghiệp, kho tàng",
+  "kind": "A",
+  "aci": 192,
+  "landUse": "Đất công nghiệp, tiểu thủ công nghiệp",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 68,
+  "layer": "DAT_NDD_Coquan",
+  "name": "Cơ quan, trụ sở",
+  "kind": "A",
+  "aci": 46,
+  "landUse": "Đất cơ quan, trụ sở",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 68,
+  "layer": "DAT_NDD_Yte",
+  "name": "Y tế",
+  "kind": "A",
+  "aci": 220,
+  "landUse": "Đất y tế",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 68,
+  "layer": "DAT_NDD_Dulich",
+  "name": "Dịch vụ du lịch",
+  "kind": "A",
+  "aci": 210,
+  "landUse": "Đất du lịch",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 68,
+  "layer": "DAT_NDD_CayxanhSDHC",
+  "name": "Cây xanh sử dụng hạn chế",
+  "kind": "A",
+  "aci": 94,
+  "landUse": "Đất cây xanh sử dụng hạn chế",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 68,
+  "layer": "DAT_NDD_Ditich",
+  "name": "Di tích, tôn giáo",
+  "kind": "A",
+  "aci": 16,
+  "landUse": "Đất di tích, danh thắng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 68,
+  "layer": "DAT_NDD_Vanhoathethao",
+  "name": "Văn hóa, thể dục thể thao",
+  "kind": "A",
+  "aci": 94,
+  "landUse": "Đất văn hóa",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 68,
+  "layer": "DAT_NDD_CayxanhCD",
+  "name": "Cây xanh chuyên dụng",
+  "kind": "A",
+  "aci": 126,
+  "landUse": "Đất cây xanh chuyên dụng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 68,
+  "layer": "DAT_NDD_Anninh",
+  "name": "An ninh",
+  "kind": "A",
+  "aci": 64,
+  "landUse": "Đất quốc phòng, an ninh",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 69,
+  "layer": "DAT_NDD_Quocphong",
+  "name": "Quốc phòng",
+  "kind": "A",
+  "aci": 79,
+  "landUse": "Đất quốc phòng, an ninh",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 69,
+  "layer": "DAT_NNK_Nongnghiep",
+  "name": "Sản xuất nông nghiệp",
+  "kind": "A",
+  "aci": 3,
+  "landUse": "Đất sản xuất nông nghiệp",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 69,
+  "layer": "DAT_NNK_Thuysan",
+  "name": "Nuôi trồng thủy sản",
+  "kind": "A",
+  "aci": 150,
+  "landUse": "Đất nuôi trồng thủy sản",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 69,
+  "layer": "DAT_NNK_Rungdacdung",
+  "name": "Rừng đặc dụng",
+  "kind": "A",
+  "aci": 148,
+  "landUse": "Đất rừng đặc dụng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 69,
+  "layer": "DAT_NNK_Rungphongho",
+  "name": "Rừng phòng hộ",
+  "kind": "A",
+  "aci": 129,
+  "landUse": "Đất rừng phòng hộ",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 69,
+  "layer": "DAT_NNK_Rungsanxuat",
+  "name": "Rừng sản xuất",
+  "kind": "A",
+  "aci": 107,
+  "landUse": "Đất rừng sản xuất",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 70,
+  "layer": "DAT_NNK_Chuasudung",
+  "name": "Chưa sử dụng",
+  "kind": "A",
+  "aci": 9,
+  "landUse": "Đất chưa sử dụng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 70,
+  "layer": "DAT_NNK_Honuoc",
+  "name": "Hồ, ao, đầm",
+  "kind": "A",
+  "aci": 154,
+  "landUse": "Đất sông, ngòi, kênh, rạch, suối, mặt nước",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 70,
+  "layer": "DAT_NNK_Songsuoi",
+  "name": "Sông, suối, kênh, rạch",
+  "kind": "A",
+  "aci": 152,
+  "landUse": "Đất sông, ngòi, kênh, rạch, suối, mặt nước",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 3,
+  "page": 70,
+  "layer": "DAT_NNK_Matnuocbien",
+  "name": "Mặt nước ven biển",
+  "kind": "A",
+  "aci": 152,
+  "landUse": "Đất sông, ngòi, kênh, rạch, suối, mặt nước",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 73,
+  "layer": "DAT_O_Nhomnhao",
+  "name": "Nhóm nhà ở",
+  "kind": "A",
+  "aci": 42,
+  "landUse": "Đất ở",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 73,
+  "layer": "DAT_O_Honhop_Nhomo",
+  "name": "Hỗn hợp (nhóm nhà ở và dịch vụ)",
+  "kind": "A",
+  "aci": 22,
+  "landUse": "Đất hỗn hợp",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 73,
+  "layer": "DAT_O_Langxom",
+  "name": "Làng xóm, dân cư nông thôn",
+  "kind": "A",
+  "aci": 57,
+  "landUse": "Đất ở",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 73,
+  "layer": "DAT_HTXH_Yte",
+  "name": "Y tế",
+  "kind": "A",
+  "aci": 220,
+  "landUse": "Đất y tế",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 73,
+  "layer": "DAT_HTXH_Vanhoa",
+  "name": "Văn hóa",
+  "kind": "A",
+  "aci": 243,
+  "landUse": "Đất văn hóa",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 73,
+  "layer": "DAT_HTXH_TruongTHPT",
+  "name": "Trường THPT",
+  "kind": "A",
+  "aci": 24,
+  "landUse": "Đất giáo dục",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 73,
+  "layer": "DAT_HTXH_Truonghoc",
+  "name": "Trường THCS, tiểu học, mầm non",
+  "kind": "A",
+  "aci": 15,
+  "landUse": "Đất giáo dục",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 73,
+  "layer": "DAT_HTXH_CayxanhCC",
+  "name": "Cây xanh sử dụng công cộng",
+  "kind": "A",
+  "aci": 72,
+  "landUse": "Đất cây xanh sử dụng công cộng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 74,
+  "layer": "DAT_Cayxanhhanche",
+  "name": "Cây xanh sử dụng hạn chế",
+  "kind": "A",
+  "aci": 94,
+  "landUse": "Đất cây xanh sử dụng hạn chế",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 74,
+  "layer": "DAT_Cayxanhchuyendung",
+  "name": "Cây xanh chuyên dụng",
+  "kind": "A",
+  "aci": 126,
+  "landUse": "Đất cây xanh chuyên dụng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 74,
+  "layer": "DAT_SX_Congnghiep",
+  "name": "Sản xuất công nghiệp, kho tàng",
+  "kind": "A",
+  "aci": 192,
+  "landUse": "Đất công nghiệp, tiểu thủ công nghiệp",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 74,
+  "layer": "DAT_SX_Vatlieu",
+  "name": "Khai thác, chế biến khoáng sản, vật liệu xây dựng",
+  "kind": "A",
+  "aci": 175,
+  "landUse": "Đất khoáng sản, vật liệu xây dựng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 74,
+  "layer": "DAT_DaotaoNC",
+  "name": "Đào tạo, nghiên cứu",
+  "kind": "A",
+  "aci": 144,
+  "landUse": "Đất giáo dục",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 74,
+  "layer": "DAT_Coquan",
+  "name": "Cơ quan, trụ sở",
+  "kind": "A",
+  "aci": 34,
+  "landUse": "Đất cơ quan, trụ sở",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 74,
+  "layer": "DAT_Dichvu",
+  "name": "Dịch vụ",
+  "kind": "A",
+  "aci": 12,
+  "landUse": "Đất thương mại, dịch vụ",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 74,
+  "layer": "DAT_Dulich",
+  "name": "Dịch vụ du lịch",
+  "kind": "A",
+  "aci": 210,
+  "landUse": "Đất du lịch",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 74,
+  "layer": "DAT_Ditich_tongiao",
+  "name": "Di tích, tôn giáo",
+  "kind": "A",
+  "aci": 16,
+  "landUse": "Đất tôn giáo, tín ngưỡng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 74,
+  "layer": "DAT_Anninh",
+  "name": "An ninh",
+  "kind": "A",
+  "aci": 64,
+  "landUse": "Đất quốc phòng, an ninh",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 75,
+  "layer": "DAT_Quocphong",
+  "name": "Quốc phòng",
+  "kind": "A",
+  "aci": 79,
+  "landUse": "Đất quốc phòng, an ninh",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 75,
+  "layer": "DAT_HTKT_DuongGT",
+  "name": "Đường giao thông",
+  "kind": "A",
+  "aci": 251,
+  "landUse": "Đất giao thông",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 75,
+  "layer": "DAT_HTKT_Baidoxe",
+  "name": "Bãi đỗ xe",
+  "kind": "A",
+  "aci": 252,
+  "landUse": "Đất giao thông",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 75,
+  "layer": "DAT_HTKT_Nghiatrang",
+  "name": "Nghĩa trang",
+  "kind": "A",
+  "aci": 251,
+  "landUse": "Đất nghĩa trang, nhà tang lễ",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 75,
+  "layer": "DAT_NN_Nongnghiep",
+  "name": "Sản xuất nông nghiệp",
+  "kind": "A",
+  "aci": 3,
+  "landUse": "Đất sản xuất nông nghiệp",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 75,
+  "layer": "DAT_NN_Thuysan",
+  "name": "Nuôi trồng thủy sản",
+  "kind": "A",
+  "aci": 150,
+  "landUse": "Đất nuôi trồng thủy sản",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 75,
+  "layer": "DAT_NN_Rungdacdung",
+  "name": "Rừng đặc dụng",
+  "kind": "A",
+  "aci": 148,
+  "landUse": "Đất rừng đặc dụng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 75,
+  "layer": "DAT_NN_Rungphongho",
+  "name": "Rừng phòng hộ",
+  "kind": "A",
+  "aci": 129,
+  "landUse": "Đất rừng phòng hộ",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 75,
+  "layer": "DAT_NN_Rungsanxuat",
+  "name": "Rừng sản xuất",
+  "kind": "A",
+  "aci": 107,
+  "landUse": "Đất rừng sản xuất",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 76,
+  "layer": "DAT_KHAC_Chuasudung",
+  "name": "Chưa sử dụng",
+  "kind": "A",
+  "aci": 9,
+  "landUse": "Đất chưa sử dụng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 76,
+  "layer": "DAT_KHAC_Honuoc",
+  "name": "Hồ, ao, đầm",
+  "kind": "A",
+  "aci": 154,
+  "landUse": "Đất sông, ngòi, kênh, rạch, suối, mặt nước",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 76,
+  "layer": "DAT_KHAC_Songsuoi",
+  "name": "Sông, suối, kênh, rạch",
+  "kind": "A",
+  "aci": 152,
+  "landUse": "Đất sông, ngòi, kênh, rạch, suối, mặt nước",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 4,
+  "page": 76,
+  "layer": "DAT_KHAC_Matnuocbien",
+  "name": "Mặt nước ven biển",
+  "kind": "A",
+  "aci": 152,
+  "landUse": "Đất sông, ngòi, kênh, rạch, suối, mặt nước",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 80,
+  "layer": "DAT_NO_Nhaolienke",
+  "name": "Nhà ở liền kề",
+  "kind": "A",
+  "aci": 32,
+  "landUse": "Đất ở",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 80,
+  "layer": "DAT_NO_Nhaobietthu",
+  "name": "Nhà ở biệt thự",
+  "kind": "A",
+  "aci": 56,
+  "landUse": "Đất ở",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 80,
+  "layer": "DAT_NO_Nhaochungcu",
+  "name": "Nhà chung cư",
+  "kind": "A",
+  "aci": 40,
+  "landUse": "Đất ở",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 80,
+  "layer": "DAT_NO_Nhaonongthon",
+  "name": "Nhà ở nông thôn",
+  "kind": "A",
+  "aci": 57,
+  "landUse": "Đất ở",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 80,
+  "layer": "DAT_NO_NhaochungcuHH",
+  "name": "Nhà chung cư hỗn hợp",
+  "kind": "A",
+  "aci": 44,
+  "landUse": "Đất hỗn hợp",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 80,
+  "layer": "DAT_CTHTXH_Yte",
+  "name": "Y tế",
+  "kind": "A",
+  "aci": 220,
+  "landUse": "Đất y tế",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 80,
+  "layer": "DAT_CTHTXH_Vanhoa",
+  "name": "Văn hóa",
+  "kind": "A",
+  "aci": 243,
+  "landUse": "Đất văn hóa",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 80,
+  "layer": "DAT_CTHTXH_TruongTHPT",
+  "name": "Trường THPT",
+  "kind": "A",
+  "aci": 24,
+  "landUse": "Đất giáo dục",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 80,
+  "layer": "DAT_CTHTXH_Truonghoc",
+  "name": "Trường THCS, tiểu học, mầm non",
+  "kind": "A",
+  "aci": 15,
+  "landUse": "Đất giáo dục",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 81,
+  "layer": "DAT_CTHTXH_Theducthethao",
+  "name": "Thể dục thể thao",
+  "kind": "A",
+  "aci": 94,
+  "landUse": "Đất cây xanh, thể dục thể thao",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 81,
+  "layer": "DAT_CTHTXH_CayxanhCC",
+  "name": "Cây xanh sử dụng công cộng",
+  "kind": "A",
+  "aci": 72,
+  "landUse": "Đất cây xanh sử dụng công cộng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 81,
+  "layer": "DAT_CTHTXD_ThuongmaiDV",
+  "name": "Thương mại, dịch vụ",
+  "kind": "A",
+  "aci": 12,
+  "landUse": "Đất thương mại, dịch vụ",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 81,
+  "layer": "DAT_CTSX_Congnghiep",
+  "name": "Sản xuất công nghiệp, kho tàng",
+  "kind": "A",
+  "aci": 192,
+  "landUse": "Đất công nghiệp, tiểu thủ công nghiệp",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 81,
+  "layer": "DAT_CT_Daotaonghiencuu",
+  "name": "Đào tạo, nghiên cứu",
+  "kind": "A",
+  "aci": 144,
+  "landUse": "Đất giáo dục",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 81,
+  "layer": "DAT_CT_Coquan",
+  "name": "Cơ quan, trụ sở",
+  "kind": "A",
+  "aci": 34,
+  "landUse": "Đất cơ quan, trụ sở",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 81,
+  "layer": "DAT_CT_Dichvu",
+  "name": "Dịch vụ",
+  "kind": "A",
+  "aci": 12,
+  "landUse": "Đất thương mại, dịch vụ",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 81,
+  "layer": "DAT_CT_Dulich",
+  "name": "Dịch vụ du lịch",
+  "kind": "A",
+  "aci": 210,
+  "landUse": "Đất du lịch",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 81,
+  "layer": "DAT_CT_Ditichtongiao",
+  "name": "Di tích, tôn giáo",
+  "kind": "A",
+  "aci": 16,
+  "landUse": "Đất tôn giáo, tín ngưỡng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 81,
+  "layer": "DAT_CT_Cayxanhhanche",
+  "name": "Cây xanh sử dụng hạn chế",
+  "kind": "A",
+  "aci": 94,
+  "landUse": "Đất cây xanh sử dụng hạn chế",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 81,
+  "layer": "DAT_CT_Cayxanhchuyendung",
+  "name": "Cây xanh chuyên dụng",
+  "kind": "A",
+  "aci": 126,
+  "landUse": "Đất cây xanh chuyên dụng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 82,
+  "layer": "DAT_CTHTKT_DuongGT",
+  "name": "Đường giao thông",
+  "kind": "A",
+  "aci": 251,
+  "landUse": "Đất giao thông",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 82,
+  "layer": "DAT_CTHTKT_Baidoxe",
+  "name": "Bãi đỗ xe",
+  "kind": "A",
+  "aci": 252,
+  "landUse": "Đất giao thông",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 82,
+  "layer": "DAT_CTHTKT_Nghiatrang",
+  "name": "Nghĩa trang",
+  "kind": "A",
+  "aci": 251,
+  "landUse": "Đất nghĩa trang, nhà tang lễ",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 82,
+  "layer": "DAT_CTHTKT_Hatangkhac",
+  "name": "Hạ tầng kỹ thuật khác",
+  "kind": "A",
+  "aci": 199,
+  "landUse": "Đất hạ tầng kỹ thuật",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 82,
+  "layer": "DAT_CT_Anninh",
+  "name": "An ninh",
+  "kind": "A",
+  "aci": 64,
+  "landUse": "Đất quốc phòng, an ninh",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 82,
+  "layer": "DAT_CT_Quocphong",
+  "name": "Quốc phòng",
+  "kind": "A",
+  "aci": 79,
+  "landUse": "Đất quốc phòng, an ninh",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 82,
+  "layer": "DAT_NLK_Nongnghiep",
+  "name": "Sản xuất nông nghiệp",
+  "kind": "A",
+  "aci": 3,
+  "landUse": "Đất sản xuất nông nghiệp",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 82,
+  "layer": "DAT_NLK_Rungdacdung",
+  "name": "Rừng đặc dụng",
+  "kind": "A",
+  "aci": 148,
+  "landUse": "Đất rừng đặc dụng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 82,
+  "layer": "DAT_NLK_Rungphongho",
+  "name": "Rừng phòng hộ",
+  "kind": "A",
+  "aci": 129,
+  "landUse": "Đất rừng phòng hộ",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 82,
+  "layer": "DAT_NLK_Rungsanxuat",
+  "name": "Rừng sản xuất",
+  "kind": "A",
+  "aci": 107,
+  "landUse": "Đất rừng sản xuất",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 83,
+  "layer": "DAT_NLK_Thuysan",
+  "name": "Nuôi trồng thủy sản",
+  "kind": "A",
+  "aci": 150,
+  "landUse": "Đất nuôi trồng thủy sản",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 83,
+  "layer": "DAT_NLK_Chuasudung",
+  "name": "Chưa sử dụng",
+  "kind": "A",
+  "aci": 9,
+  "landUse": "Đất chưa sử dụng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 83,
+  "layer": "DAT_NLK_Honuoc",
+  "name": "Hồ, ao, đầm",
+  "kind": "A",
+  "aci": 154,
+  "landUse": "Đất sông, ngòi, kênh, rạch, suối, mặt nước",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 83,
+  "layer": "DAT_NLK_Songsuoi",
+  "name": "Sông, suối, kênh, rạch",
+  "kind": "A",
+  "aci": 152,
+  "landUse": "Đất sông, ngòi, kênh, rạch, suối, mặt nước",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 5,
+  "page": 83,
+  "layer": "DAT_NLK_Matnuocbien",
+  "name": "Mặt nước ven biển",
+  "kind": "A",
+  "aci": 152,
+  "landUse": "Đất sông, ngòi, kênh, rạch, suối, mặt nước",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 86,
+  "layer": "DAT_KXD_Dancudothi",
+  "name": "Phát triển dân cư đô thị",
+  "kind": "A",
+  "aci": 30,
+  "landUse": "Đất ở",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 86,
+  "layer": "DAT_KXD_Daotao",
+  "name": "Đào tạo, nghiên cứu",
+  "kind": "A",
+  "aci": 144,
+  "landUse": "Đất giáo dục",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 86,
+  "layer": "DAT_KXD_Dancunongthon",
+  "name": "Phát triển dân cư nông thôn",
+  "kind": "A",
+  "aci": 57,
+  "landUse": "Đất ở",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 86,
+  "layer": "DAT_KXD_Honhop",
+  "name": "Hỗn hợp",
+  "kind": "A",
+  "aci": 22,
+  "landUse": "Đất hỗn hợp",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 86,
+  "layer": "DAT_KXD_Dichvucongcong",
+  "name": "Dịch vụ - công cộng",
+  "kind": "A",
+  "aci": 1,
+  "landUse": "Đất công cộng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 86,
+  "layer": "DAT_KXD_CayxanhCC",
+  "name": "Cây xanh sử dụng công cộng",
+  "kind": "A",
+  "aci": 72,
+  "landUse": "Đất cây xanh sử dụng công cộng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 86,
+  "layer": "DAT_KXD_CayxanhSDHC",
+  "name": "Cây xanh sử dụng hạn chế",
+  "kind": "A",
+  "aci": 94,
+  "landUse": "Đất cây xanh sử dụng hạn chế",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 86,
+  "layer": "DAT_KXD_CayxanhCD",
+  "name": "Cây xanh chuyên dụng",
+  "kind": "A",
+  "aci": 126,
+  "landUse": "Đất cây xanh chuyên dụng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 86,
+  "layer": "DAT_KXD_Congnghiep",
+  "name": "Sản xuất công nghiệp, kho tàng",
+  "kind": "A",
+  "aci": 192,
+  "landUse": "Đất công nghiệp, tiểu thủ công nghiệp",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 87,
+  "layer": "DAT_KXD_Coquantruso",
+  "name": "Cơ quan, trụ sở",
+  "kind": "A",
+  "aci": 34,
+  "landUse": "Đất cơ quan, trụ sở",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 87,
+  "layer": "DAT_KXD_Yte",
+  "name": "Y tế",
+  "kind": "A",
+  "aci": 220,
+  "landUse": "Đất y tế",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 87,
+  "layer": "DAT_KXD_Vanhoathethao",
+  "name": "Văn hóa, thể dục thể thao",
+  "kind": "A",
+  "aci": 94,
+  "landUse": "Đất văn hóa",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 87,
+  "layer": "DAT_KXD_Dulich",
+  "name": "Dịch vụ du lịch",
+  "kind": "A",
+  "aci": 210,
+  "landUse": "Đất du lịch",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 87,
+  "layer": "DAT_KXD_Ditich",
+  "name": "Di tích, tôn giáo",
+  "kind": "A",
+  "aci": 16,
+  "landUse": "Đất di tích, danh thắng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 87,
+  "layer": "DAT_KXD_Anninh",
+  "name": "An ninh",
+  "kind": "A",
+  "aci": 64,
+  "landUse": "Đất quốc phòng, an ninh",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 87,
+  "layer": "DAT_KXD_Quocphong",
+  "name": "Quốc phòng",
+  "kind": "A",
+  "aci": 79,
+  "landUse": "Đất quốc phòng, an ninh",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 87,
+  "layer": "DAT_KXD_Giaothong",
+  "name": "Giao thông",
+  "kind": "A",
+  "aci": 8,
+  "landUse": "Đất giao thông",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 87,
+  "layer": "DAT_KXD_HTKTkhac",
+  "name": "Hạ tầng kỹ thuật khác",
+  "kind": "A",
+  "aci": 195,
+  "landUse": "Đất hạ tầng kỹ thuật",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 87,
+  "layer": "DAT_NNK_Nongnghiep",
+  "name": "Sản xuất nông nghiệp",
+  "kind": "A",
+  "aci": 3,
+  "landUse": "Đất sản xuất nông nghiệp",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 88,
+  "layer": "DAT_NNK_Thuysan",
+  "name": "Nuôi trồng thủy sản",
+  "kind": "A",
+  "aci": 150,
+  "landUse": "Đất nuôi trồng thủy sản",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 88,
+  "layer": "DAT_NNK_Honuoc",
+  "name": "Hồ, ao, đầm",
+  "kind": "A",
+  "aci": 154,
+  "landUse": "Đất sông, ngòi, kênh, rạch, suối, mặt nước",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 88,
+  "layer": "DAT_NNK_Songsuoi",
+  "name": "Sông, suối, kênh, rạch",
+  "kind": "A",
+  "aci": 152,
+  "landUse": "Đất sông, ngòi, kênh, rạch, suối, mặt nước",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 88,
+  "layer": "DAT_NNK_Chuasudung",
+  "name": "Chưa sử dụng",
+  "kind": "A",
+  "aci": 9,
+  "landUse": "Đất chưa sử dụng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 88,
+  "layer": "DAT_NNK_Rungdacdung",
+  "name": "Rừng đặc dụng",
+  "kind": "A",
+  "aci": 148,
+  "landUse": "Đất rừng đặc dụng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 88,
+  "layer": "DAT_NNK_Rungphongho",
+  "name": "Rừng phòng hộ",
+  "kind": "A",
+  "aci": 129,
+  "landUse": "Đất rừng phòng hộ",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 88,
+  "layer": "DAT_NNK_Rungsanxuat",
+  "name": "Rừng sản xuất",
+  "kind": "A",
+  "aci": 107,
+  "landUse": "Đất rừng sản xuất",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 6,
+  "page": 88,
+  "layer": "DAT_NNK_Matnuocbien",
+  "name": "Mặt nước ven biển",
+  "kind": "A",
+  "aci": 152,
+  "landUse": "Đất sông, ngòi, kênh, rạch, suối, mặt nước",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 93,
+  "layer": null,
+  "name": "Đất trồng lúa",
+  "kind": "A",
+  "aci": 3,
+  "landUse": "Đất trồng lúa",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 93,
+  "layer": null,
+  "name": "Đất trồng trọt khác",
+  "kind": "A",
+  "aci": 94,
+  "landUse": "Đất trồng cây hàng năm khác",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 93,
+  "layer": null,
+  "name": "Đất rừng sản xuất",
+  "kind": "A",
+  "aci": 107,
+  "landUse": "Đất rừng sản xuất",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 93,
+  "layer": null,
+  "name": "Đất rừng phòng hộ",
+  "kind": "A",
+  "aci": 129,
+  "landUse": "Đất rừng phòng hộ",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 93,
+  "layer": null,
+  "name": "Đất rừng đặc dụng",
+  "kind": "A",
+  "aci": 148,
+  "landUse": "Đất rừng đặc dụng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 93,
+  "layer": null,
+  "name": "Đất nuôi trồng thủy sản",
+  "kind": "A",
+  "aci": 144,
+  "landUse": "Đất nuôi trồng thủy sản",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 93,
+  "layer": null,
+  "name": "Đất làm muối",
+  "kind": "A",
+  "aci": 126,
+  "landUse": "Đất làm muối",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 93,
+  "layer": null,
+  "name": "Đất nông nghiệp khác",
+  "kind": "A",
+  "aci": 72,
+  "landUse": "Đất nông nghiệp khác",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 94,
+  "layer": null,
+  "name": "Đất ở",
+  "kind": "A",
+  "aci": 57,
+  "landUse": "Đất ở",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 94,
+  "layer": null,
+  "name": "Đất công cộng",
+  "kind": "A",
+  "aci": 1,
+  "landUse": "Đất công cộng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 94,
+  "layer": null,
+  "name": "Đất cây xanh, thể dục thể thao",
+  "kind": "A",
+  "aci": 76,
+  "landUse": "Đất cây xanh, thể dục thể thao",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 94,
+  "layer": null,
+  "name": "Đất tôn giáo, danh lam di tích, đình đền",
+  "kind": "A",
+  "aci": 16,
+  "landUse": "Đất tôn giáo, tín ngưỡng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 94,
+  "layer": null,
+  "name": "Đất công nghiệp, tiểu thủ công nghiệp và làng nghề",
+  "kind": "A",
+  "aci": 192,
+  "landUse": "Đất công nghiệp, tiểu thủ công nghiệp",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 94,
+  "layer": null,
+  "name": "Đất khoáng sản và sản xuất vật liệu xây dựng",
+  "kind": "A",
+  "aci": 177,
+  "landUse": "Đất khoáng sản, vật liệu xây dựng",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 94,
+  "layer": null,
+  "name": "Đất xây dựng các chức năng khác",
+  "kind": "A",
+  "aci": 34,
+  "landUse": "Đất chức năng khác",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 95,
+  "layer": null,
+  "name": "Đất xử lý chất thải rắn",
+  "kind": "A",
+  "aci": 8,
+  "landUse": "Đất xử lý chất thải",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 95,
+  "layer": null,
+  "name": "Đất nghĩa trang, nghĩa địa",
+  "kind": "A",
+  "aci": 251,
+  "landUse": "Đất nghĩa trang, nhà tang lễ",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 95,
+  "layer": null,
+  "name": "Đất hạ tầng kỹ thuật khác",
+  "kind": "A",
+  "aci": 195,
+  "landUse": "Đất hạ tầng kỹ thuật",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 95,
+  "layer": null,
+  "name": "Đất hạ tầng phục vụ sản xuất",
+  "kind": "A",
+  "aci": 203,
+  "landUse": "Đất hạ tầng phục vụ sản xuất",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 95,
+  "layer": null,
+  "name": "Đất quốc phòng, an ninh",
+  "kind": "A",
+  "aci": 69,
+  "landUse": "Đất quốc phòng, an ninh",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 95,
+  "layer": null,
+  "name": "Đất sông ngòi, kênh rạch, mặt nước chuyên dùng",
+  "kind": "A",
+  "aci": 152,
+  "landUse": "Đất sông, ngòi, kênh, rạch, suối, mặt nước",
+  "target": "ChucNangSuDungDat_A"
+ },
+ {
+  "section": 7,
+  "page": 95,
+  "layer": null,
+  "name": "Đất chưa sử dụng",
+  "kind": "A",
+  "aci": 73,
+  "landUse": "Đất chưa sử dụng",
+  "target": "ChucNangSuDungDat_A"
+ }
+]

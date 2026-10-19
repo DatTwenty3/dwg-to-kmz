@@ -9,6 +9,7 @@ import { parseDwg } from '@/lib/cad';
 import {
   analyzeDrawings,
   buildFeatures,
+  colorContexts,
   initialMapping,
   conversionNote,
   targetOption,
@@ -69,7 +70,7 @@ describe.skipIf(!existsSync(ROOT))('Bóc tách DWG → TT16 — xã Long Hiệp'
     mappingUsed = mapping;
     const included = new Set(a.drawings.filter((d) => d.included).map((d) => d.id));
     built = buildFeatures(
-      folder.drawings.filter((p) => included.has(p.id)).map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: a.inside.get(p.id)! })),
+      folder.drawings.filter((p) => included.has(p.id)).map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: a.inside.get(p.id)!, color: colorContexts(a).get(p.id) })),
       mapping,
       { boundary: a.boundary?.ring ?? null, sourceInGhiChu: false, planUnit: 'XÃ LONG HIỆP' },
     );
@@ -239,7 +240,7 @@ describe.skipIf(!existsSync(ROOT))('Bóc tách DWG → TT16 — xã Long Hiệp'
     const doc = summaryDocument(
       folder.drawings
         .filter((p) => roles.get(p.id)?.included)
-        .map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: a.inside.get(p.id)!, role: roles.get(p.id)!.role })),
+        .map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: a.inside.get(p.id)!, color: colorContexts(a).get(p.id), role: roles.get(p.id)!.role })),
       mappingUsed,
       { boundary: a.boundary?.ring ?? null, texts: true },
     );

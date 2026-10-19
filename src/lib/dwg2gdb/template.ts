@@ -50,6 +50,8 @@ export interface TemplateRule extends MappingEntry {
   /** Folded layer name (compactName). */
   layer: string;
   kind: GeomKind;
+  /** '#rrggbb' of the colour group of a hatch row (colour classification): the rule is for that colour only. */
+  color?: string;
 }
 
 export interface MappingTemplate {
@@ -62,33 +64,36 @@ export interface MappingTemplate {
 
 export const emptyTemplate = (name = 'Mẫu ghép layer'): MappingTemplate => ({ format: 'ledat-gis-layer-map', version: 1, name, updated: new Date().toISOString(), rules: [] });
 
-const ruleKey = (role: RoleId, layer: string, kind: GeomKind) => `${role}|${layer}|${kind}`;
+const ruleKey = (role: RoleId, layer: string, kind: GeomKind, color = '') => `${role}|${layer}|${kind}|${color}`;
+const HEX = /^#[0-9a-f]{6}$/;
 
 /** Lookup helper built once per template. */
 export function templateLookup(t: MappingTemplate | null) {
   const exact = new Map<string, TemplateRule>();
   const byLayer = new Map<string, TemplateRule>();
   for (const r of t?.rules ?? []) {
-    exact.set(ruleKey(r.role, r.layer, r.kind), r);
+    exact.set(ruleKey(r.role, r.layer, r.kind, r.color), r);
     const db = ROLES.find((x) => x.id === r.role)?.db;
-    byLayer.set(`${db}|${r.layer}|${r.kind}`, r);
+    byLayer.set(`${db}|${r.layer}|${r.kind}|${r.color ?? ''}`, r);
   }
-  return (role: RoleId, layer: string, kind: GeomKind): MappingEntry | null => {
+  /** `color` = colour group of the row: only rules saved for that colour match; without it only colourless rules. */
+  return (role: RoleId, layer: string, kind: GeomKind, color?: string): MappingEntry | null => {
     const c = compactName(layer);
-    const hit = exact.get(ruleKey(role, c, kind));
+    const col = color?.toLowerCase() ?? '';
+    const hit = exact.get(ruleKey(role, c, kind, col));
     if (hit) return { target: hit.target, phanLoai: hit.phanLoai };
     // Same layer on another map of the same database (e.g. QH05 → QH06): only when the class fits this map's
     // database, so a land-use rule of the planning map does not leak into the existing-state one.
     const db = ROLES.find((x) => x.id === role)?.db;
-    const other = db ? byLayer.get(`${db}|${c}|${kind}`) : undefined;
+    const other = db ? byLayer.get(`${db}|${c}|${kind}|${col}`) : undefined;
     return other ? { target: other.target, phanLoai: other.phanLoai } : null;
   };
 }
 
 /** The template with these decisions added (same role × layer × kind replaced). */
 export function mergeTemplate(t: MappingTemplate, decisions: TemplateRule[]): MappingTemplate {
-  const map = new Map(t.rules.map((r) => [ruleKey(r.role, r.layer, r.kind), r]));
-  for (const d of decisions) map.set(ruleKey(d.role, d.layer, d.kind), d);
+  const map = new Map(t.rules.map((r) => [ruleKey(r.role, r.layer, r.kind, r.color), r]));
+  for (const d of decisions) map.set(ruleKey(d.role, d.layer, d.kind, d.color), d);
   return { ...t, updated: new Date().toISOString(), rules: [...map.values()] };
 }
 
@@ -115,6 +120,7 @@ export function readTemplate(json: unknown): MappingTemplate {
       role: x.role as RoleId,
       layer: compactName(x.layer).slice(0, 200),
       kind: x.kind as GeomKind,
+      ...(typeof x.color === 'string' && HEX.test(x.color.toLowerCase()) ? { color: x.color.toLowerCase() } : {}),
       target,
       phanLoai: typeof x.phanLoai === 'string' ? x.phanLoai.normalize('NFC').slice(0, 250) : '',
     });

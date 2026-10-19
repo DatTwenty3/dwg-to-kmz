@@ -13,15 +13,19 @@ import {
   conversionNote,
   emptyTemplate,
   initialMapping,
+  keyColor,
   kindFits,
   landUseOf,
+  landUseTarget,
   mergeTemplate,
   prettyLayer,
   readTemplate,
+  resolveRow,
   roleById,
   rowFeatureCount,
   ROLES,
-  suggestRow,
+  SECTION_TITLES,
+  LAND_USE_SECTIONS,
   targetOption,
   TARGETS,
   templateDecisions,
@@ -160,6 +164,13 @@ export default function DwgToGdb() {
   const [editing, setEditing] = useState<string | null>(null);
   const [menu, setMenu] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  // Reading the hatch colours against another Mục of Phụ lục I: the worker makes the rows again.
+  const [recolor, setRecolor] = useState(false);
+  /** Current drawings and template for the worker's message handler (it was created with older state). */
+  const live = useRef<{ drawings: DrawingInfo[]; template: MappingTemplate | null }>({ drawings: [], template: null });
+  useEffect(() => {
+    live.current = { drawings, template };
+  });
   // Objects removed on the map ("Biên tập"): drawing id → entity indexes; history for undo.
   const [excluded, setExcluded] = useState<Map<string, Set<number>>>(new Map());
   const [excludedHistory, setExcludedHistory] = useState<Map<string, Set<number>>[]>([]);
@@ -240,6 +251,21 @@ export default function DwgToGdb() {
         : null;
       setUnitKey(u?.key ?? '');
       setZone(3);
+    } else if (m.type === 'rows') {
+      setRecolor(false);
+      setData((d) => (d ? { ...d, rows: m.rows, section: m.section, sectionWhy: m.sectionWhy } : d));
+      setRowSel(null);
+      // New rows (another Mục): the mapping follows — the user's own choices stay where their row still exists.
+      const lookup = templateLookup(live.current.template);
+      const roleOf = new Map(live.current.drawings.map((d) => [d.id, d.role]));
+      setMapping((old) => {
+        const n = new Map<string, MappingState>();
+        for (const r of m.rows) {
+          const prev = old.get(r.key);
+          n.set(r.key, prev?.source === 'manual' ? prev : resolveRow(r, roleOf.get(r.drawing) ?? 'other', lookup, m.rows));
+        }
+        return n;
+      });
     } else if (m.type === 'preview') {
       setPreviewLoading(false);
       setPreview({ id: m.drawingId, doc: m.doc, truncated: m.truncated });
@@ -344,8 +370,7 @@ export default function DwgToGdb() {
       const n = new Map(m);
       for (const r of rows) {
         if (r.drawing !== id || n.get(r.key)?.source === 'manual') continue;
-        const t = roleById(role).db ? lookup(role, r.layer, r.kind) : null;
-        n.set(r.key, t ? { ...t, source: 'template', reason: 'Theo mẫu ghép đã lưu' } : suggestRow(r, role, rowsByKey));
+        n.set(r.key, resolveRow(r, role, lookup, rows));
       }
       return n;
     });
@@ -360,6 +385,12 @@ export default function DwgToGdb() {
       return n;
     });
     setEditing(null);
+  };
+  /** A colour shared by two land uses: the user picks one of them. */
+  const pickLandUse = (r: LayerRow, landUse: string) => {
+    const target = landUseTarget(drawings.find((d) => d.id === r.drawing)?.role ?? 'other');
+    if (!target) return;
+    setMapping((m) => new Map(m).set(r.key, { target, phanLoai: landUse, source: 'manual', reason: 'Bạn đã chọn' }));
   };
   const setPhanLoai = (r: LayerRow, v: string) =>
     setMapping((m) => {
@@ -391,8 +422,7 @@ export default function DwgToGdb() {
       for (const r of rows) {
         const role = roleOf.get(r.drawing) ?? 'other';
         if (n.get(r.key)?.source === 'manual' || !roleById(role).db) continue;
-        const hit = lookup(role, r.layer, r.kind);
-        n.set(r.key, hit ? { ...hit, source: 'template', reason: 'Theo mẫu ghép đã lưu' } : suggestRow(r, role, rowsByKey));
+        n.set(r.key, resolveRow(r, role, lookup, rows));
       }
       return n;
     });
@@ -525,15 +555,17 @@ export default function DwgToGdb() {
   const exporting = !!exportState.progress && !exportState.result && !exportState.error;
   const loader = (
     <BrandLoader
-      show={busy || previewLoading || outputLoading || exporting}
+      show={busy || previewLoading || outputLoading || exporting || recolor}
       stage={
         exporting
           ? exportState.progress?.stage
           : busy
             ? (progress?.stage ?? 'Đang đọc thư mục bản vẽ…')
-            : outputLoading
-              ? 'Đang dựng các đối tượng sẽ ghi vào gdb…'
-              : 'Đang vẽ bản vẽ lên bản đồ…'
+            : recolor
+              ? 'Đang đọc lại màu theo Mục đã chọn…'
+              : outputLoading
+                ? 'Đang dựng các đối tượng sẽ ghi vào gdb…'
+                : 'Đang vẽ bản vẽ lên bản đồ…'
       }
       percent={
         exporting
@@ -583,7 +615,7 @@ export default function DwgToGdb() {
   const missingXrefs = data.missingXrefs.filter((m) => included.some((d) => m.startsWith(`${d.name} → `)));
   const isReview = (r: LayerRow) => {
     const m = mapping.get(r.key);
-    return r.kind !== 'T' && r.count > 0 && !m?.target && (m?.unknown ?? false) && m?.source !== 'manual';
+    return r.kind !== 'T' && r.count > 0 && m?.source !== 'manual' && ((!m?.target && (m?.unknown ?? false)) || !!m?.review);
   };
   const reviewCount = (id: string) => rows.filter((r) => r.drawing === id && isReview(r)).length;
   const totalReview = included.reduce((t, d) => t + reviewCount(d.id), 0);
@@ -596,6 +628,7 @@ export default function DwgToGdb() {
     .sort((a, b) => b.count - a.count);
   const focusRow = rowSel ? rowsByKey.get(rowSel) : undefined;
   const focusLayer = focusRow && focusRow.drawing === sel ? focusRow.layer : null;
+  const focusColor = focusLayer && focusRow?.colorKey ? keyColor(focusRow.colorKey) : null;
   const role = selDrawing ? roleById(selDrawing.role) : null;
   const selectDrawing = (id: string) => {
     setSel(id);
@@ -681,8 +714,10 @@ export default function DwgToGdb() {
       </li>
     );
   };
-  const pickLayer = (layer: string) => {
-    const r = rows.find((x) => x.drawing === sel && x.layer === layer && x.count > 0 && x.kind !== 'T');
+  const pickLayer = (layer: string, color: string) => {
+    const group = `c${color.slice(1).toLowerCase()}`;
+    const own = rows.filter((x) => x.drawing === sel && x.layer === layer && x.count > 0 && x.kind !== 'T');
+    const r = own.find((x) => x.colorKey === group) ?? own[0];
     if (!r) return;
     setRowSel(r.key);
     if (!drawingRows.includes(r)) setView('all');
@@ -835,6 +870,29 @@ export default function DwgToGdb() {
                   {selDrawing.owner ? ` · xref của ${selDrawing.owner.name.replace(/.(dwg|dxf)$/i, '')}` : ''}
                 </p>
               )}
+              {data.section !== undefined && (
+                <label className="flex items-center gap-1.5 text-[11.5px] text-zinc-500" title={data.sectionWhy}>
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-gradient-to-br from-emerald-500 to-blue-600" aria-hidden />
+                  Màu theo TT16
+                  <select
+                    className="min-w-0 max-w-[14rem] cursor-pointer truncate rounded bg-transparent py-0 font-medium text-blue-700 outline-none hover:bg-zinc-100 focus:ring-1 focus:ring-blue-400"
+                    value={data.section ?? ''}
+                    disabled={recolor}
+                    onChange={(e) => {
+                      setRecolor(true);
+                      workerRef.current?.postMessage({ type: 'section', section: e.target.value === '' ? null : Number(e.target.value) } satisfies DwgTt16Request);
+                    }}
+                    aria-label="Loại đồ án theo Phụ lục I"
+                  >
+                    <option value="">Không dùng màu</option>
+                    {LAND_USE_SECTIONS.map((n) => (
+                      <option key={n} value={n}>
+                        Mục {n} – {SECTION_TITLES[n]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <div className="flex flex-wrap items-center gap-2">
                 <div className="ui-segment" role="group" aria-label="Lọc layer">
                   {(
@@ -893,7 +951,8 @@ export default function DwgToGdb() {
                       const active = r.key === rowSel;
                       // A target that gets nothing from this row (open lines → vùng) is flagged like a row to review.
                       const geom = targetOption(m?.target)?.geom;
-                      const status = m?.target ? (geom && !rowFeatureCount(r, geom) ? 'review' : 'ok') : isReview(r) ? 'review' : 'skip';
+                      const status = m?.target ? ((geom && !rowFeatureCount(r, geom)) || (m.review && m.source !== 'manual') ? 'review' : 'ok') : isReview(r) ? 'review' : 'skip';
+                      const cm = r.colorMatch;
                       return (
                         <tr
                           key={r.key}
@@ -904,10 +963,24 @@ export default function DwgToGdb() {
                             <div className="flex items-center gap-1.5">
                               <span className="h-2.5 w-2.5 shrink-0 rounded-sm ring-1 ring-black/10" style={{ background: r.color }} />
                               <Icon width={13} height={13} className="shrink-0 text-zinc-500" />
-                              <span className={`truncate ${status === 'skip' ? 'text-zinc-400' : 'text-zinc-900'}`} title={`${r.layer} — ${KIND_LABEL[r.kind]}`}>
+                              {cm && (
+                                <span
+                                  className={`shrink-0 rounded px-1 text-[10.5px] font-medium tabular-nums ${cm.level === 'exact' ? 'bg-zinc-100 text-zinc-600' : 'bg-amber-100 text-amber-800'}`}
+                                  title={cm.reason}
+                                >
+                                  {cm.level === 'near' ? '≈' : ''}Số {cm.aci}
+                                </span>
+                              )}
+                              <span className={`truncate ${status === 'skip' ? 'text-zinc-400' : 'text-zinc-900'}`} title={`${r.layer} — ${KIND_LABEL[r.kind]}${cm ? `
+${cm.reason}` : ''}`}>
                                 {r.layer}
                               </span>
                             </div>
+                            {!!r.labelConflicts && (
+                              <p className="pl-5 text-[11px] leading-snug text-amber-700" title="Chữ nằm trong vùng ghi một loại đất khác với màu của vùng">
+                                {fmt(r.labelConflicts)} vùng có chữ khác loại đất
+                              </p>
+                            )}
                             {r.kind === 'T' && r.samples.length > 0 && <p className="truncate pl-8 text-[11px] text-zinc-400">{r.samples.join(' · ')}</p>}
                           </td>
                           <td className="px-1 py-1.5 text-right tabular-nums text-zinc-600">{fmt(r.count)}</td>
@@ -957,6 +1030,23 @@ export default function DwgToGdb() {
                                 {m?.source === 'template' && <span className="ml-auto shrink-0 text-[10.5px] text-blue-600">mẫu</span>}
                               </button>
                             )}
+                            {cm?.level === 'ambiguous' && m?.source !== 'manual' && !m?.target && (
+                              <div className="mt-1 flex flex-wrap gap-1 px-1.5">
+                                {[cm.landUse, cm.alt?.landUse].filter((u): u is string => !!u).map((u) => (
+                                  <button
+                                    key={u}
+                                    className="rounded-md bg-white px-1.5 py-0.5 text-[11.5px] text-zinc-700 ring-1 ring-inset ring-amber-300 hover:bg-amber-50"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      pickLandUse(r, u);
+                                    }}
+                                  >
+                                    {u}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            {m?.review && m.source !== 'manual' && <p className="mt-0.5 px-1.5 text-[11px] leading-snug text-amber-700">{m.reason}</p>}
                             {m?.target &&
                               (() => {
                                 const conv = conversionNote(r, targetOption(m.target)?.geom ?? 'A');
@@ -999,6 +1089,7 @@ export default function DwgToGdb() {
             doc={editMode ? (editView?.doc ?? null) : preview && preview.id === sel ? preview.doc : null}
             used={editMode ? editLayers : usedLayers}
             focusLayer={editMode ? null : focusLayer}
+            focusColor={editMode ? null : focusColor}
             onPickLayer={pickLayer}
             loading={editMode ? outputLoading : previewLoading}
             loadingText={editMode ? 'Đang dựng các đối tượng sẽ ghi vào gdb…' : undefined}

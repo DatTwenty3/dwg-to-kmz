@@ -25,6 +25,8 @@ export interface OpenFile {
   /** Visible CAD layers. */
   visible: Set<string>;
   styles: LayerStyles;
+  /** Objects the user deleted on the map (indexes in `doc.entities`; cleared when the document is transformed again). */
+  removed: ReadonlySet<number>;
   /** 0..1 */
   opacity: number;
   /** File-level eye toggle. */
@@ -54,6 +56,7 @@ export function createOpenFile(id: string, fileName: string, tag: string): OpenF
     check: null,
     visible: new Set(),
     styles: {},
+    removed: new Set(),
     opacity: 1,
     shown: true,
     timing: {},

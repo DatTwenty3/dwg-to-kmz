@@ -118,6 +118,12 @@ export interface MapViewProps {
    * its corners ([lng, lat], ring) are passed with `crossing` = dragged right → left (select what it touches).
    */
   onBoxSelect?: ((ring: Vec2[], crossing: boolean) => void) | null;
+  /** Extra tool buttons under the measuring tools (the page's "Chọn" button). */
+  extraTools?: ReactNode;
+  /** The page is selecting objects: the measuring tools step aside (clicks belong to the selection). */
+  selectActive?: boolean;
+  /** A measuring tool was picked (the page leaves its selection mode). */
+  onMeasureStart?: () => void;
   /** Search result marker (a pin with its label). */
   pin?: { lngLat: Vec2; label: string } | null;
   /** Sketch whose shape is being edited on the map (vertex handles); null = not editing. */
@@ -161,6 +167,9 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
   onDrawToolChange,
   onSketchCommit,
   onBoxSelect = null,
+  extraTools,
+  selectActive = false,
+  onMeasureStart,
   pin = null,
   editSketch = null,
   onEditCommit,
@@ -222,8 +231,8 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
   // Measuring and drawing are exclusive: starting one stops the other.
   const setMeasureTool = measure.setTool;
   useEffect(() => {
-    if (drawTool) setMeasureTool(null);
-  }, [drawTool, setMeasureTool]);
+    if (drawTool || selectActive) setMeasureTool(null);
+  }, [drawTool, selectActive, setMeasureTool]);
   // Editing a shape is exclusive with measuring / drawing too.
   const editing = editSketch !== null;
   const onEditDoneRef = useRef(onEditDone);
@@ -398,11 +407,16 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
     map.on('zoom', schedule);
     map.on('load', schedule);
 
-    // Middle-button (wheel) drag pans the map, like in CAD — also while a draw / measure tool owns left clicks.
-    const surface = map.getCanvasContainer();
+    // Middle-button (wheel) drag pans the map, like in CAD — also while a draw / measure / edit tool owns left clicks,
+    // and over the selection-box layer (data-map-surface), which covers the canvas while sweeping.
+    const surface = map.getContainer().parentElement ?? map.getCanvasContainer();
+    const onSurface = (e: MouseEvent) => {
+      const t = e.target as Element | null;
+      return !!t && (map.getCanvasContainer().contains(t) || !!t.closest('[data-map-surface]'));
+    };
     let midDrag: { x: number; y: number; cursor: string } | null = null;
     const onMidDown = (e: MouseEvent) => {
-      if (e.button !== 1) return;
+      if (e.button !== 1 || !onSurface(e)) return;
       e.preventDefault(); // no browser auto-scroll
       map.stop();
       midDrag = { x: e.clientX, y: e.clientY, cursor: map.getCanvas().style.cursor };
@@ -427,7 +441,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
     };
     // Some browsers open links / paste on middle click: swallow it over the map.
     const onAux = (e: MouseEvent) => {
-      if (e.button === 1) e.preventDefault();
+      if (e.button === 1 && onSurface(e)) e.preventDefault();
     };
     surface.addEventListener('mousedown', onMidDown);
     surface.addEventListener('auxclick', onAux);
@@ -613,13 +627,17 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
         <MeasureToolbar
           tool={measure.tool}
           onTool={(t) => {
-            if (t) onDrawToolChange?.(null);
+            if (t) {
+              onDrawToolChange?.(null);
+              onMeasureStart?.();
+            }
             measure.setTool(t);
           }}
           hasMeasurements={measure.finished.length > 0}
           onClear={measure.clear}
           iconOnly={compact}
         />
+        {extraTools}
         {measure.current && (
           <MeasureCard
             key={measure.current.kind}
@@ -791,6 +809,7 @@ function BoxSelectLayer({ mapRef, onBox }: { mapRef: React.RefObject<MlMap | nul
   const crossing = !!box && box.x1 < box.x0;
   return (
     <div
+      data-map-surface
       className="absolute inset-0 z-[5] cursor-crosshair touch-none"
       onWheel={(e) => {
         const map = mapRef.current;

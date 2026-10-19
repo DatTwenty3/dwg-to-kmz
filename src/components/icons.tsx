@@ -311,3 +311,11 @@ export const IconGeomPolygon = (p: P) => (
     <path d="M5 7 12 4l7 4-1.5 10L7 20z" fill="currentColor" fillOpacity="0.15" />
   </svg>
 );
+
+/** Selection box with a pointer: "Chọn và xóa" on the map. */
+export const IconSelect = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M4 16v2a2 2 0 0 0 2 2h2M20 13v5a2 2 0 0 1-2 2h-4" />
+    <path d="M11 10l8 3.2-3.4 1.4-1.4 3.4z" />
+  </svg>
+);

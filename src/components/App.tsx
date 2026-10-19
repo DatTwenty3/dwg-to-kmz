@@ -7,6 +7,18 @@ import type { CadDocument, CrsOptions, LayerStyle, Vec2 } from '@/lib/cad/types'
 import { applyLayerStyles, isEmptyStyle, type LayerStyles } from '@/lib/cad/style';
 import { mergeDocuments, type MergePart } from '@/lib/cad/merge';
 import {
+  applyRemoved,
+  changeSelection,
+  EMPTY_SELECTION,
+  entityToSketch,
+  parseHandle,
+  SELECTED_LAYER,
+  selectionCount,
+  selectionOverlay,
+  type MapSelection,
+} from '@/lib/cad/selection';
+import { sweepIndexes } from '@/lib/cad/sweep';
+import {
   nextSketchName,
   parseSketchJson,
   SKETCH_DEFAULT_COLOR,
@@ -20,6 +32,7 @@ import { buildVn2000, checkLocation, getProvince, PROVINCES, suggestCrs } from '
 import { decodeSharedMap, sharePayloadOf, type SharedMap } from '@/lib/cad/share';
 import {
   basemapPaper,
+  buildLayers,
   createFileLayerCache,
   DEFAULT_BASEMAP_ID,
   DEFAULT_FONT_FAMILY,
@@ -54,6 +67,7 @@ import { toast, Toaster } from './toast';
 import { useIsPhone } from './useIsPhone';
 import SearchBox, { type GoTarget } from './SearchBox';
 import SketchPanel from './SketchPanel';
+import { SelectBar, SelectToolButton, type SelectMode } from './SelectTools';
 import { IconAlert, IconFolderOpen, IconPanel, IconPen, IconPlus, IconSave, IconSpinner, IconUpload, Logo } from './icons';
 import { findText } from '@/lib/cad/find';
 import { readSession, SESSION_EXT, SessionError, writeSession, type Session, type SessionFile } from '@/lib/cad/session';
@@ -233,23 +247,65 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     key?: string;
     at: number;
   }>({ past: [], future: [], at: 0 });
+  // What Hoàn tác / Làm lại steps through: one entry per user action, each made of one or more operations — a
+  // sketch change (the step of `historyRef`) or objects deleted from an opened file. A deletion that takes sketches
+  // and file objects together is one entry, so one Ctrl+Z puts both back.
+  type Op = { t: 's' } | { t: 'r'; fileId: string; indexes: number[]; doc: CadDocument | null };
+  const opsRef = useRef<{ past: Op[][]; future: Op[][]; batch: Op[] | null }>({ past: [], future: [], batch: null });
   const [historyState, setHistoryState] = useState({
     canUndo: false,
     canRedo: false,
   });
   const syncHistory = useCallback(() => {
-    const h = historyRef.current;
+    const o = opsRef.current;
     setHistoryState({
-      canUndo: h.past.length > 0,
-      canRedo: h.future.length > 0,
+      canUndo: o.past.length > 0,
+      canRedo: o.future.length > 0,
     });
   }, []);
+  /** Records an operation as a new undo step (or part of the batch being built). */
+  const pushOp = useCallback((op: Op) => {
+    const o = opsRef.current;
+    if (o.batch) o.batch.push(op);
+    else {
+      o.past.push([op]);
+      if (o.past.length > 100) o.past.shift();
+    }
+    o.future = [];
+  }, []);
+  /** Operations done inside `fn` form one undo step. */
+  const batchOps = useCallback(
+    (fn: () => void) => {
+      const o = opsRef.current;
+      o.batch = [];
+      try {
+        fn();
+      } finally {
+        const b = o.batch;
+        o.batch = null;
+        if (b.length) {
+          o.past.push(b);
+          if (o.past.length > 100) o.past.shift();
+        }
+      }
+      syncHistory();
+    },
+    [syncHistory],
+  );
   /** Another map was loaded: its changes start a fresh history. */
   const resetHistory = useCallback(() => {
     historyRef.current = { past: [], future: [], at: 0 };
+    opsRef.current = { past: [], future: [], batch: null };
     setEditId(null);
     syncHistory();
   }, [syncHistory]);
+  // ---- selecting / deleting objects on the map ("Chọn") ----
+  const [selMode, setSelMode] = useState<SelectMode>('off');
+  const [selection, setSelection] = useState<MapSelection>(EMPTY_SELECTION);
+  const selectionRef = useRef(selection);
+  useEffect(() => {
+    selectionRef.current = selection;
+  }, [selection]);
   const [nextColor, setNextColor] = useState(SKETCH_DEFAULT_COLOR);
   useEffect(() => {
     if (sharedView) return; // viewing someone's link: never overwrite this device's own map
@@ -260,7 +316,11 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       /* storage full / disabled: sketches still live for this session */
     }
   }, [sketches, mapMeta, sharedView]);
-  const [styledCache] = useState(() => new Map<string, { doc: CadDocument; styles: LayerStyles; out: CadDocument }>());
+  // Per file: the styled document (`out`, index = position in doc.entities) and the same without the deleted objects
+  // (`shown`, what is drawn and exported) — rebuilt only when the document, the styles or the deletions change.
+  const [styledCache] = useState(
+    () => new Map<string, { doc: CadDocument; styles: LayerStyles; out: CadDocument; removed?: ReadonlySet<number>; shown?: CadDocument }>(),
+  );
 
   const commitFiles = useCallback((next: OpenFile[]) => {
     filesRef.current = next;
@@ -361,6 +421,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       if (!cur) return;
       patch(id, {
         doc: res.out,
+        removed: new Set(),
         activeCrs: crs,
         form: opts.syncForm === false ? cur.form : formFromCrs(crs),
         check: checkLocation(res.out, opts.provinceId || undefined),
@@ -371,6 +432,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
         crsNote: opts.note ?? null,
       });
       setPick(null);
+      setSelection(EMPTY_SELECTION); // a new document: the selected indexes mean other objects now
       if (opts.fit) requestFit(documentBounds(res.out));
       if (opts.note) setFocusTab((t) => ({ tab: 'crs', seq: (t?.seq ?? 0) + 1 }));
     },
@@ -555,6 +617,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       dropFileResources(id);
       if (activeIdRef.current === id) setActive(rest[0]?.id ?? null);
       setPick((p) => (p?.fileId === id ? null : p));
+      setSelection((sel) => (sel.files.has(id) ? changeSelection(sel, { files: new Map([[id, [...(sel.files.get(id) ?? [])]]]) }, false) : sel));
       if (rest.length === 0 && sketchesRef.current.length === 0) go('landing');
     },
     [commitFiles, dropFileResources, setActive, go],
@@ -831,17 +894,20 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       if (!(key && h.key === key && now - h.at < 1200)) {
         h.past.push(sketchesRef.current);
         if (h.past.length > 100) h.past.shift();
+        pushOp({ t: 's' });
       }
       h.future = [];
+      opsRef.current.future = [];
       h.key = key;
       h.at = now;
       sketchesRef.current = next;
       setSketches(next);
       syncHistory();
     },
-    [syncHistory],
+    [syncHistory, pushOp],
   );
-  const stepHistory = useCallback(
+  /** One step of the sketch history (the sketches part of an undo / redo). */
+  const stepSketches = useCallback(
     (dir: 'undo' | 'redo') => {
       const h = historyRef.current;
       const from = dir === 'undo' ? h.past : h.future;
@@ -855,9 +921,39 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       setSketchShown(true);
       setSketchSel((s) => (s && next.some((f) => f.id === s) ? s : null));
       setEditId((e) => (e && next.some((f) => f.id === e) ? e : null));
+    },
+    [],
+  );
+  /** Objects of an opened file deleted (add) or put back; deleted ones also leave the selection. */
+  const applyRemoval = useCallback(
+    (fileId: string, indexes: readonly number[], add: boolean) => {
+      const f = filesRef.current.find((x) => x.id === fileId);
+      if (!f) return;
+      const next = new Set(f.removed);
+      for (const i of indexes) {
+        if (add) next.add(i);
+        else next.delete(i);
+      }
+      patch(fileId, { removed: next });
+      if (add) setSelection((sel) => changeSelection(sel, { files: new Map([[fileId, indexes]]) }, false));
+    },
+    [patch],
+  );
+  const stepHistory = useCallback(
+    (dir: 'undo' | 'redo') => {
+      const o = opsRef.current;
+      const entry = (dir === 'undo' ? o.past : o.future).pop();
+      if (!entry) return;
+      (dir === 'undo' ? o.future : o.past).push(entry);
+      // Undo walks the operations backwards.
+      for (const op of dir === 'undo' ? [...entry].reverse() : entry) {
+        if (op.t === 's') stepSketches(dir);
+        // A file transformed again has a new document: its old deletions cannot be replayed.
+        else if (filesRef.current.find((f) => f.id === op.fileId)?.doc === op.doc) applyRemoval(op.fileId, op.indexes, dir === 'redo');
+      }
       syncHistory();
     },
-    [syncHistory],
+    [stepSketches, applyRemoval, syncHistory],
   );
   const undoSketch = useCallback(() => stepHistory('undo'), [stepHistory]);
   const redoSketch = useCallback(() => stepHistory('redo'), [stepHistory]);
@@ -967,8 +1063,32 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   const sketchDoc = useMemo(() => sketchToDocument(sketches), [sketches]);
   const sketchVisible = useMemo(() => new Set(sketchDoc.layers.map((l) => l.name)), [sketchDoc]);
 
-  /** Map clicks: a sketch is selected in the "Vẽ" tab; anything else opens the entity popup. */
+  // ---- selecting objects on the map (sketches and the objects of opened files) ----
+  // Drawing or editing a shape owns the map's clicks, so the selection mode is off while either is active.
+  const selModeNow: SelectMode = drawTool || editId ? 'off' : selMode;
+  const selModeRef = useRef(selModeNow);
+  useEffect(() => {
+    selModeRef.current = selModeNow;
+  }, [selModeNow]);
+  const selCounts = selectionCount(selection);
+
+  /** Map clicks: while selecting they pick objects; else a sketch is selected in the "Vẽ" tab, anything else opens the popup. */
   const onMapPick = useCallback((p: MapPick | null) => {
+    if (selModeRef.current !== 'off') {
+      if (!p) return;
+      // A click on the amber highlight of an object already selected says which object it is.
+      const h = parseHandle(p.ref.entity.handle);
+      let items: { sketches?: string[]; files?: Map<string, number[]> } | null = null;
+      if (h && 'sketch' in h) items = { sketches: [h.sketch] };
+      else if (h) items = { files: new Map([[h.fileId, [h.index]]]) };
+      else if (p.fileId === SKETCH_ID) items = p.ref.entity.handle ? { sketches: [p.ref.entity.handle] } : null;
+      else if (p.fileId) {
+        const i = styledCache.get(p.fileId)?.out.entities.indexOf(p.ref.entity) ?? -1;
+        if (i >= 0) items = { files: new Map([[p.fileId, [i]]]) };
+      }
+      if (items) setSelection((sel) => changeSelection(sel, items));
+      return;
+    }
     if (p?.fileId === SKETCH_ID) {
       setSketchSel(p.ref.entity.handle ?? null);
       setFocusTab((t) => ({ tab: 'draw', seq: (t?.seq ?? 0) + 1 }));
@@ -976,7 +1096,100 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       return;
     }
     setPick(p);
-  }, []);
+  }, [styledCache]);
+
+  /** The selection box: objects of the shown files (visible layers, not deleted) and sketches caught by it are added. */
+  const onSweep = useCallback(
+    (ring: Vec2[], crossing: boolean) => {
+      const files = new Map<string, number[]>();
+      for (const f of filesRef.current) {
+        const styled = styledCache.get(f.id)?.out;
+        if (!f.shown || !f.doc || !styled) continue;
+        const hit = sweepIndexes(styled.entities, ring, crossing, (e, i) => f.visible.has(e.layer) && !f.removed.has(i));
+        if (hit.length) files.set(f.id, hit);
+      }
+      const sketchIds = new Set<string>();
+      if (sketchShown) {
+        const doc = sketchToDocument(sketchesRef.current);
+        for (const i of sweepIndexes(doc.entities, ring, crossing)) {
+          const id = doc.entities[i].handle;
+          if (id) sketchIds.add(id);
+        }
+      }
+      setSelection((sel) => changeSelection(sel, { sketches: [...sketchIds], files }, true));
+    },
+    [styledCache, sketchShown],
+  );
+
+  /** Deletes the selection: sketches and file objects together are one undo step. */
+  const deleteSelection = useCallback(() => {
+    const sel = selectionRef.current;
+    const n = selectionCount(sel);
+    if (!n.total) return;
+    batchOps(() => {
+      if (sel.sketches.size) recordSketches(sketchesRef.current.filter((f) => !sel.sketches.has(f.id)));
+      for (const [fileId, set] of sel.files) {
+        const indexes = [...set];
+        pushOp({ t: 'r', fileId, indexes, doc: filesRef.current.find((f) => f.id === fileId)?.doc ?? null });
+        applyRemoval(fileId, indexes, true);
+      }
+    });
+    setSelection(EMPTY_SELECTION);
+    setSketchSel((cur) => (cur && sel.sketches.has(cur) ? null : cur));
+    setEditId((cur) => (cur && sel.sketches.has(cur) ? null : cur));
+    toast.info(`Đã xóa ${n.total.toLocaleString('vi-VN')} đối tượng — Ctrl+Z để hoàn tác.`);
+  }, [batchOps, recordSketches, pushOp, applyRemoval]);
+
+  /** Exactly one object selected: edit its vertices (an object of a file becomes a sketch first). */
+  const reshapeSelection = useCallback(() => {
+    const sel = selectionRef.current;
+    if (selectionCount(sel).total !== 1) return;
+    let id: string | null = null;
+    if (sel.sketches.size) id = [...sel.sketches][0];
+    else {
+      const [fileId, set] = [...sel.files][0];
+      const index = [...set][0];
+      const entity = styledCache.get(fileId)?.out.entities[index];
+      const shape = entity ? entityToSketch(entity, sketchesRef.current.map((f) => f.name)) : null;
+      if (!shape) {
+        toast.error('Chữ và bảng không sửa hình được — chỉ đường, vùng và điểm.');
+        return;
+      }
+      id = `k${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+      const created: SketchFeature = { id, ...shape };
+      batchOps(() => {
+        recordSketches([...sketchesRef.current, created]);
+        pushOp({ t: 'r', fileId, indexes: [index], doc: filesRef.current.find((f) => f.id === fileId)?.doc ?? null });
+        applyRemoval(fileId, [index], true);
+      });
+      toast.info('Đã chuyển thành nét vẽ để sửa hình (Ctrl+Z để trả lại).');
+    }
+    setSelection(EMPTY_SELECTION);
+    setSelMode('off');
+    setDrawTool(null);
+    setSketchShown(true);
+    setSketchSel(id);
+    setEditId(id);
+    if (isPhone) setSidebarOpen(false);
+  }, [styledCache, batchOps, recordSketches, pushOp, applyRemoval, isPhone]);
+
+  // Delete / Esc while selecting (not while typing in a field).
+  useEffect(() => {
+    if (stage !== 'map' || selModeNow === 'off') return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        deleteSelection();
+      } else if (e.key === 'Escape') {
+        if (selectionRef.current.sketches.size || selectionRef.current.files.size) setSelection(EMPTY_SELECTION);
+        else setSelMode('off');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [stage, selModeNow, deleteSelection]);
 
   // ---- rendering ----------------------------------------------------------------------------------
 
@@ -991,12 +1204,16 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       const d = byId.get(f.id) ?? f;
       let styled: CadDocument | null = null;
       if (d.doc) {
-        const hit = styledCache.get(f.id);
-        if (hit && hit.doc === d.doc && hit.styles === d.styles) styled = hit.out;
-        else {
-          styled = applyLayerStyles(d.doc, d.styles);
-          styledCache.set(f.id, { doc: d.doc, styles: d.styles, out: styled });
+        let hit = styledCache.get(f.id);
+        if (!hit || hit.doc !== d.doc || hit.styles !== d.styles) {
+          hit = { doc: d.doc, styles: d.styles, out: applyLayerStyles(d.doc, d.styles) };
+          styledCache.set(f.id, hit);
         }
+        if (!hit.shown || hit.removed !== d.removed) {
+          hit.removed = d.removed;
+          hit.shown = applyRemoved(hit.out, d.removed);
+        }
+        styled = hit.shown;
       }
       return {
         id: f.id,
@@ -1020,13 +1237,33 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     }),
     [sketchDoc, sketchVisible, sketchOpacity, sketchShown, sketchSel],
   );
-  const layers = useMemo(
+  const baseLayers = useMemo(
     () =>
       orderFileLayers([sketchRender, ...renderList], (f) =>
         layerCache.get(f, { fontFamily: font.family, showText: font.ready, paper: basemapPaper(basemapId) }),
       ),
     [sketchRender, renderList, font, layerCache, basemapId],
   );
+  // The selected objects, copied in amber on top of everything.
+  const selectionLayers = useMemo(() => {
+    if (!selection.sketches.size && !selection.files.size) return [];
+    const docs = new Map<string, CadDocument>();
+    for (const f of files) {
+      const out = styledCache.get(f.id)?.out;
+      if (out) docs.set(f.id, out);
+    }
+    const overlay = selectionOverlay(selection, docs, sketchDoc);
+    return overlay
+      ? buildLayers(overlay, {
+          fontFamily: font.family,
+          showText: font.ready,
+          paper: basemapPaper(basemapId),
+          visibleLayers: new Set([SELECTED_LAYER]),
+          idPrefix: 'sel:',
+        })
+      : [];
+  }, [selection, files, styledCache, sketchDoc, font, basemapId]);
+  const layers = useMemo(() => (selectionLayers.length ? [...baseLayers, ...selectionLayers] : baseLayers), [baseLayers, selectionLayers]);
 
   /** Everything shown on the map as one document, for the "Gộp tất cả" export. */
   const mergedExport = useMemo(() => {
@@ -1568,8 +1805,47 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
           drawTool={drawTool}
           onDrawToolChange={setDrawTool}
           onSketchCommit={commitSketch}
+          selectActive={selModeNow !== 'off'}
+          onMeasureStart={() => setSelMode('off')}
+          onBoxSelect={selModeNow === 'sweep' ? onSweep : null}
+          extraTools={
+            <SelectToolButton
+              active={selModeNow !== 'off'}
+              onToggle={() => {
+                if (selModeNow !== 'off') {
+                  setSelMode('off');
+                  setSelection(EMPTY_SELECTION);
+                } else {
+                  setDrawTool(null);
+                  setEditId(null);
+                  setPick(null);
+                  setSelMode('click');
+                  if (isPhone) setSidebarOpen(false);
+                }
+              }}
+            />
+          }
         />
       </main>
+
+      {selModeNow !== 'off' && (
+        <SelectBar
+          mode={selModeNow}
+          onMode={setSelMode}
+          counts={selCounts}
+          canReshape={selCounts.total === 1}
+          reshapeHint="Chọn đúng một đối tượng để sửa hình"
+          onDelete={deleteSelection}
+          onReshape={reshapeSelection}
+          onClearSelection={() => setSelection(EMPTY_SELECTION)}
+          onDone={() => {
+            setSelMode('off');
+            setSelection(EMPTY_SELECTION);
+          }}
+          history={historyApi}
+          insetLeft={sidebarOpen && !isPhone ? PANEL_INSET : 0}
+        />
+      )}
 
       <MapPanel
         open={sidebarOpen}

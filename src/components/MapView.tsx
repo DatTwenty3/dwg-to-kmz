@@ -24,6 +24,7 @@ import BasemapPicker from './BasemapPicker';
 import { toast } from './toast';
 import { useIsPhone } from './useIsPhone';
 import { useEditSketch } from './useEditSketch';
+import { useBoxSelect } from './useBoxSelect';
 import { useGrips, type GripsConfig } from './useGrips';
 import {
   drawGridTile,
@@ -227,6 +228,8 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
   );
   const gripClickRef = useRef(false);
   const gripApi = useGrips(mapRef, overlayRef, grips, gripClickRef);
+  const boxClickRef = useRef(false);
+  const { box: boxRect } = useBoxSelect(mapRef, onBoxSelect, gripApi.isOver, boxClickRef);
   // The vertices of finished measurements can be dragged too (snapping included) while no tool owns the map.
   const [measureSel, setMeasureSel] = useState<ReadonlySet<string>>(new Set());
   const measureGripsOn = !measure.drafting && !drawTool && !editSketch && !selectActive && measure.gripShapes.length > 0;
@@ -485,7 +488,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
       layers: [],
       pickingRadius: 4,
       onClick: (info: PickingInfo) => {
-        if (measureActiveRef.current || gripClickRef.current || measureGripClickRef.current) return;
+        if (measureActiveRef.current || gripClickRef.current || measureGripClickRef.current || boxClickRef.current) return;
         const ref = info.object as PickRef | undefined;
         if (ref && ref.entity && info.coordinate) {
           onPickRef.current({
@@ -644,7 +647,12 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
     <div className="ui-map relative h-full w-full" style={{ '--map-ir': `${insetRight}px`, '--map-ib': `${insetBottom}px`, '--map-it': `${insetTop}px` } as React.CSSProperties}>
       {/* maplibre's CSS forces position:relative on the container, so size it with h/w-full. */}
       <div ref={containerRef} className="h-full w-full" />
-      {onBoxSelect && <BoxSelectLayer mapRef={mapRef} onBox={onBoxSelect} />}
+      {boxRect && (
+        <div
+          className={`pointer-events-none absolute z-[5] border ${boxRect.x1 < boxRect.x0 ? 'border-dashed border-emerald-600 bg-emerald-500/10' : 'border-blue-600 bg-blue-500/10'}`}
+          style={{ left: Math.min(boxRect.x0, boxRect.x1), top: Math.min(boxRect.y0, boxRect.y1), width: Math.abs(boxRect.x1 - boxRect.x0), height: Math.abs(boxRect.y1 - boxRect.y0) }}
+        />
+      )}
 
       {/* Basemap: one layers button with thumbnails on every screen (the row of six names grew too long). */}
       <BasemapPicker
@@ -831,72 +839,6 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
         >
           {popup.content}
         </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Drag layer over the map for the selection box (like AutoCAD): left → right = window (solid blue, wholly inside),
- * right → left = crossing (dashed green, touching). The wheel still zooms; a click without dragging selects nothing.
- */
-function BoxSelectLayer({ mapRef, onBox }: { mapRef: React.RefObject<MlMap | null>; onBox: (ring: Vec2[], crossing: boolean) => void }) {
-  const [box, setBox] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
-  const crossing = !!box && box.x1 < box.x0;
-  return (
-    <div
-      data-map-surface
-      className="absolute inset-0 z-[5] cursor-crosshair touch-none"
-      onWheel={(e) => {
-        const map = mapRef.current;
-        if (!map) return;
-        const r = e.currentTarget.getBoundingClientRect();
-        const around = map.unproject([e.clientX - r.left, e.clientY - r.top]);
-        map.easeTo({ zoom: map.getZoom() - Math.sign(e.deltaY) * 0.5, around, duration: 150 });
-      }}
-      onPointerDown={(e) => {
-        if (e.button !== 0) return;
-        try {
-          e.currentTarget.setPointerCapture(e.pointerId);
-        } catch {
-          // No capture (synthetic / already released pointer): the box still follows inside the map.
-        }
-        const r = e.currentTarget.getBoundingClientRect();
-        const x = e.clientX - r.left;
-        const y = e.clientY - r.top;
-        setBox({ x0: x, y0: y, x1: x, y1: y });
-      }}
-      onPointerMove={(e) => {
-        if (!box) return;
-        const r = e.currentTarget.getBoundingClientRect();
-        setBox({ ...box, x1: e.clientX - r.left, y1: e.clientY - r.top });
-      }}
-      onPointerUp={() => {
-        const map = mapRef.current;
-        if (box && map && Math.abs(box.x1 - box.x0) > 3 && Math.abs(box.y1 - box.y0) > 3) {
-          const corners: [number, number][] = [
-            [box.x0, box.y0],
-            [box.x1, box.y0],
-            [box.x1, box.y1],
-            [box.x0, box.y1],
-          ];
-          onBox(
-            corners.map(([x, y]) => {
-              const p = map.unproject([x, y]);
-              return [p.lng, p.lat] as Vec2;
-            }),
-            box.x1 < box.x0,
-          );
-        }
-        setBox(null);
-      }}
-      onPointerCancel={() => setBox(null)}
-    >
-      {box && (
-        <div
-          className={`pointer-events-none absolute border ${crossing ? 'border-dashed border-emerald-600 bg-emerald-500/10' : 'border-blue-600 bg-blue-500/10'}`}
-          style={{ left: Math.min(box.x0, box.x1), top: Math.min(box.y0, box.y1), width: Math.abs(box.x1 - box.x0), height: Math.abs(box.y1 - box.y0) }}
-        />
       )}
     </div>
   );

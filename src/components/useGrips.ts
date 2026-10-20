@@ -53,8 +53,9 @@ export function useGrips(
   suppressClick: MutableRefObject<boolean>,
   /** Layer ids start with this (two instances on one map need different ones; it must begin with "grip-"). */
   idPrefix = 'grip-',
-): { layers: Layer[] } {
+): { layers: Layer[]; /** True when the pointer (px) is over a grip. */ isOver: (at: [number, number]) => boolean } {
   const [live, setLive] = useState<Live | null>(null);
+  const hitRef = useRef<(at: [number, number]) => boolean>(() => false);
   const [dragKeys, setDragKeys] = useState<Set<string> | null>(null);
   const configRef = useRef(config);
   useEffect(() => {
@@ -95,6 +96,7 @@ export function useGrips(
       }
       return best;
     };
+    hitRef.current = (at) => !!hit(at);
     const snapAt = (x: number, y: number, ignore: Set<string>) =>
       pickSnap(overlayRef.current, px, x, y, SNAP_PX, { ignore, skipLayer: (id) => id.startsWith('grip-') || id.startsWith('sel:') });
 
@@ -194,6 +196,7 @@ export function useGrips(
       map.dragPan.enable();
       if (hoverCursor !== null) canvas.style.cursor = hoverCursor;
       suppressClick.current = false;
+      hitRef.current = () => false;
     };
   }, [active, mapRef, overlayRef, suppressClick]);
 
@@ -264,5 +267,5 @@ export function useGrips(
     return out;
   }, [config, items, live, dragKeys, idPrefix]);
 
-  return { layers };
+  return { layers, isOver: (at) => hitRef.current(at) };
 }

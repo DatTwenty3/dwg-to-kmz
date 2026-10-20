@@ -1988,7 +1988,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
           grips={selModeNow !== 'off' ? gripsConfig : null}
           selectActive={selModeNow !== 'off'}
           onMeasureStart={() => setSelMode('off')}
-          onBoxSelect={selModeNow === 'sweep' ? onSweep : null}
+          onBoxSelect={selModeNow !== 'off' ? onSweep : null}
           extraTools={
             <SelectToolButton
               active={selModeNow !== 'off'}
@@ -2000,7 +2000,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
                   setDrawTool(null);
                   setEditId(null);
                   setPick(null);
-                  setSelMode('click');
+                  setSelMode('on');
                   if (isPhone) setSidebarOpen(false);
                 }
               }}
@@ -2011,8 +2011,6 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
 
       {selModeNow !== 'off' && (
         <SelectBar
-          mode={selModeNow}
-          onMode={setSelMode}
           counts={selCounts}
           canReshape={selCounts.total === 1}
           reshapeHint="Chọn đúng một đối tượng để sửa hình"

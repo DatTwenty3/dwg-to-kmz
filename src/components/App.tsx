@@ -28,7 +28,7 @@ import {
   type SketchFeature,
   type SketchKind,
 } from '@/lib/cad/sketch';
-import { buildVn2000, checkLocation, getProvince, PROVINCES, suggestCrs } from '@/lib/geo';
+import { buildVn2000, checkLocation, getProvince, sketchDxfZone, suggestCrs, VN2000_ZONES } from '@/lib/geo';
 import { decodeSharedMap, sharePayloadOf, type SharedMap } from '@/lib/cad/share';
 import {
   basemapPaper,
@@ -130,12 +130,6 @@ const openedFromShare = () => typeof window !== 'undefined' && sharePayloadOf(wi
 /** File-system friendly name from a map title. */
 const fileSafe = (t: string) => t.replace(/[\\/:*?"<>|]+/g, '-').trim() || 'ban-do';
 
-/** VN-2000 (3° zone) of the province containing a point, for DXF export of sketches when no drawing is open. */
-function vn2000Around(lng: number, lat: number): CrsOptions {
-  const p = PROVINCES.find((x) => lng >= x.bbox[0] && lat >= x.bbox[1] && lng <= x.bbox[2] && lat <= x.bbox[3]);
-  return { proj4: buildVn2000(p?.lon0 ?? 105, 3), swapXY: false, unitScale: 1 };
-}
-
 /** Address of the map tool (the home page "/" is the brand page with all the tools). */
 const MAP_PATH = '/ban-do';
 const NEW_MAP_HASH = '#moi';
@@ -234,6 +228,8 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   useEffect(() => {
     sketchesRef.current = sketches;
   }, [sketches]);
+  /** VN-2000 zone chosen for the DXF of a sketch-only map ('' = the province under the sketches). */
+  const [dxfZoneKey, setDxfZoneKey] = useState('');
   const [sketchShown, setSketchShown] = useState(true);
   const [sketchOpacity, setSketchOpacity] = useState(1);
   const [sketchSel, setSketchSel] = useState<string | null>(null);
@@ -1325,9 +1321,12 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   /** Source already in WGS84 (KML/KMZ): step 2 picks the DXF target CRS instead of the drawing CRS. */
   const isGeoSource = !!rawDoc?.crs;
   const sketchCenter: Vec2 = [(sketchDoc.bbox[0][0] + sketchDoc.bbox[1][0]) / 2, (sketchDoc.bbox[0][1] + sketchDoc.bbox[1][1]) / 2];
+  // No drawing open: the DXF of the sketches uses the VN-2000 zone the user picked in the Xuất tab, else the one of
+  // the (former) province under them — the same rule as the X/Y readouts, so the file matches the coordinates shown.
+  const sketchZone = sketchDoc.layers.length ? sketchDxfZone(sketchCenter[0], sketchCenter[1], dxfZoneKey) : null;
   const dxfCrs = !af
-    ? sketchDoc.layers.length
-      ? vn2000Around(sketchCenter[0], sketchCenter[1])
+    ? sketchZone
+      ? { proj4: sketchZone.proj4, swapXY: false, unitScale: 1 }
       : null
     : isGeoSource
       ? crsFromForm(form).proj4
@@ -1993,8 +1992,24 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
                 </span>
               </p>
             )}
+            {!af && sketchZone && (
+              <label className="mb-3 block">
+                <span className="ui-label">Hệ tọa độ DXF</span>
+                <select className="ui-input w-full" value={dxfZoneKey} onChange={(e) => setDxfZoneKey(e.target.value)} aria-label="Hệ tọa độ của file DXF">
+                  <option value="">Tự động: {sketchZone.auto ? sketchZone.label : sketchDxfZone(sketchCenter[0], sketchCenter[1]).label}</option>
+                  {VN2000_ZONES.map((z) => (
+                    <option key={z.key} value={z.key}>
+                      {z.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="mt-1 block text-[11px] leading-snug text-zinc-500">
+                  VN-2000 {sketchZone.zone}°, KTT {sketchZone.lon0}°. Chọn đúng tỉnh của đồ án nếu nét vẽ nằm gần ranh giữa hai tỉnh.
+                </span>
+              </label>
+            )}
             <ExportPanel
-              key={`${af?.id}-${isGeoSource ? 'geo' : 'cad'}`}
+              key={`${af?.id}-${isGeoSource ? 'geo' : 'cad'}-${dxfZoneKey}`}
               doc={styledActive}
               sourceFileName={af?.fileName ?? fileSafe(mapMeta.title)}
               mergedName={!af && sketches.length ? fileSafe(mapMeta.title) : undefined}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { locateVn2000, parseCoordinateQuery, vn2000At, VN2000_ZONES, zoneByKey, zoneKeyOf, zoneProj4 } from '@/lib/geo/search';
+import { locateVn2000, parseCoordinateQuery, sketchDxfZone, vn2000At, VN2000_ZONES, zoneByKey, zoneKeyOf, zoneProj4 } from '@/lib/geo/search';
 
 describe('parseCoordinateQuery', () => {
   it.each([
@@ -73,5 +73,22 @@ describe('VN-2000 zones for the search bar', () => {
 
   it('maps a guess to the zone of its first province', () => {
     expect(zoneKeyOf({ lon0: 105.5, province: 'Vĩnh Long, Trà Vinh' })).toBe('p:Vĩnh Long');
+  });
+});
+
+describe('sketchDxfZone (DXF of a map with sketches only)', () => {
+  it('follows the province under the sketches, like the X/Y readouts', () => {
+    expect(sketchDxfZone(106.68, 20.85)).toMatchObject({ lon0: 105.75, zone: 3, auto: true }); // Hải Phòng (not Quảng Ninh's 107°45')
+    expect(sketchDxfZone(106.34, 9.93)).toMatchObject({ lon0: 105.5, auto: true }); // Trà Vinh
+    expect(sketchDxfZone(105.85, 21.03).proj4).toContain('+lon_0=105 ');
+  });
+  it('a zone picked by the user wins', () => {
+    const z = sketchDxfZone(106.68, 20.85, 'p:Quảng Ninh');
+    expect(z).toMatchObject({ lon0: 107.75, auto: false });
+    expect(z.proj4).toContain('+lon_0=107.75');
+    expect(sketchDxfZone(105.8, 21, '6:105')).toMatchObject({ zone: 6, lon0: 105 });
+  });
+  it('outside Vietnam: KTT 105°', () => {
+    expect(sketchDxfZone(2.35, 48.85)).toMatchObject({ lon0: 105, auto: true });
   });
 });

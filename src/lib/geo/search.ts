@@ -186,3 +186,17 @@ export function zoneKeyOf(g: { lon0: number; province: string }): string {
 export function zoneProj4(z: Vn2000Zone): string {
   return buildVn2000(z.lon0, z.zone);
 }
+
+/**
+ * CRS of the DXF written for a map that has sketches only (no drawing gives one): VN-2000 of the zone the user
+ * picked, else of the (former) province under the sketches' centre — the same rule as the X/Y readouts, so the
+ * file agrees with the coordinates shown on the map. Outside Vietnam (no province): KTT 105°, 3° zone.
+ * `auto` says whether the zone was guessed (the user is told which one and can change it).
+ */
+export function sketchDxfZone(lng: number, lat: number, zoneKey?: string | null): { proj4: string; lon0: number; zone: 3 | 6; label: string; auto: boolean } {
+  const z = zoneByKey(zoneKey);
+  if (z) return { proj4: zoneProj4(z), lon0: z.lon0, zone: z.zone, label: z.label, auto: false };
+  const at = vn2000At(lng, lat);
+  if (at) return { proj4: at.proj4, lon0: at.lon0, zone: 3, label: `${at.province.split(', ')[0]} · KTT ${dm(at.lon0)}`, auto: true };
+  return { proj4: buildVn2000(105, 3), lon0: 105, zone: 3, label: `KTT ${dm(105)}`, auto: true };
+}

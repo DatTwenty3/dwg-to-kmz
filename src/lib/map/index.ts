@@ -59,3 +59,5 @@ export {
   segmentsOf,
   snapCandidatesOf,
 } from './measureTool';
+export { pickSnap, snapTargetsOf } from './snap';
+export type { PickSnapOptions, SnapTarget } from './snap';

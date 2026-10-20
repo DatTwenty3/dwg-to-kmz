@@ -1,5 +1,5 @@
 // State of one file open on the map (the map page can stack several).
-import type { CadDocument, CrsOptions } from '@/lib/cad/types';
+import type { CadDocument, CadEntity, CrsOptions } from '@/lib/cad/types';
 import type { LayerStyles } from '@/lib/cad/style';
 import type { LocationCheck } from '@/lib/geo';
 import type { ProvinceGuess } from '@/lib/map';
@@ -27,6 +27,8 @@ export interface OpenFile {
   styles: LayerStyles;
   /** Objects the user deleted on the map (indexes in `doc.entities`; cleared when the document is transformed again). */
   removed: ReadonlySet<number>;
+  /** Objects whose vertices the user moved (index in `doc.entities` → the new object; cleared with `removed`). */
+  edited: ReadonlyMap<number, CadEntity>;
   /** 0..1 */
   opacity: number;
   /** File-level eye toggle. */
@@ -57,6 +59,7 @@ export function createOpenFile(id: string, fileName: string, tag: string): OpenF
     visible: new Set(),
     styles: {},
     removed: new Set(),
+    edited: new Map(),
     opacity: 1,
     shown: true,
     timing: {},

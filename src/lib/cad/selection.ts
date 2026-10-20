@@ -43,6 +43,12 @@ export function changeSelection(
   return { sketches, files };
 }
 
+/** The document with some objects replaced (vertices moved): index in `doc.entities` → new object. */
+export function applyEdits(doc: CadDocument, edited: ReadonlyMap<number, CadEntity>): CadDocument {
+  if (!edited.size) return doc;
+  return { ...doc, entities: doc.entities.map((e, i) => edited.get(i) ?? e) };
+}
+
 /** The document without the objects removed from it (same document when nothing was removed). */
 export function applyRemoved(doc: CadDocument, removed: ReadonlySet<number>): CadDocument {
   if (!removed.size) return doc;

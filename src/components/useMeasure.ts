@@ -1,15 +1,17 @@
 'use client';
 // Measurement tool state + map interaction (click / double-click / keyboard / snapping).
-import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type RefObject } from 'react';
 import type { Map as MlMap, MapMouseEvent } from 'maplibre-gl';
 import type { MapboxOverlay } from '@deck.gl/mapbox';
 import type { Layer } from '@deck.gl/core';
+import { ScatterplotLayer } from '@deck.gl/layers';
 import type { Vec2 } from '@/lib/cad/types';
+import { groupGrips, measureOwner, movedPaths, pathsWithout, shapeOfPoints, type GripShape } from '@/lib/cad/grips';
 import {
   buildMeasureLayers,
-  nearestSnap,
-  snapCandidatesOf,
+  pickSnap,
   type MeasureDraft,
+  type SnapTarget,
   type Measurement,
   type MeasureTool,
 } from '@/lib/map';
@@ -67,17 +69,29 @@ export interface MeasureApi {
   dismiss: () => void;
   /** True while a tool is active: callers must not open entity popups. */
   active: boolean;
+  /** A measurement is being placed (at least one point down): its finished siblings are not grabbed meanwhile. */
+  drafting: boolean;
+  /** Vertices of the finished measurements (to show as grips when no tool is active). */
+  gripShapes: GripShape[];
+  /** A finished measurement's vertices were dragged: they move by `delta` (degrees). */
+  moveVertices: (delta: Vec2, keys: ReadonlySet<string>) => void;
+  /** Deletes vertices (a distance keeps 2, an area 3). Returns how many were removed. */
+  removeVertices: (keys: ReadonlySet<string>) => number;
 }
 
 export function useMeasure(
   mapRef: RefObject<MlMap | null>,
   overlayRef: RefObject<MapboxOverlay | null>,
   fontFamily: string | undefined,
+  /** Set while a vertex of a finished measurement is being grabbed / dragged: the click that ends it adds no point. */
+  ignoreClick?: MutableRefObject<boolean>,
 ): MeasureApi {
   const [tool, setToolState] = useState<MeasureTool | null>(null);
   const [finished, setFinished] = useState<Measurement[]>([]);
   const [points, setPoints] = useState<Vec2[]>([]);
   const [cursor, setCursor] = useState<Vec2 | null>(null);
+  /** What the pointer is caught on (vertex / edge midpoint) — a mark is drawn there. */
+  const [snapMark, setSnapMark] = useState<SnapTarget | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [popT, popTrigger] = useProgress(320);
   const [fadeT, fadeTrigger] = useProgress(380);
@@ -115,6 +129,7 @@ export function useMeasure(
     setToolState(t);
     setPoints([]);
     setCursor(null);
+    setSnapMark(null);
   }, []);
   const clear = useCallback(() => {
     setFinished([]);
@@ -137,24 +152,21 @@ export function useMeasure(
 
     let raf = 0;
     let pending: MapMouseEvent | null = null;
-    let lastSnap: { x: number; y: number; p: Vec2 } | null = null;
+    let lastSnap: { x: number; y: number; t: SnapTarget } | null = null;
     let lastClick: { x: number; y: number; t: number } | null = null;
 
-    const snapAt = (x: number, y: number): Vec2 | null => {
-      const overlay = overlayRef.current;
-      if (!overlay) return null;
-      try {
-        const info = overlay.pickObject({ x, y, radius: SNAP_PX });
-        const cands = snapCandidatesOf(info?.object);
-        if (cands.length === 0) return null;
-        return nearestSnap(cands, [x, y], (p) => {
+    const snapAt = (x: number, y: number): SnapTarget | null =>
+      pickSnap(
+        overlayRef.current,
+        (p) => {
           const q = map.project(p);
           return [q.x, q.y];
-        }, SNAP_PX);
-      } catch {
-        return null;
-      }
-    };
+        },
+        x,
+        y,
+        SNAP_PX,
+        { skipLayer: (id) => id.startsWith('grip-') },
+      );
 
     // A pick renders the picking pass of every layer: keep it to a few per second while the pointer moves.
     let lastPick = 0;
@@ -164,13 +176,14 @@ export function useMeasure(
       pending = null;
       if (!e) return;
       const now = performance.now();
-      let snap: Vec2 | null = null;
+      let snap: SnapTarget | null = null;
       if (now - lastPick >= PICK_INTERVAL_MS) {
         snap = snapAt(e.point.x, e.point.y);
         lastPick = performance.now();
-        lastSnap = snap ? { x: e.point.x, y: e.point.y, p: snap } : null;
-      } else if (lastSnap && Math.hypot(lastSnap.x - e.point.x, lastSnap.y - e.point.y) <= 2) snap = lastSnap.p;
-      setCursor(snap ?? [e.lngLat.lng, e.lngLat.lat]);
+        lastSnap = snap ? { x: e.point.x, y: e.point.y, t: snap } : null;
+      } else if (lastSnap && Math.hypot(lastSnap.x - e.point.x, lastSnap.y - e.point.y) <= 2) snap = lastSnap.t;
+      setCursor(snap?.p ?? [e.lngLat.lng, e.lngLat.lat]);
+      setSnapMark(snap);
     };
     const onMove = (e: MapMouseEvent) => {
       pending = e;
@@ -179,8 +192,10 @@ export function useMeasure(
     const onLeave = () => {
       pending = null;
       setCursor(null);
+      setSnapMark(null);
     };
     const onClick = (e: MapMouseEvent) => {
+      if (ignoreClick?.current) return;
       const now = performance.now();
       // The second click of a double-click lands on the same pixel: ignore it (dblclick then finishes).
       // Use the browser's click count; the time check is a fallback for synthetic events.
@@ -190,8 +205,8 @@ export function useMeasure(
       lastClick = { x: e.point.x, y: e.point.y, t: now };
       let p: Vec2 = [e.lngLat.lng, e.lngLat.lat];
       const snap = snapAt(e.point.x, e.point.y);
-      if (snap) p = snap;
-      else if (lastSnap && Math.hypot(lastSnap.x - e.point.x, lastSnap.y - e.point.y) < 2) p = lastSnap.p;
+      if (snap) p = snap.p;
+      else if (lastSnap && Math.hypot(lastSnap.x - e.point.x, lastSnap.y - e.point.y) < 2) p = lastSnap.t.p;
       const k = toolRef.current;
       if (k === 'point') {
         commit('point', [p]);
@@ -232,23 +247,83 @@ export function useMeasure(
       map.doubleClickZoom.enable();
       canvas.style.cursor = '';
     };
-  }, [tool, mapRef, overlayRef, commit, finish, cancel, undo, popTrigger]);
+  }, [tool, mapRef, overlayRef, commit, finish, cancel, undo, popTrigger, ignoreClick]);
 
   const draft: MeasureDraft | null = useMemo(
     () => (tool && tool !== 'point' && points.length > 0 ? { kind: tool, points, cursor } : null),
     [tool, points, cursor],
   );
 
-  const layers = useMemo(
-    () =>
-      buildMeasureLayers({
-        finished,
-        draft,
-        fontFamily,
-        anim: { labelOpacity: fadeT, pop: 0.35 + 0.65 * easeOutBack(popT) },
+  const layers = useMemo(() => {
+    const base = buildMeasureLayers({
+      finished,
+      draft,
+      fontFamily,
+      anim: { labelOpacity: fadeT, pop: 0.35 + 0.65 * easeOutBack(popT) },
+    });
+    if (!tool || !snapMark) return base;
+    // What the pointer is caught on: green ring on a vertex, teal on an edge midpoint.
+    return [
+      ...base,
+      new ScatterplotLayer<Vec2>({
+        id: 'measure-snap',
+        data: [snapMark.p],
+        getPosition: (d) => d,
+        getRadius: 9,
+        radiusUnits: 'pixels',
+        filled: false,
+        stroked: true,
+        getLineColor: snapMark.mid ? [8, 145, 178, 255] : [22, 163, 74, 255],
+        getLineWidth: 2.5,
+        lineWidthUnits: 'pixels',
+        pickable: false,
       }),
-    [finished, draft, fontFamily, fadeT, popT],
+    ];
+  }, [finished, draft, fontFamily, fadeT, popT, tool, snapMark]);
+
+  // Finished measurements can be reshaped: their vertices are grips (distance: open line, area: closed, point: one).
+  const gripShapes = useMemo(
+    () => finished.map((m) => shapeOfPoints(measureOwner(m.id), [m.points], m.kind === 'area', MIN_POINTS[m.kind])),
+    [finished],
   );
+  const finishedRef = useRef(finished);
+  useEffect(() => {
+    finishedRef.current = finished;
+  });
+  const shapeOfMeasurement = (m: Measurement) => shapeOfPoints(measureOwner(m.id), [m.points], m.kind === 'area', MIN_POINTS[m.kind]);
+  const moveVertices = useCallback((delta: Vec2, keys: ReadonlySet<string>) => {
+    const byOwner = groupGrips(keys);
+    let changed: number | null = null;
+    const next = finishedRef.current.map((m) => {
+      const set = byOwner.get(measureOwner(m.id));
+      if (!set) return m;
+      changed = m.id;
+      return { ...m, points: movedPaths(shapeOfMeasurement(m), set, delta)[0] };
+    });
+    finishedRef.current = next;
+    setFinished(next);
+    // The card shows the measurement that changed.
+    if (changed !== null) setSelectedId(changed);
+  }, []);
+  const removeVertices = useCallback((keys: ReadonlySet<string>) => {
+    const byOwner = groupGrips(keys);
+    let removed = 0;
+    let changed: number | null = null;
+    const next = finishedRef.current.map((m) => {
+      const set = byOwner.get(measureOwner(m.id));
+      const paths = set ? pathsWithout(shapeOfMeasurement(m), set) : null;
+      if (!set || !paths) return m;
+      removed += set.size;
+      changed = m.id;
+      return { ...m, points: paths[0] };
+    });
+    if (removed) {
+      finishedRef.current = next;
+      setFinished(next);
+      if (changed !== null) setSelectedId(changed);
+    }
+    return removed;
+  }, []);
 
   const current: MeasureCurrent | null = useMemo(() => {
     if (draft) return { kind: draft.kind, points: draft.cursor ? [...draft.points, draft.cursor] : draft.points, isDraft: true };
@@ -256,5 +331,5 @@ export function useMeasure(
     return sel ? { kind: sel.kind, points: sel.points, isDraft: false } : null;
   }, [draft, finished, selectedId]);
 
-  return { tool, setTool, finished, current, layers, clear, finish, undo, cancel, dismiss, active: tool !== null };
+  return { tool, setTool, finished, current, layers, clear, finish, undo, cancel, dismiss, active: tool !== null, drafting: points.length > 0, gripShapes, moveVertices, removeVertices };
 }

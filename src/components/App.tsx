@@ -3,10 +3,25 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { flushSync } from 'react-dom';
-import type { CadDocument, CrsOptions, LayerStyle, Vec2 } from '@/lib/cad/types';
+import type { CadDocument, CadEntity, CrsOptions, LayerStyle, Vec2 } from '@/lib/cad/types';
 import { applyLayerStyles, isEmptyStyle, type LayerStyles } from '@/lib/cad/style';
 import { mergeDocuments, type MergePart } from '@/lib/cad/merge';
 import {
+  entityWithPaths,
+  groupGrips,
+  gripsOfShape,
+  movedPaths,
+  objectOwner,
+  parseOwner,
+  pathsWithout,
+  shapeOfEntity,
+  shapeOfSketch,
+  sketchOwner,
+  type GripShape,
+} from '@/lib/cad/grips';
+import { pointInRing } from '@/lib/dwg2gdb/geometry';
+import {
+  applyEdits,
   applyRemoved,
   changeSelection,
   EMPTY_SELECTION,
@@ -127,6 +142,8 @@ function loadMeta(): { title: string; description: string } {
 /** The page was opened from a shared link (`#m=…`). */
 const openedFromShare = () => typeof window !== 'undefined' && sharePayloadOf(window.location.hash) !== null;
 
+const NO_KEYS: ReadonlySet<string> = new Set();
+
 /** File-system friendly name from a map title. */
 const fileSafe = (t: string) => t.replace(/[\\/:*?"<>|]+/g, '-').trim() || 'ban-do';
 
@@ -246,7 +263,10 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   // What Hoàn tác / Làm lại steps through: one entry per user action, each made of one or more operations — a
   // sketch change (the step of `historyRef`) or objects deleted from an opened file. A deletion that takes sketches
   // and file objects together is one entry, so one Ctrl+Z puts both back.
-  type Op = { t: 's' } | { t: 'r'; fileId: string; indexes: number[]; doc: CadDocument | null };
+  type Op =
+    | { t: 's' }
+    | { t: 'r'; fileId: string; indexes: number[]; doc: CadDocument | null }
+    | { t: 'e'; fileId: string; doc: CadDocument | null; prev: ReadonlyMap<number, CadEntity>; next: ReadonlyMap<number, CadEntity> };
   const opsRef = useRef<{ past: Op[][]; future: Op[][]; batch: Op[] | null }>({ past: [], future: [], batch: null });
   const [historyState, setHistoryState] = useState({
     canUndo: false,
@@ -298,6 +318,10 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   // ---- selecting / deleting objects on the map ("Chọn") ----
   const [selMode, setSelMode] = useState<SelectMode>('off');
   const [selection, setSelection] = useState<MapSelection>(EMPTY_SELECTION);
+  /** What a box sweep selects: whole objects, or the vertices of the objects already selected. */
+  const [sweepTarget, setSweepTarget] = useState<'object' | 'vertex'>('object');
+  /** Selected vertices (grip keys); they belong to one selection and are dropped when the selection changes. */
+  const [gripState, setGripState] = useState<{ for: MapSelection; keys: ReadonlySet<string> }>({ for: EMPTY_SELECTION, keys: new Set() });
   const selectionRef = useRef(selection);
   useEffect(() => {
     selectionRef.current = selection;
@@ -312,10 +336,14 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       /* storage full / disabled: sketches still live for this session */
     }
   }, [sketches, mapMeta, sharedView]);
-  // Per file: the styled document (`out`, index = position in doc.entities) and the same without the deleted objects
+  // Per file: the document with the moved vertices, styled (`out`, index = position in doc.entities) and the same without the deleted objects
   // (`shown`, what is drawn and exported) — rebuilt only when the document, the styles or the deletions change.
   const [styledCache] = useState(
-    () => new Map<string, { doc: CadDocument; styles: LayerStyles; out: CadDocument; removed?: ReadonlySet<number>; shown?: CadDocument }>(),
+    () =>
+      new Map<
+        string,
+        { doc: CadDocument; styles: LayerStyles; edited: ReadonlyMap<number, CadEntity>; out: CadDocument; removed?: ReadonlySet<number>; shown?: CadDocument }
+      >(),
   );
 
   const commitFiles = useCallback((next: OpenFile[]) => {
@@ -418,6 +446,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       patch(id, {
         doc: res.out,
         removed: new Set(),
+        edited: new Map(),
         activeCrs: crs,
         form: opts.syncForm === false ? cur.form : formFromCrs(crs),
         check: checkLocation(res.out, opts.provinceId || undefined),
@@ -944,12 +973,14 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       // Undo walks the operations backwards.
       for (const op of dir === 'undo' ? [...entry].reverse() : entry) {
         if (op.t === 's') stepSketches(dir);
-        // A file transformed again has a new document: its old deletions cannot be replayed.
-        else if (filesRef.current.find((f) => f.id === op.fileId)?.doc === op.doc) applyRemoval(op.fileId, op.indexes, dir === 'redo');
+        // A file transformed again has a new document: its old deletions / moves cannot be replayed.
+        else if (filesRef.current.find((f) => f.id === op.fileId)?.doc !== op.doc) continue;
+        else if (op.t === 'r') applyRemoval(op.fileId, op.indexes, dir === 'redo');
+        else patch(op.fileId, { edited: dir === 'redo' ? op.next : op.prev });
       }
       syncHistory();
     },
-    [stepSketches, applyRemoval, syncHistory],
+    [stepSketches, applyRemoval, patch, syncHistory],
   );
   const undoSketch = useCallback(() => stepHistory('undo'), [stepHistory]);
   const redoSketch = useCallback(() => stepHistory('redo'), [stepHistory]);
@@ -1067,6 +1098,13 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     selModeRef.current = selModeNow;
   }, [selModeNow]);
   const selCounts = selectionCount(selection);
+  const sweepTargetRef = useRef(sweepTarget);
+  const selGripKeysRef = useRef<ReadonlySet<string>>(NO_KEYS);
+  const gripShapesRef = useRef<GripShape[]>([]);
+  useEffect(() => {
+    sweepTargetRef.current = sweepTarget;
+  }, [sweepTarget]);
+  const gripKeysRef = useRef<ReadonlySet<string>>(NO_KEYS);
 
   /** Map clicks: while selecting they pick objects; else a sketch is selected in the "Vẽ" tab, anything else opens the popup. */
   const onMapPick = useCallback((p: MapPick | null) => {
@@ -1097,6 +1135,14 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   /** The selection box: objects of the shown files (visible layers, not deleted) and sketches caught by it are added. */
   const onSweep = useCallback(
     (ring: Vec2[], crossing: boolean) => {
+      if (sweepTargetRef.current === 'vertex') {
+        // Vertices of the selected objects inside the box.
+        const found = new Set(selGripKeysRef.current);
+        for (const s of gripShapesRef.current)
+          for (const g of gripsOfShape(s)) if (pointInRing(g.p, ring)) found.add(g.key);
+        setGripState({ for: selectionRef.current, keys: found });
+        return;
+      }
       const files = new Map<string, number[]>();
       for (const f of filesRef.current) {
         const styled = styledCache.get(f.id)?.out;
@@ -1169,6 +1215,138 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     if (isPhone) setSidebarOpen(false);
   }, [styledCache, batchOps, recordSketches, pushOp, applyRemoval, isPhone]);
 
+  // ---- vertices ("grips") of the selected objects ----
+  const MAX_GRIPS = 4000;
+  const gripData = useMemo(() => {
+    const shapes: GripShape[] = [];
+    let count = 0;
+    let capped = false;
+    for (const f of sketches) {
+      if (!selection.sketches.has(f.id)) continue;
+      const sh = shapeOfSketch(f);
+      count += sh.paths.reduce((t, pth) => t + pth.length, 0);
+      shapes.push(sh);
+    }
+    for (const [fileId, set] of selection.files) {
+      // The geometry itself (moved vertices included), read from the state — not from the render cache, which is
+      // rebuilt later in the same render.
+      const file = files.find((f) => f.id === fileId);
+      if (!file?.doc) continue;
+      for (const i of set) {
+        const e = file.edited.get(i) ?? file.doc.entities[i];
+        const sh = e ? shapeOfEntity(objectOwner(fileId, i), e) : null;
+        if (!sh) continue;
+        count += sh.paths.reduce((t, pth) => t + pth.length, 0);
+        shapes.push(sh);
+      }
+    }
+    if (count > MAX_GRIPS) capped = true;
+    return { shapes: capped ? [] : shapes, capped };
+  }, [selection, sketches, files]);
+  const gripKeys = gripState.for === selection ? gripState.keys : NO_KEYS;
+  useEffect(() => {
+    gripKeysRef.current = gripKeys;
+    selGripKeysRef.current = gripKeys;
+    gripShapesRef.current = gripData.shapes;
+  }, [gripKeys, gripData]);
+
+  /** Moves the vertices `keys` by `delta` (degrees): sketches and file objects together are one undo step. */
+  const moveGrips = useCallback(
+    (delta: Vec2, keys: ReadonlySet<string>) => {
+      const byOwner = groupGrips(keys);
+      batchOps(() => {
+        const nextSketches = sketchesRef.current.map((f) => {
+          const set = byOwner.get(sketchOwner(f.id));
+          return set ? { ...f, points: movedPaths(shapeOfSketch(f), set, delta)[0] } : f;
+        });
+        if (nextSketches.some((f, i) => f !== sketchesRef.current[i])) recordSketches(nextSketches);
+        const perFile = new Map<string, Map<number, CadEntity>>();
+        for (const [owner, set] of byOwner) {
+          const o = parseOwner(owner);
+          if (!o || 'sketch' in o) continue;
+          const file = filesRef.current.find((f) => f.id === o.fileId);
+          const e = file?.edited.get(o.index) ?? file?.doc?.entities[o.index];
+          const shape = e ? shapeOfEntity(owner, e) : null;
+          if (!file || !e || !shape) continue;
+          const m = perFile.get(o.fileId) ?? new Map<number, CadEntity>();
+          m.set(o.index, entityWithPaths(e, movedPaths(shape, set, delta)));
+          perFile.set(o.fileId, m);
+        }
+        for (const [fileId, changes] of perFile) {
+          const file = filesRef.current.find((f) => f.id === fileId)!;
+          const next = new Map(file.edited);
+          for (const [i, e] of changes) next.set(i, e);
+          pushOp({ t: 'e', fileId, doc: file.doc, prev: file.edited, next });
+          patch(fileId, { edited: next });
+        }
+      });
+    },
+    [batchOps, recordSketches, pushOp, patch],
+  );
+
+  /** Deletes the selected vertices (an outline keeps at least 3, a line 2). */
+  const deleteGrips = useCallback(() => {
+    const keys = gripKeys;
+    if (!keys.size) return;
+    const byOwner = groupGrips(keys);
+    let removedCount = 0;
+    let skipped = 0;
+    batchOps(() => {
+      const nextSketches = sketchesRef.current.map((f) => {
+        const set = byOwner.get(sketchOwner(f.id));
+        if (!set) return f;
+        const paths = pathsWithout(shapeOfSketch(f), set);
+        if (!paths) {
+          skipped++;
+          return f;
+        }
+        removedCount += set.size;
+        return { ...f, points: paths[0] };
+      });
+      if (nextSketches.some((f, i) => f !== sketchesRef.current[i])) recordSketches(nextSketches);
+      const perFile = new Map<string, Map<number, CadEntity>>();
+      for (const [owner, set] of byOwner) {
+        const o = parseOwner(owner);
+        if (!o || 'sketch' in o) continue;
+        const file = filesRef.current.find((f) => f.id === o.fileId);
+        const e = file?.edited.get(o.index) ?? file?.doc?.entities[o.index];
+        const shape = e ? shapeOfEntity(owner, e) : null;
+        const paths = shape ? pathsWithout(shape, set) : null;
+        if (!file || !e || !paths) {
+          skipped++;
+          continue;
+        }
+        removedCount += set.size;
+        const m = perFile.get(o.fileId) ?? new Map<number, CadEntity>();
+        m.set(o.index, entityWithPaths(e, paths));
+        perFile.set(o.fileId, m);
+      }
+      for (const [fileId, changes] of perFile) {
+        const file = filesRef.current.find((f) => f.id === fileId)!;
+        const next = new Map(file.edited);
+        for (const [i, e] of changes) next.set(i, e);
+        pushOp({ t: 'e', fileId, doc: file.doc, prev: file.edited, next });
+        patch(fileId, { edited: next });
+      }
+    });
+    setGripState({ for: selection, keys: new Set() });
+    if (removedCount) toast.info(`Đã xóa ${removedCount} đỉnh — Ctrl+Z để hoàn tác.`);
+    else toast.error('Không xóa được: đường cần ít nhất 2 đỉnh, vùng ít nhất 3, điểm và chữ không có đỉnh để xóa.');
+    if (removedCount && skipped) toast.info(`${skipped} đối tượng giữ nguyên vì sẽ thiếu đỉnh.`);
+  }, [gripKeys, selection, batchOps, recordSketches, pushOp, patch]);
+  const gripsConfig = useMemo(
+    () =>
+      gripData.shapes.length
+        ? {
+            shapes: gripData.shapes,
+            selected: gripKeys,
+            onSelect: (keys: Set<string>) => setGripState({ for: selectionRef.current, keys }),
+            onMove: moveGrips,
+          }
+        : null,
+    [gripData, gripKeys, moveGrips],
+  );
+
   // Delete / Esc while selecting (not while typing in a field).
   useEffect(() => {
     if (stage !== 'map' || selModeNow === 'off') return;
@@ -1177,15 +1355,18 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
-        deleteSelection();
+        // Vertices selected: delete those; otherwise the objects.
+        if (gripKeysRef.current.size) deleteGrips();
+        else deleteSelection();
       } else if (e.key === 'Escape') {
-        if (selectionRef.current.sketches.size || selectionRef.current.files.size) setSelection(EMPTY_SELECTION);
+        if (gripKeysRef.current.size) setGripState({ for: selectionRef.current, keys: new Set() });
+        else if (selectionRef.current.sketches.size || selectionRef.current.files.size) setSelection(EMPTY_SELECTION);
         else setSelMode('off');
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [stage, selModeNow, deleteSelection]);
+  }, [stage, selModeNow, deleteSelection, deleteGrips]);
 
   // ---- rendering ----------------------------------------------------------------------------------
 
@@ -1201,8 +1382,8 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       let styled: CadDocument | null = null;
       if (d.doc) {
         let hit = styledCache.get(f.id);
-        if (!hit || hit.doc !== d.doc || hit.styles !== d.styles) {
-          hit = { doc: d.doc, styles: d.styles, out: applyLayerStyles(d.doc, d.styles) };
+        if (!hit || hit.doc !== d.doc || hit.styles !== d.styles || hit.edited !== d.edited) {
+          hit = { doc: d.doc, styles: d.styles, edited: d.edited, out: applyLayerStyles(applyEdits(d.doc, d.edited), d.styles) };
           styledCache.set(f.id, hit);
         }
         if (!hit.shown || hit.removed !== d.removed) {
@@ -1804,6 +1985,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
           drawTool={drawTool}
           onDrawToolChange={setDrawTool}
           onSketchCommit={commitSketch}
+          grips={selModeNow !== 'off' ? gripsConfig : null}
           selectActive={selModeNow !== 'off'}
           onMeasureStart={() => setSelMode('off')}
           onBoxSelect={selModeNow === 'sweep' ? onSweep : null}
@@ -1836,7 +2018,14 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
           reshapeHint="Chọn đúng một đối tượng để sửa hình"
           onDelete={deleteSelection}
           onReshape={reshapeSelection}
-          onClearSelection={() => setSelection(EMPTY_SELECTION)}
+          onClearSelection={() => {
+            if (gripKeys.size) setGripState({ for: selection, keys: new Set() });
+            else setSelection(EMPTY_SELECTION);
+          }}
+          sweepTarget={sweepTarget}
+          onSweepTarget={setSweepTarget}
+          gripCount={gripKeys.size}
+          gripsCapped={gripData.capped}
           onDone={() => {
             setSelMode('off');
             setSelection(EMPTY_SELECTION);

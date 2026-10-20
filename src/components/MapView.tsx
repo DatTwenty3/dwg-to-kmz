@@ -24,6 +24,7 @@ import BasemapPicker from './BasemapPicker';
 import { toast } from './toast';
 import { useIsPhone } from './useIsPhone';
 import { useEditSketch } from './useEditSketch';
+import { useGrips, type GripsConfig } from './useGrips';
 import {
   drawGridTile,
   FALLBACK_BASEMAP_ID,
@@ -120,6 +121,8 @@ export interface MapViewProps {
   onBoxSelect?: ((ring: Vec2[], crossing: boolean) => void) | null;
   /** Extra tool buttons under the measuring tools (the page's "Chọn" button). */
   extraTools?: ReactNode;
+  /** Vertices of the selected objects: shown as grips, selectable and draggable (with snapping). */
+  grips?: GripsConfig | null;
   /** The page is selecting objects: the measuring tools step aside (clicks belong to the selection). */
   selectActive?: boolean;
   /** A measuring tool was picked (the page leaves its selection mode). */
@@ -168,6 +171,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
   onSketchCommit,
   onBoxSelect = null,
   extraTools,
+  grips = null,
   selectActive = false,
   onMeasureStart,
   pin = null,
@@ -211,7 +215,8 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
     }
   }, [drawingCrs]);
   const inverseRef = useRef(inverse);
-  const measure = useMeasure(mapRef, overlayRef, fontFamily);
+  const measureGripClickRef = useRef(false);
+  const measure = useMeasure(mapRef, overlayRef, fontFamily, measureGripClickRef);
   const draw = useDraw(
     mapRef,
     overlayRef,
@@ -220,6 +225,35 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
     (kind, pts) => onSketchCommit?.(kind, pts),
     () => onDrawToolChange?.(null),
   );
+  const gripClickRef = useRef(false);
+  const gripApi = useGrips(mapRef, overlayRef, grips, gripClickRef);
+  // The vertices of finished measurements can be dragged too (snapping included) while no tool owns the map.
+  const [measureSel, setMeasureSel] = useState<ReadonlySet<string>>(new Set());
+  const measureGripsOn = !measure.drafting && !drawTool && !editSketch && !selectActive && measure.gripShapes.length > 0;
+  const measureGrips = useMemo<GripsConfig | null>(
+    () =>
+      measureGripsOn
+        ? { shapes: measure.gripShapes, selected: measureSel, onSelect: (k) => setMeasureSel(k), onMove: measure.moveVertices }
+        : null,
+    [measureGripsOn, measure.gripShapes, measure.moveVertices, measureSel],
+  );
+  const measureGripApi = useGrips(mapRef, overlayRef, measureGrips, measureGripClickRef, 'grip-m-');
+  // Delete / Backspace removes the selected measurement vertices; Esc deselects them.
+  const removeMeasureVertices = measure.removeVertices;
+  useEffect(() => {
+    if (!measureGripsOn || measureSel.size === 0) return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        e.preventDefault();
+        if (removeMeasureVertices(measureSel) === 0) toast.error('Đường đo cần ít nhất 2 điểm, diện tích ít nhất 3 điểm.');
+        setMeasureSel(new Set());
+      } else if (e.key === 'Escape') setMeasureSel(new Set());
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [measureGripsOn, measureSel, removeMeasureVertices]);
   const edit = useEditSketch(mapRef, overlayRef, editSketch, (pts) => onEditCommit?.(pts));
   // While measuring, drawing or editing, clicks belong to the tool (no entity popups / hover cursor).
   const measureActiveRef = useRef(false);
@@ -451,7 +485,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
       layers: [],
       pickingRadius: 4,
       onClick: (info: PickingInfo) => {
-        if (measureActiveRef.current) return;
+        if (measureActiveRef.current || gripClickRef.current || measureGripClickRef.current) return;
         const ref = info.object as PickRef | undefined;
         if (ref && ref.entity && info.coordinate) {
           onPickRef.current({
@@ -499,10 +533,12 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
   const measureLayers = measure.layers;
   const drawLayers = draw.layers;
   const editLayers = edit.layers;
+  const gripLayers = gripApi.layers;
+  const measureGripLayers = measureGripApi.layers;
   useEffect(() => {
-    const extra = [...editLayers, ...measureLayers, ...drawLayers];
+    const extra = [...editLayers, ...measureLayers, ...drawLayers, ...gripLayers, ...measureGripLayers];
     overlayRef.current?.setProps({ layers: extra.length ? [...layers, ...extra] : layers });
-  }, [layers, measureLayers, drawLayers, editLayers]);
+  }, [layers, measureLayers, drawLayers, editLayers, gripLayers, measureGripLayers]);
   useEffect(() => {
     // The drawing fades in each time a document first appears (and again after the next file is opened).
     if (layers.length > 0 && !hadLayers.current) {

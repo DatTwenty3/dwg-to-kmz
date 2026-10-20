@@ -5,19 +5,18 @@ import { IconPen, IconRedo, IconSelect, IconTrash, IconUndo } from './icons';
 
 export type SelectMode = 'off' | 'click' | 'sweep';
 
-export function SelectToolButton({ active, onToggle, iconOnly = false }: { active: boolean; onToggle: () => void; iconOnly?: boolean }) {
+export function SelectToolButton({ active, onToggle }: { active: boolean; onToggle: () => void }) {
   return (
-    <div className="ui-floating ui-drop-in flex items-center rounded-xl p-1" style={{ animationDelay: '0.45s' }} role="toolbar" aria-label="Chọn và xóa đối tượng">
-      <button
-        className={`ui-tool-btn flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-medium transition ${active ? 'bg-blue-600 text-white' : 'text-zinc-700 hover:bg-zinc-100'}`}
-        aria-pressed={active}
-        title={active ? 'Thoát chế độ chọn' : 'Chọn nhiều đối tượng, quét khung, xóa hoặc sửa hình'}
-        onClick={onToggle}
-      >
-        <IconSelect width={15} height={15} />
-        <span className={iconOnly ? 'sr-only' : 'max-[1180px]:hidden'}>Chọn</span>
-      </button>
-    </div>
+    <button
+      className={`ui-floating ui-drop-in flex h-10 w-10 items-center justify-center transition ${active ? '!bg-blue-600 !text-white' : 'text-zinc-700'}`}
+      style={{ animationDelay: '0.45s' }}
+      aria-label="Chọn và xóa đối tượng"
+      aria-pressed={active}
+      title={active ? 'Thoát chế độ chọn' : 'Chọn nhiều đối tượng, quét khung, xóa hoặc sửa hình'}
+      onClick={onToggle}
+    >
+      <IconSelect width={19} height={19} />
+    </button>
   );
 }
 
@@ -31,6 +30,10 @@ export function SelectBar({
   onReshape,
   onClearSelection,
   onDone,
+  sweepTarget,
+  onSweepTarget,
+  gripCount,
+  gripsCapped,
   history,
   insetLeft,
 }: {
@@ -43,6 +46,12 @@ export function SelectBar({
   onReshape: () => void;
   onClearSelection: () => void;
   onDone: () => void;
+  /** What a box sweep selects: whole objects, or the vertices of the selected objects. */
+  sweepTarget: 'object' | 'vertex';
+  onSweepTarget: (t: 'object' | 'vertex') => void;
+  /** Vertices selected / too many vertices to show them. */
+  gripCount: number;
+  gripsCapped: boolean;
   history: { canUndo: boolean; canRedo: boolean; undo: () => void; redo: () => void };
   insetLeft: number;
 }) {
@@ -70,9 +79,14 @@ export function SelectBar({
             </span>
           )}
         </span>
+        {gripCount > 0 && (
+          <span className="tabular-nums">
+            <b className="font-semibold text-red-600">{gripCount.toLocaleString('vi-VN')}</b> đỉnh
+          </span>
+        )}
         {counts.total > 0 && (
-          <button className="ui-btn-ghost !px-2 !py-1 !text-[12px]" onClick={onClearSelection}>
-            Bỏ chọn
+          <button className="ui-btn-ghost !px-2 !py-1 !text-[12px]" onClick={onClearSelection} title={gripCount > 0 ? 'Bỏ chọn các đỉnh (Esc)' : 'Bỏ chọn (Esc)'}>
+            {gripCount > 0 ? 'Bỏ chọn đỉnh' : 'Bỏ chọn'}
           </button>
         )}
         <span className="ml-auto flex items-center gap-1">
@@ -84,15 +98,28 @@ export function SelectBar({
           </button>
         </span>
       </div>
+      {mode === 'sweep' && counts.total > 0 && (
+        <div className="flex items-center gap-2">
+          <span className="text-[11.5px] text-zinc-500">Quét để chọn</span>
+          <div className="ui-segment" role="group" aria-label="Quét chọn">
+            <button className="whitespace-nowrap" aria-pressed={sweepTarget === 'object'} onClick={() => onSweepTarget('object')}>
+              Đối tượng
+            </button>
+            <button className="whitespace-nowrap" aria-pressed={sweepTarget === 'vertex'} onClick={() => onSweepTarget('vertex')}>
+              Đỉnh
+            </button>
+          </div>
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-1.5">
         <button
           className="ui-btn !px-2.5 !py-1 !text-[12px] text-red-600 disabled:opacity-40"
           disabled={!counts.total}
           onClick={onDelete}
-          title="Xóa các đối tượng đã chọn (phím Delete)"
+          title={gripCount > 0 ? 'Xóa các đỉnh đã chọn (phím Delete)' : 'Xóa các đối tượng đã chọn (phím Delete)'}
         >
           <IconTrash width={13} height={13} />
-          Xóa{counts.total ? ` ${counts.total.toLocaleString('vi-VN')}` : ''}
+          {gripCount > 0 ? `Xóa ${gripCount.toLocaleString('vi-VN')} đỉnh` : `Xóa${counts.total ? ` ${counts.total.toLocaleString('vi-VN')}` : ''}`}
           <kbd className="rounded border border-red-200 bg-red-50 px-1 font-sans text-[10.5px] font-medium text-red-600">Delete</kbd>
         </button>
         <button className="ui-btn !px-2.5 !py-1 !text-[12px] disabled:opacity-40" disabled={!canReshape} onClick={onReshape} title={canReshape ? 'Kéo đỉnh, thêm hoặc xóa đỉnh' : reshapeHint}>
@@ -104,9 +131,13 @@ export function SelectBar({
         </button>
       </div>
       <p className="hidden text-[11.5px] leading-snug text-zinc-500 sm:block">
-        {mode === 'click'
-          ? 'Bấm vào đối tượng để chọn / bỏ chọn. Delete = xóa, Esc = bỏ chọn, Ctrl+Z = hoàn tác.'
-          : 'Kéo khung: trái → phải chọn đối tượng nằm trọn trong khung, phải → trái chọn cả đối tượng chạm khung. Kéo tiếp để chọn thêm, cuộn chuột để phóng to.'}
+        {gripsCapped
+          ? 'Đã chọn quá nhiều đối tượng để hiện từng đỉnh — chọn ít hơn để di chuyển đỉnh.'
+          : mode === 'click'
+            ? 'Bấm đối tượng để chọn / bỏ chọn. Ô vuông trên đối tượng là đỉnh: bấm để chọn (Shift thêm), kéo để di chuyển — tự hút vào đỉnh và trung điểm. Delete = xóa, Esc = bỏ chọn.'
+            : sweepTarget === 'vertex'
+              ? 'Kéo khung quanh các đỉnh (ô vuông) của đối tượng đã chọn để chọn chúng, rồi chuyển sang "Bấm chọn" để kéo.'
+              : 'Kéo khung: trái → phải chọn đối tượng nằm trọn trong khung, phải → trái chọn cả đối tượng chạm khung. Kéo tiếp để chọn thêm, cuộn chuột để phóng to.'}
       </p>
     </div>
   );

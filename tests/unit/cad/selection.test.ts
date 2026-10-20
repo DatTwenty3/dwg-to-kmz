@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { sweepIndexes } from '@/lib/cad/sweep';
-import { applyRemoved, changeSelection, EMPTY_SELECTION, entityToSketch, objectHandle, parseHandle, selectionCount, selectionOverlay, sketchHandle } from '@/lib/cad/selection';
+import { applyRemoved, changeSelection, EMPTY_SELECTION, objectHandle, parseHandle, selectionCount, selectionOverlay, sketchHandle } from '@/lib/cad/selection';
 import { sketchToDocument } from '@/lib/cad/sketch';
 import type { CadDocument, CadEntity, Vec2 } from '@/lib/cad/types';
 
@@ -55,22 +55,5 @@ describe('selection', () => {
     expect(parseHandle(sketchHandle('k9'))).toEqual({ sketch: 'k9' });
     expect(parseHandle('e12')).toBeNull();
     expect(selectionOverlay(EMPTY_SELECTION, files, sketches)).toBeNull();
-  });
-});
-
-describe('entityToSketch', () => {
-  it('open line → line, closed line / area → polygon without the repeated vertex, point → point', () => {
-    expect(entityToSketch(line([[0, 0], [1, 1], [2, 0]]), [])).toMatchObject({ kind: 'line', name: 'Đường 1' });
-    const ring = square(0, 0, 1);
-    const closedByEnd = entityToSketch(line([...ring, ring[0]]), ['Vùng 1']);
-    expect(closedByEnd).toMatchObject({ kind: 'polygon', name: 'Vùng 2' });
-    expect(closedByEnd!.points).toHaveLength(4);
-    const poly = entityToSketch({ kind: 'polygon', layer: 'L', color: '#336699', rings: [[...ring, ring[0]]], fillOpacity: 0.4 }, []);
-    expect(poly).toMatchObject({ kind: 'polygon', style: { color: '#336699', fillOpacity: 0.4 } });
-    expect(poly!.points).toHaveLength(4);
-    expect(entityToSketch({ kind: 'point', layer: 'L', color: '#000000', position: [5, 6] }, [])).toMatchObject({ kind: 'point', points: [[5, 6]] });
-  });
-  it('texts cannot be reshaped', () => {
-    expect(entityToSketch({ kind: 'text', layer: 'L', color: '#000000', text: 'x', position: [0, 0], height: 1, rotation: 0, hAlign: 'left', vAlign: 'baseline' }, [])).toBeNull();
   });
 });

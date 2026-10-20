@@ -1,8 +1,6 @@
-// Selecting, removing and reshaping what was added to the map: the user's own sketches (SketchFeature) and single
+// Selecting and removing what was added to the map: the user's own sketches (SketchFeature) and single
 // objects of an opened DWG/DXF/KMZ file (indexes into the file's WGS84 document). Pure (no DOM).
-import { isClosedLine } from '@/lib/dwg2gdb/geometry';
-import { nextSketchName, type SketchFeature } from './sketch';
-import type { CadDocument, CadEntity, Vec2 } from './types';
+import type { CadDocument, CadEntity } from './types';
 
 export interface MapSelection {
   /** Ids of sketches (SketchFeature.id). */
@@ -92,39 +90,4 @@ export function selectionOverlay(sel: MapSelection, docs: ReadonlyMap<string, Ca
     bbox: sketchDoc.bbox,
     warnings: [],
   };
-}
-
-/**
- * A sketch (without id) shaped like an object of an opened file, so its vertices can be edited: lines → line,
- * closed lines and areas → polygon (outer ring), points → point. Texts and tables cannot be reshaped (null).
- */
-export function entityToSketch(e: CadEntity, existingNames: readonly string[]): Omit<SketchFeature, 'id'> | null {
-  const open = (pts: readonly Vec2[]): Vec2[] => {
-    const out = pts.map((p): Vec2 => [p[0], p[1]]);
-    const a = out[0];
-    const b = out[out.length - 1];
-    if (out.length > 3 && a && b && a[0] === b[0] && a[1] === b[1]) out.pop();
-    return out;
-  };
-  let kind: SketchFeature['kind'];
-  let points: Vec2[];
-  let style: SketchFeature['style'];
-  if (e.kind === 'polyline') {
-    const closed = isClosedLine(e.points, e.closed);
-    kind = closed ? 'polygon' : 'line';
-    points = closed ? open(e.points) : e.points.map((p): Vec2 => [p[0], p[1]]);
-    style = { color: e.color, width: closed ? 2 : 3, ...(closed ? { fillOpacity: 0 } : {}) };
-  } else if (e.kind === 'polygon') {
-    if (!e.rings[0]) return null;
-    kind = 'polygon';
-    points = open(e.rings[0]);
-    style = { color: e.color, width: 2, fillOpacity: e.fillOpacity };
-  } else if (e.kind === 'point') {
-    kind = 'point';
-    points = [[e.position[0], e.position[1]]];
-    style = { color: e.color };
-  } else return null;
-  const min = kind === 'point' ? 1 : kind === 'line' ? 2 : 3;
-  if (points.length < min) return null;
-  return { kind, name: nextSketchName(kind, existingNames), points, style };
 }

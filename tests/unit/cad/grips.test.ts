@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { entityWithPaths, gripKey, gripsOfShape, groupGrips, midpointsOf, movedPaths, objectOwner, parseGripKey, parseOwner, pathsWithout, shapeOfEntity, shapeOfSketch, sketchOwner } from '@/lib/cad/grips';
+import { allGripKeys, edgeHandles, entityWithPaths, gripKey, gripsOfShape, groupGrips, midpointsOf, movedPaths, objectOwner, parseGripKey, parseOwner, pathsWithInsert, pathsWithout, shapeOfEntity, shapeOfSketch, sketchOwner } from '@/lib/cad/grips';
 import { applyEdits } from '@/lib/cad/selection';
 import type { CadDocument, CadEntity, Vec2 } from '@/lib/cad/types';
 
@@ -75,5 +75,28 @@ describe('grips of a shape', () => {
     const out = applyEdits(doc, new Map([[1, repl]]));
     expect(out.entities[1]).toBe(repl);
     expect(out.entities[0]).toBe(doc.entities[0]);
+  });
+});
+
+describe('edge handles and inserting a vertex', () => {
+  it('one handle per edge: open line n−1, closed outline n (with or without the repeated closing vertex)', () => {
+    expect(edgeHandles(shapeOfEntity('o', poly([[0, 0], [2, 0], [2, 2]]))!)).toHaveLength(2);
+    expect(edgeHandles(shapeOfEntity('o', poly([...sq, sq[0]]))!)).toHaveLength(4);
+    const area: CadEntity = { kind: 'polygon', layer: 'L', color: '#000000', rings: [sq], fillOpacity: 0.3 };
+    const h = edgeHandles(shapeOfEntity('o', area)!);
+    expect(h).toHaveLength(4);
+    expect(h[3]).toMatchObject({ at: 4, p: [0, 2] }); // the closing edge inserts at the end
+    expect(edgeHandles(shapeOfEntity('o', { kind: 'point', layer: 'L', color: '#000000', position: [1, 1] })!)).toEqual([]);
+  });
+  it('inserts the vertex where the handle says', () => {
+    const s = shapeOfEntity('o', poly([[0, 0], [2, 0], [2, 2]]))!;
+    const [h0] = edgeHandles(s);
+    expect(pathsWithInsert(s, h0.r, h0.at, [1, 0.5])[0]).toEqual([[0, 0], [1, 0.5], [2, 0], [2, 2]]);
+    expect(s.paths[0]).toHaveLength(3); // the shape itself is untouched
+  });
+  it('all grip keys of the selected shapes', () => {
+    const a = shapeOfEntity(objectOwner('f', 1), poly([[0, 0], [1, 1]]))!;
+    const b = shapeOfEntity(objectOwner('f', 2), poly([...sq, sq[0]]))!;
+    expect(allGripKeys([a, b]).size).toBe(2 + 4);
   });
 });

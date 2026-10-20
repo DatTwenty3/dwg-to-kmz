@@ -160,3 +160,41 @@ export function midpointsOf(paths: readonly Vec2[][], closed: boolean): Vec2[] {
   }
   return out;
 }
+
+/** A handle at the middle of an edge: dragging it inserts a vertex there (as vertex `at` of path `r`). */
+export interface EdgeHandle {
+  owner: string;
+  r: number;
+  /** Index the new vertex gets (it goes between vertex `at - 1` and the next one). */
+  at: number;
+  p: Vec2;
+}
+
+/** The edge-midpoint handles of a shape (none for single-vertex shapes). */
+export function edgeHandles(s: GripShape): EdgeHandle[] {
+  const out: EdgeHandle[] = [];
+  s.paths.forEach((path, r) => {
+    if (path.length < 2) return;
+    // A path that repeats its first vertex already holds its closing edge.
+    const edges = s.closed && !s.dup[r] ? path.length : path.length - 1;
+    for (let i = 0; i < edges; i++) {
+      const a = path[i];
+      const b = path[(i + 1) % path.length];
+      if (same(a, b)) continue;
+      out.push({ owner: s.owner, r, at: i + 1, p: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] });
+    }
+  });
+  return out;
+}
+
+/** The paths with vertex `p` inserted as vertex `at` of path `r` (the shape is not changed). */
+export function pathsWithInsert(shape: GripShape, r: number, at: number, p: Vec2): Vec2[][] {
+  return shape.paths.map((path, k) => {
+    const out = clone(path);
+    if (k === r) out.splice(Math.max(0, Math.min(at, out.length)), 0, [p[0], p[1]]);
+    return out;
+  });
+}
+
+/** Every grip key of the shapes (to move whole objects). */
+export const allGripKeys = (shapes: readonly GripShape[]): Set<string> => new Set(shapes.flatMap((s) => gripsOfShape(s).map((g) => g.key)));

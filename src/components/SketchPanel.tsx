@@ -42,9 +42,8 @@ export interface SketchPanelProps {
   onKeepShared: () => void;
   /** What `sharedView` shows: a shared link or a .ldg session opened in place of the map. */
   sharedKind: 'link' | 'session';
-  /** Sketch whose shape is being edited on the map. */
-  editingId: string | null;
-  onEdit: (id: string | null) => void;
+  /** Select this sketch on the map (the "Chọn" mode, where its vertices can be dragged, added and deleted). */
+  onSelectOnMap: (id: string) => void;
   history: { canUndo: boolean; canRedo: boolean; undo: () => void; redo: () => void };
 }
 
@@ -232,11 +231,10 @@ export default function SketchPanel(p: SketchPanelProps) {
                   {f.label && <span className="max-w-[35%] truncate text-[11px] text-zinc-400">“{f.label}”</span>}
                 </button>
                 <button
-                  className={`ui-icon-btn ${p.editingId === f.id ? '!bg-blue-50 !text-blue-600' : 'ui-row-action'}`}
-                  aria-label={`Sửa hình ${f.name}`}
-                  aria-pressed={p.editingId === f.id}
-                  title="Sửa hình (kéo đỉnh, thêm / xóa đỉnh, dời)"
-                  onClick={() => p.onEdit(p.editingId === f.id ? null : f.id)}
+                  className="ui-icon-btn ui-row-action"
+                  aria-label={`Chọn ${f.name} trên bản đồ`}
+                  title="Chọn trên bản đồ: kéo đỉnh, thêm đỉnh ở điểm giữa cạnh, kéo cả hình"
+                  onClick={() => p.onSelectOnMap(f.id)}
                 >
                   <IconNodes width={15} height={15} />
                 </button>
@@ -295,12 +293,9 @@ export default function SketchPanel(p: SketchPanelProps) {
                         />
                       </label>
                       <div className="col-span-2 grid grid-cols-2 gap-2">
-                        <button
-                          className={`${p.editingId === f.id ? 'ui-btn-primary' : 'ui-btn'} !py-1.5 !text-xs`}
-                          onClick={() => p.onEdit(p.editingId === f.id ? null : f.id)}
-                        >
+                        <button className="ui-btn !py-1.5 !text-xs" onClick={() => p.onSelectOnMap(f.id)} title="Kéo đỉnh, thêm đỉnh ở điểm giữa cạnh, kéo cả hình">
                           <IconNodes width={14} height={14} />
-                          {p.editingId === f.id ? 'Xong sửa hình' : 'Sửa hình'}
+                          Chọn trên bản đồ
                         </button>
                         <button className="ui-btn !py-1.5 !text-xs" onClick={() => p.onZoom(f.id)}>
                           <IconTarget width={14} height={14} />

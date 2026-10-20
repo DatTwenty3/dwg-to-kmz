@@ -16,14 +16,12 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import type { Layer, PickingInfo } from '@deck.gl/core';
 import type { CrsOptions, Vec2 } from '@/lib/cad/types';
-import type { SketchFeature, SketchKind } from '@/lib/cad/sketch';
-import { IconRedo, IconUndo } from './icons';
+import type { SketchKind } from '@/lib/cad/sketch';
 import { createSurveyPointTransformer, formatDegMin, vn2000At, type InversePointTransformer } from '@/lib/geo';
 import { headingConeElement, startHeading } from './heading';
 import BasemapPicker from './BasemapPicker';
 import { toast } from './toast';
 import { useIsPhone } from './useIsPhone';
-import { useEditSketch } from './useEditSketch';
 import { useBoxSelect } from './useBoxSelect';
 import { useGrips, type GripsConfig } from './useGrips';
 import {
@@ -130,14 +128,6 @@ export interface MapViewProps {
   onMeasureStart?: () => void;
   /** Search result marker (a pin with its label). */
   pin?: { lngLat: Vec2; label: string } | null;
-  /** Sketch whose shape is being edited on the map (vertex handles); null = not editing. */
-  editSketch?: SketchFeature | null;
-  /** A drag / vertex deletion finished: the new vertices of `editSketch`. */
-  onEditCommit?: (points: Vec2[]) => void;
-  /** Leave edit mode ("Xong", Esc, or another tool started). */
-  onEditDone?: () => void;
-  /** Sketch history (shown in the edit bar). */
-  history?: { canUndo: boolean; canRedo: boolean; undo: () => void; redo: () => void };
   /**
    * The map is a pane, not the whole screen (e.g. next to the TT16 check): basemap behind one button,
    * measuring tools as icons, and the object card docked in the top-left corner (never outside the map).
@@ -176,10 +166,6 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
   selectActive = false,
   onMeasureStart,
   pin = null,
-  editSketch = null,
-  onEditCommit,
-  onEditDone,
-  history,
   compact = false,
 }: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -232,7 +218,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
   const { box: boxRect } = useBoxSelect(mapRef, onBoxSelect, gripApi.isOver, boxClickRef);
   // The vertices of finished measurements can be dragged too (snapping included) while no tool owns the map.
   const [measureSel, setMeasureSel] = useState<ReadonlySet<string>>(new Set());
-  const measureGripsOn = !measure.drafting && !drawTool && !editSketch && !selectActive && measure.gripShapes.length > 0;
+  const measureGripsOn = !measure.drafting && !drawTool && !selectActive && measure.gripShapes.length > 0;
   const measureGrips = useMemo<GripsConfig | null>(
     () =>
       measureGripsOn
@@ -257,10 +243,9 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [measureGripsOn, measureSel, removeMeasureVertices]);
-  const edit = useEditSketch(mapRef, overlayRef, editSketch, (pts) => onEditCommit?.(pts));
-  // While measuring, drawing or editing, clicks belong to the tool (no entity popups / hover cursor).
+  // While measuring or drawing, clicks belong to the tool (no entity popups / hover cursor).
   const measureActiveRef = useRef(false);
-  const toolActive = measure.active || drawTool !== null || editSketch !== null;
+  const toolActive = measure.active || drawTool !== null;
   useEffect(() => {
     measureActiveRef.current = toolActive;
     if (toolActive) onPickRef.current(null);
@@ -270,25 +255,6 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
   useEffect(() => {
     if (drawTool || selectActive) setMeasureTool(null);
   }, [drawTool, selectActive, setMeasureTool]);
-  // Editing a shape is exclusive with measuring / drawing too.
-  const editing = editSketch !== null;
-  const onEditDoneRef = useRef(onEditDone);
-  useEffect(() => {
-    onEditDoneRef.current = onEditDone;
-  });
-  useEffect(() => {
-    if (editing && (measure.active || drawTool)) onEditDoneRef.current?.();
-  }, [editing, measure.active, drawTool]);
-  useEffect(() => {
-    if (!editing) return;
-    const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement | null;
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
-      if (e.key === 'Escape' || e.key === 'Enter') onEditDoneRef.current?.();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [editing]);
   useEffect(() => {
     inverseRef.current = inverse;
   }, [inverse]);
@@ -444,7 +410,7 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
     map.on('zoom', schedule);
     map.on('load', schedule);
 
-    // Middle-button (wheel) drag pans the map, like in CAD — also while a draw / measure / edit tool owns left clicks,
+    // Middle-button (wheel) drag pans the map, like in CAD — also while a draw / measure tool owns left clicks,
     // and over the selection-box layer (data-map-surface), which covers the canvas while sweeping.
     const surface = map.getContainer().parentElement ?? map.getCanvasContainer();
     const onSurface = (e: MouseEvent) => {
@@ -535,13 +501,12 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
   // deck.gl layers.
   const measureLayers = measure.layers;
   const drawLayers = draw.layers;
-  const editLayers = edit.layers;
   const gripLayers = gripApi.layers;
   const measureGripLayers = measureGripApi.layers;
   useEffect(() => {
-    const extra = [...editLayers, ...measureLayers, ...drawLayers, ...gripLayers, ...measureGripLayers];
+    const extra = [...measureLayers, ...drawLayers, ...gripLayers, ...measureGripLayers];
     overlayRef.current?.setProps({ layers: extra.length ? [...layers, ...extra] : layers });
-  }, [layers, measureLayers, drawLayers, editLayers, gripLayers, measureGripLayers]);
+  }, [layers, measureLayers, drawLayers, gripLayers, measureGripLayers]);
   useEffect(() => {
     // The drawing fades in each time a document first appears (and again after the next file is opened).
     if (layers.length > 0 && !hadLayers.current) {
@@ -714,49 +679,6 @@ export default function MapView({ basemapId, onBasemapChange, layers, fit, onPic
           )}
           <button className="ui-btn !rounded-full !px-3 !py-1 !text-xs" onClick={() => onDrawToolChange?.(null)}>
             Thoát
-          </button>
-        </div>
-      )}
-
-      {editSketch && (
-        <div
-          className="ui-floating ui-pop-in absolute bottom-14 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full py-1.5 pl-4 pr-1.5 text-xs text-zinc-600"
-          style={{ left: `calc(${insetLeft}px + (100% - ${insetLeft}px) / 2)`, maxWidth: `calc(100% - ${insetLeft + 24}px)` }}
-          role="status"
-        >
-          <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-blue-600" />
-          <span className="min-w-0 truncate">
-            <b className="font-semibold text-zinc-900">Đang sửa “{editSketch.name}”</b>
-            <span className="hidden sm:inline">
-              {editSketch.kind === 'point'
-                ? ' · kéo điểm để di chuyển'
-                : ' · kéo đỉnh để di chuyển · kéo điểm giữa cạnh để thêm đỉnh · chuột phải xóa đỉnh · kéo hình để dời'}
-            </span>
-          </span>
-          {history && (
-            <>
-              <button
-                className="ui-icon-btn !h-7 !w-7 shrink-0"
-                onClick={history.undo}
-                disabled={!history.canUndo}
-                aria-label="Hoàn tác"
-                title="Hoàn tác (Ctrl+Z)"
-              >
-                <IconUndo width={15} height={15} />
-              </button>
-              <button
-                className="ui-icon-btn !h-7 !w-7 shrink-0"
-                onClick={history.redo}
-                disabled={!history.canRedo}
-                aria-label="Làm lại"
-                title="Làm lại (Ctrl+Y)"
-              >
-                <IconRedo width={15} height={15} />
-              </button>
-            </>
-          )}
-          <button className="ui-btn-primary shrink-0 !rounded-full !px-3 !py-1 !text-xs" onClick={() => onEditDone?.()}>
-            Xong
           </button>
         </div>
       )}

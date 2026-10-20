@@ -1,7 +1,8 @@
 'use client';
 // "Chọn và xóa" on the map page: a button next to the measuring tools, and the bar shown while selecting — pick
-// objects by clicking or sweep a box (CAD style), then delete, reshape (edit the vertices) or undo.
-import { IconPen, IconRedo, IconSelect, IconTrash, IconUndo, IconX } from './icons';
+// objects by clicking or sweep a box (CAD style), then delete or undo. Vertices of what is selected are edited right
+// on the map (drag a vertex, drag an edge's middle handle to add one, drag an outline to move the shape).
+import { IconRedo, IconSelect, IconTrash, IconUndo, IconX } from './icons';
 
 export type SelectMode = 'off' | 'on';
 
@@ -12,7 +13,7 @@ export function SelectToolButton({ active, onToggle }: { active: boolean; onTogg
       style={{ animationDelay: '0.45s' }}
       aria-label="Chọn và xóa đối tượng"
       aria-pressed={active}
-      title={active ? 'Thoát chế độ chọn' : 'Chọn nhiều đối tượng, quét khung, xóa hoặc sửa hình'}
+      title={active ? 'Thoát chế độ chọn' : 'Chọn, quét khung, xóa và sửa hình đối tượng'}
       onClick={onToggle}
     >
       <IconSelect width={19} height={19} />
@@ -22,10 +23,7 @@ export function SelectToolButton({ active, onToggle }: { active: boolean; onTogg
 
 export function SelectBar({
   counts,
-  canReshape,
-  reshapeHint,
   onDelete,
-  onReshape,
   onClearSelection,
   onDone,
   sweepTarget,
@@ -36,10 +34,7 @@ export function SelectBar({
   insetLeft,
 }: {
   counts: { sketches: number; objects: number; total: number };
-  canReshape: boolean;
-  reshapeHint: string;
   onDelete: () => void;
-  onReshape: () => void;
   onClearSelection: () => void;
   onDone: () => void;
   /** What a box sweep selects: whole objects, or the vertices of the selected objects. */
@@ -70,7 +65,7 @@ export function SelectBar({
       )}
       <span
         className="px-1 tabular-nums"
-        title="Bấm để chọn · kéo khung để quét (trái → phải: nằm trọn, phải → trái: chạm) · ô vuông là đỉnh: kéo để di chuyển (Shift thêm) · chuột giữa kéo bản đồ · Delete xóa · Esc bỏ chọn"
+        title="Bấm để chọn · kéo khung để quét (trái → phải: nằm trọn, phải → trái: chạm) · kéo đỉnh để di chuyển (Shift thêm) · kéo chấm giữa cạnh để thêm đỉnh · kéo nét để dời cả hình · chuột giữa kéo bản đồ · Delete xóa · Esc bỏ chọn"
       >
         <b className="font-semibold text-zinc-900">{n(counts.total)}</b> đã chọn
         {gripCount > 0 && (
@@ -94,9 +89,6 @@ export function SelectBar({
       >
         <IconTrash width={13} height={13} />
         {gripCount > 0 ? `Xóa ${n(gripCount)} đỉnh` : `Xóa${counts.total ? ` ${n(counts.total)}` : ''}`}
-      </button>
-      <button className="ui-icon-btn !h-7 !w-7 disabled:opacity-40" disabled={!canReshape} onClick={onReshape} aria-label="Sửa hình" title={canReshape ? 'Sửa hình: kéo đỉnh, thêm hoặc xóa đỉnh' : reshapeHint}>
-        <IconPen width={14} height={14} />
       </button>
       <button className="ui-icon-btn !h-7 !w-7" onClick={history.undo} disabled={!history.canUndo} aria-label="Hoàn tác" title="Hoàn tác (Ctrl+Z)">
         <IconUndo width={15} height={15} />

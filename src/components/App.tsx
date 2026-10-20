@@ -8,11 +8,13 @@ import { applyLayerStyles, isEmptyStyle, type LayerStyles } from '@/lib/cad/styl
 import { mergeDocuments, type MergePart } from '@/lib/cad/merge';
 import {
   entityWithPaths,
+  gripKey,
   groupGrips,
   gripsOfShape,
   movedPaths,
   objectOwner,
   parseOwner,
+  pathsWithInsert,
   pathsWithout,
   shapeOfEntity,
   shapeOfSketch,
@@ -25,7 +27,6 @@ import {
   applyRemoved,
   changeSelection,
   EMPTY_SELECTION,
-  entityToSketch,
   parseHandle,
   SELECTED_LAYER,
   selectionCount,
@@ -251,8 +252,6 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   const [sketchOpacity, setSketchOpacity] = useState(1);
   const [sketchSel, setSketchSel] = useState<string | null>(null);
   const [drawTool, setDrawTool] = useState<SketchKind | null>(null);
-  /** Sketch whose shape is being edited on the map. */
-  const [editId, setEditId] = useState<string | null>(null);
   // Sketch undo / redo stacks (see recordSketches below).
   const historyRef = useRef<{
     past: SketchFeature[][];
@@ -312,7 +311,6 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   const resetHistory = useCallback(() => {
     historyRef.current = { past: [], future: [], at: 0 };
     opsRef.current = { past: [], future: [], batch: null };
-    setEditId(null);
     syncHistory();
   }, [syncHistory]);
   // ---- selecting / deleting objects on the map ("Chọn") ----
@@ -945,7 +943,6 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       setSketches(next);
       setSketchShown(true);
       setSketchSel((s) => (s && next.some((f) => f.id === s) ? s : null));
-      setEditId((e) => (e && next.some((f) => f.id === e) ? e : null));
     },
     [],
   );
@@ -1060,17 +1057,8 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     (id: string) => {
       recordSketches(sketchesRef.current.filter((f) => f.id !== id));
       setSketchSel((s) => (s === id ? null : s));
-      setEditId((e) => (e === id ? null : e));
     },
     [recordSketches],
-  );
-  /** Shape edited on the map (one finished drag / vertex deletion). */
-  const commitEdit = useCallback(
-    (points: Vec2[]) => {
-      if (!editId) return;
-      recordSketches(sketchesRef.current.map((f) => (f.id === editId ? { ...f, points } : f)));
-    },
-    [editId, recordSketches],
   );
   const zoomToSketch = useCallback(
     (id: string) => {
@@ -1091,8 +1079,8 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   const sketchVisible = useMemo(() => new Set(sketchDoc.layers.map((l) => l.name)), [sketchDoc]);
 
   // ---- selecting objects on the map (sketches and the objects of opened files) ----
-  // Drawing or editing a shape owns the map's clicks, so the selection mode is off while either is active.
-  const selModeNow: SelectMode = drawTool || editId ? 'off' : selMode;
+  // Drawing a shape owns the map's clicks, so the selection mode is off while a draw tool is active.
+  const selModeNow: SelectMode = drawTool ? 'off' : selMode;
   const selModeRef = useRef(selModeNow);
   useEffect(() => {
     selModeRef.current = selModeNow;
@@ -1123,12 +1111,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       if (items) setSelection((sel) => changeSelection(sel, items));
       return;
     }
-    if (p?.fileId === SKETCH_ID) {
-      setSketchSel(p.ref.entity.handle ?? null);
-      setFocusTab((t) => ({ tab: 'draw', seq: (t?.seq ?? 0) + 1 }));
-      setPick(null);
-      return;
-    }
+    if (p?.fileId === SKETCH_ID) setSketchSel(p.ref.entity.handle ?? null);
     setPick(p);
   }, [styledCache]);
 
@@ -1178,42 +1161,9 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     });
     setSelection(EMPTY_SELECTION);
     setSketchSel((cur) => (cur && sel.sketches.has(cur) ? null : cur));
-    setEditId((cur) => (cur && sel.sketches.has(cur) ? null : cur));
     toast.info(`Đã xóa ${n.total.toLocaleString('vi-VN')} đối tượng — Ctrl+Z để hoàn tác.`);
   }, [batchOps, recordSketches, pushOp, applyRemoval]);
 
-  /** Exactly one object selected: edit its vertices (an object of a file becomes a sketch first). */
-  const reshapeSelection = useCallback(() => {
-    const sel = selectionRef.current;
-    if (selectionCount(sel).total !== 1) return;
-    let id: string | null = null;
-    if (sel.sketches.size) id = [...sel.sketches][0];
-    else {
-      const [fileId, set] = [...sel.files][0];
-      const index = [...set][0];
-      const entity = styledCache.get(fileId)?.out.entities[index];
-      const shape = entity ? entityToSketch(entity, sketchesRef.current.map((f) => f.name)) : null;
-      if (!shape) {
-        toast.error('Chữ và bảng không sửa hình được — chỉ đường, vùng và điểm.');
-        return;
-      }
-      id = `k${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-      const created: SketchFeature = { id, ...shape };
-      batchOps(() => {
-        recordSketches([...sketchesRef.current, created]);
-        pushOp({ t: 'r', fileId, indexes: [index], doc: filesRef.current.find((f) => f.id === fileId)?.doc ?? null });
-        applyRemoval(fileId, [index], true);
-      });
-      toast.info('Đã chuyển thành nét vẽ để sửa hình (Ctrl+Z để trả lại).');
-    }
-    setSelection(EMPTY_SELECTION);
-    setSelMode('off');
-    setDrawTool(null);
-    setSketchShown(true);
-    setSketchSel(id);
-    setEditId(id);
-    if (isPhone) setSidebarOpen(false);
-  }, [styledCache, batchOps, recordSketches, pushOp, applyRemoval, isPhone]);
 
   // ---- vertices ("grips") of the selected objects ----
   const MAX_GRIPS = 4000;
@@ -1284,6 +1234,33 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     [batchOps, recordSketches, pushOp, patch],
   );
 
+  /** An edge handle was dragged: the vertex goes in there (a sketch or an object of a file), and is selected. */
+  const insertGrip = useCallback(
+    (owner: string, r: number, at: number, p: Vec2) => {
+      const o = parseOwner(owner);
+      if (!o) return;
+      batchOps(() => {
+        if ('sketch' in o) {
+          const f = sketchesRef.current.find((x) => x.id === o.sketch);
+          if (!f) return;
+          const points = pathsWithInsert(shapeOfSketch(f), r, at, p)[0];
+          recordSketches(sketchesRef.current.map((x) => (x === f ? { ...f, points } : x)));
+          return;
+        }
+        const file = filesRef.current.find((x) => x.id === o.fileId);
+        const e = file?.edited.get(o.index) ?? file?.doc?.entities[o.index];
+        const shape = e ? shapeOfEntity(owner, e) : null;
+        if (!file || !e || !shape) return;
+        const next = new Map(file.edited);
+        next.set(o.index, entityWithPaths(e, pathsWithInsert(shape, r, at, p)));
+        pushOp({ t: 'e', fileId: o.fileId, doc: file.doc, prev: file.edited, next });
+        patch(o.fileId, { edited: next });
+      });
+      setGripState({ for: selectionRef.current, keys: new Set([gripKey(owner, r, at)]) });
+    },
+    [batchOps, recordSketches, pushOp, patch],
+  );
+
   /** Deletes the selected vertices (an outline keeps at least 3, a line 2). */
   const deleteGrips = useCallback(() => {
     const keys = gripKeys;
@@ -1342,9 +1319,10 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
             selected: gripKeys,
             onSelect: (keys: Set<string>) => setGripState({ for: selectionRef.current, keys }),
             onMove: moveGrips,
+            onInsert: insertGrip,
           }
         : null,
-    [gripData, gripKeys, moveGrips],
+    [gripData, gripKeys, moveGrips, insertGrip],
   );
 
   // Delete / Esc while selecting (not while typing in a field).
@@ -1487,13 +1465,19 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   const popup = useMemo(() => {
     if (!pick) return null;
     const f = files.find((x) => x.id === pick.fileId);
+    const sketch = pick.fileId === SKETCH_ID ? sketches.find((x) => x.id === pick.ref.entity.handle) : undefined;
     return {
       lngLat: pick.lngLat,
       content: (
-        <EntityPopup pick={pick.ref} file={files.length > 1 && f ? { name: f.fileName, tag: f.tag } : undefined} onClose={() => setPick(null)} />
+        <EntityPopup
+          pick={pick.ref}
+          sketch={sketch}
+          file={files.length > 1 && f ? { name: f.fileName, tag: f.tag } : undefined}
+          onClose={() => setPick(null)}
+        />
       ),
     };
-  }, [pick, files]);
+  }, [pick, files, sketches]);
 
   const busyFile = files.find((f) => f.status === 'parsing' || f.status === 'transforming');
   const busy = !!busyFile;
@@ -1519,8 +1503,6 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   // No drawing open (new map, shared map): null → each point is read in VN-2000 of its own province instead.
   const readoutKey = af && dxfCrs ? JSON.stringify(dxfCrs) : '';
   const readoutCrs = useMemo(() => (readoutKey ? (JSON.parse(readoutKey) as CrsOptions) : null), [readoutKey]);
-
-  const editSketch = editId && sketchShown ? (sketches.find((f) => f.id === editId && !f.hidden) ?? null) : null;
 
   /** File name for the session (.ldg): the selected drawing's name, or the map's name for a sketch-only map. */
   const workName = af ? baseName(af.fileName) : fileSafe(mapMeta.title.trim() || DEFAULT_MAP_TITLE);
@@ -1976,10 +1958,6 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
           drawingCrs={readoutCrs}
           drawingCrsLabel={drawingCrsLabel(readoutCrs)}
           pin={pin}
-          editSketch={editSketch}
-          onEditCommit={commitEdit}
-          onEditDone={() => setEditId(null)}
-          history={historyApi}
           fontFamily={font.family}
           loading={busy}
           drawTool={drawTool}
@@ -1998,7 +1976,6 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
                   setSelection(EMPTY_SELECTION);
                 } else {
                   setDrawTool(null);
-                  setEditId(null);
                   setPick(null);
                   setSelMode('on');
                   if (isPhone) setSidebarOpen(false);
@@ -2012,10 +1989,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
       {selModeNow !== 'off' && (
         <SelectBar
           counts={selCounts}
-          canReshape={selCounts.total === 1}
-          reshapeHint="Chọn đúng một đối tượng để sửa hình"
           onDelete={deleteSelection}
-          onReshape={reshapeSelection}
           onClearSelection={() => {
             if (gripKeys.size) setGripState({ for: selection, keys: new Set() });
             else setSelection(EMPTY_SELECTION);
@@ -2084,20 +2058,19 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
             onClearAll={() => {
               recordSketches([]);
               setSketchSel(null);
-              setEditId(null);
               toast.info('Đã xóa tất cả nét vẽ — bấm Hoàn tác (Ctrl+Z) nếu lỡ tay.');
             }}
-            editingId={editId}
-            onEdit={(id) => {
-              if (id) {
-                setDrawTool(null);
-                setSketchShown(true);
-                setSketchSel(id);
-                const f = sketchesRef.current.find((x) => x.id === id);
-                if (f?.hidden) updateSketch(id, { hidden: false });
-                if (isPhone) setSidebarOpen(false);
-              }
-              setEditId(id);
+            onSelectOnMap={(id) => {
+              // The sketch becomes the selection of the "Chọn" mode, where its vertices are edited on the map.
+              setDrawTool(null);
+              setSketchShown(true);
+              setSketchSel(id);
+              const f = sketchesRef.current.find((x) => x.id === id);
+              if (f?.hidden) updateSketch(id, { hidden: false });
+              setPick(null);
+              setSelection(changeSelection(EMPTY_SELECTION, { sketches: [id] }));
+              setSelMode('on');
+              if (isPhone) setSidebarOpen(false);
             }}
             history={historyApi}
             shown={sketchShown}

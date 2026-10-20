@@ -69,6 +69,7 @@ import { DEFAULT_FORM, crsFromForm, formFromCrs, sameBaseCrs, type CrsForm } fro
 import EntityPopup from './EntityPopup';
 import ExportPanel, { baseName, buildExport, download } from './ExportPanel';
 import { filesFromDrop } from './dropFiles';
+import { clearMapHandoff, peekMapHandoff } from './handoff';
 import { ACCEPTED_EXT, ACCEPTED_HINT } from './FileDropzone';
 import FileList, { type FileRowData } from './FileList';
 import BrandLoader from './BrandLoader';
@@ -678,6 +679,29 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     })();
   }, [handleFile, go]);
 
+  // Files dropped on the home page (it takes one drop for every tool) arrive here through the hand-off slot.
+  const handoffTaken = useRef(false);
+  useEffect(() => {
+    // Deferred a tick: in development React mounts, unmounts and mounts again, and the first mount's worker is gone.
+    const t = setTimeout(() => {
+      if (handoffTaken.current) return;
+      const files = peekMapHandoff();
+      if (!files?.length) return;
+      handoffTaken.current = true;
+      clearMapHandoff();
+      void (async () => {
+        const [first, ...rest] = files;
+        await handleFile(first, { replace: true });
+        for (const f of rest) {
+          if (filesRef.current[0]?.status === 'error') break;
+          go('map');
+          await handleFile(f);
+        }
+      })();
+    });
+    return () => clearTimeout(t);
+  }, [handleFile, go]);
+
   // Shared map links: #m=… holds the whole map (decoded locally, nothing fetched); a short link /s/<id> hands
   // the stored payload in as a prop.
   const sharedPayloadRef = useRef(sharedPayload);
@@ -818,7 +842,7 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
     leaveSharedMap();
   };
 
-  // The home page card "Vẽ & chia sẻ" opens /ban-do#moi: straight to a new map (asking first if one is saved).
+  // The home page link "Vẽ bản đồ mới" opens /ban-do#moi: straight to a new map (asking first if one is saved).
   const openBlankMapRef = useRef(openBlankMap);
   useEffect(() => {
     openBlankMapRef.current = openBlankMap;

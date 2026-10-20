@@ -50,7 +50,7 @@ import HomeLogo from './HomeLogo';
 import ToolStart from './ToolStart';
 import { useIsPhone } from './useIsPhone';
 import { pickedFromDrop, pickedFromInput } from './dropFiles';
-import { handOffToChecker } from './handoff';
+import { clearExtractorHandoff, handOffToChecker, peekExtractorHandoff } from './handoff';
 import {
   IconAlert,
   IconCheckCircle,
@@ -314,6 +314,18 @@ export default function DwgToGdb() {
     };
     w.postMessage({ type: 'load', files: cad } satisfies DwgTt16Request);
   };
+
+  // A dossier dropped on the home page (it takes one drop for every tool).
+  useEffect(() => {
+    const files = peekExtractorHandoff();
+    if (!files?.length) return;
+    const t = setTimeout(() => {
+      clearExtractorHandoff();
+      load(files);
+    });
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Preview of the selected drawing (again when the KTT changes).
   const selDrawing = drawings.find((d) => d.id === sel) ?? null;

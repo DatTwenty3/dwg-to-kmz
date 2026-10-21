@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="150.72" height="110.88" viewBox="0 0 37.68 27.72">
+<title>Trạm hạ thế — Quy hoạch dài hạn</title>
+<path d="M1.32 22.32L0 22.8L2.88 26.4L1.32 22.32" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M0 22.8L2.88 26.4L1.92 27.72L0 22.8" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M2.88 26.4L1.92 27.72L34.92 26.4L2.88 26.4" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M1.92 27.72L34.92 26.4L35.88 27.72L1.92 27.72" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M34.92 26.4L35.88 27.72L36.48 22.32L34.92 26.4" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M35.88 27.72L36.48 22.32L37.68 22.8L35.88 27.72" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M29.64 22.68L30.48 23.16L18.84 1.2L29.64 22.68" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M30.48 23.16L18.84 1.2L18.84 0L30.48 23.16" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M18.84 1.2L18.84 0L8.16 22.68L18.84 1.2" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M18.84 0L8.16 22.68L7.32 23.16L18.84 0" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M8.16 22.68L7.32 23.16L29.64 22.68L8.16 22.68" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M7.32 23.16L29.64 22.68L30.48 23.16L7.32 23.16" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M29.4 22.2L30.72 23.52L29.4 1.32L29.4 22.2" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M30.72 23.52L29.4 1.32L30.72 0L30.72 23.52" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M29.4 1.32L30.72 0L8.4 1.32L29.4 1.32" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M30.72 0L8.4 1.32L7.08 0L30.72 0" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M8.4 1.32L7.08 0L8.4 22.2L8.4 1.32" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M7.08 0L8.4 22.2L7.08 23.52L7.08 0" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M8.4 22.2L7.08 23.52L29.4 22.2L8.4 22.2" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M7.08 23.52L29.4 22.2L30.72 23.52L7.08 23.52" fill="#ff0000" fill-rule="evenodd"/>
+</svg>

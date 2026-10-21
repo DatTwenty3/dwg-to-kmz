@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="132.96" height="132.96" viewBox="0 0 33.24 33.24">
+<title>Trạm 500KV — Quy hoạch đợt đầu</title>
+<path d="M27.12 27.12L28.44 28.44L27.12 6.24L27.12 27.12" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M28.44 28.44L27.12 6.24L28.44 4.8L28.44 28.44" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M27.12 6.24L28.44 4.8L6.12 6.24L27.12 6.24" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M28.44 4.8L6.12 6.24L4.8 4.8L28.44 4.8" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M6.12 6.24L4.8 4.8L6.12 27.12L6.12 6.24" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M4.8 4.8L6.12 27.12L4.8 28.44L4.8 4.8" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M6.12 27.12L4.8 28.44L27.12 27.12L6.12 27.12" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M4.8 28.44L27.12 27.12L28.44 28.44L4.8 28.44" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M5.88 27.84L16.68 5.76L27.36 27.84L5.88 27.84" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M30.36 30.36L30.6 30.6L30.36 3L30.36 30.36" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M30.6 30.6L30.36 3L30.6 2.76L30.6 30.6" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M30.36 3L30.6 2.76L3 3L30.36 3" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M30.6 2.76L3 3L2.64 2.76L30.6 2.76" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M3 3L2.64 2.76L3 30.36L3 3" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M2.64 2.76L3 30.36L2.64 30.6L2.64 2.76" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M3 30.36L2.64 30.6L30.36 30.36L3 30.36" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M2.64 30.6L30.36 30.36L30.6 30.6L2.64 30.6" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M33 33L33.24 33.24L33 0.24L33 33" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M33.24 33.24L33 0.24L33.24 0L33.24 33.24" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M33 0.24L33.24 0L0.24 0.24L33 0.24" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M33.24 0L0.24 0.24L0 0L33.24 0" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M0.24 0.24L0 0L0.24 33L0.24 0.24" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M0 0L0.24 33L0 33.24L0 0" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M0.24 33L0 33.24L33 33L0.24 33" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M0 33.24L33 33L33.24 33.24L0 33.24" fill="#ff0000" fill-rule="evenodd"/>
+</svg>

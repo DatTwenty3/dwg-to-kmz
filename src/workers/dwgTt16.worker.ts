@@ -42,6 +42,7 @@ import { executePlan, planNormalization, type NormalizeSource } from '@/lib/gdb/
 import { locateVn2000, type Vn2000Guess } from '@/lib/geo/search';
 import { transformDocument } from '@/lib/geo/transform';
 import { fixGdalOutput } from '@/lib/gdb/gdalFix';
+import { loadSvgLibrary } from '@/lib/dwg2gdb/qgisSvg';
 import { datasetKey, gdal, gdalFailure, gdbZipFile, nextPrefix, openAll, outputEntries, schemaFiles, zipEntries } from './gdalRuntime';
 
 declare const self: DedicatedWorkerGlobalScope;
@@ -323,6 +324,7 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
   const out: { path: string; bytes: Uint8Array; read: () => Promise<Uint8Array> }[] = fixGdalOutput(await outputEntries(Gdal, p2, (rel) => `HoSoGIS/${rel}`));
   // Tệp tổng hợp: QGIS project next to the geodatabases.
   let qgzName: string | null = null;
+  let svgCount = 0;
   if (req.qgz) {
     const name = cleanProjectName(req.projectName);
     const ring = analysis.boundary?.ring;
@@ -330,8 +332,12 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
     const xs = pts.map((q) => q[0]);
     const ys = pts.map((q) => q[1]);
     const pad = 200;
+    // SVG symbols of Phụ lục I for the hatches / points, embedded in the project (none found: the plain symbols).
+    const svg = await loadSvgLibrary(built.classes, self.location.origin);
+    svgCount = svg?.files.size ?? 0;
     const qgs = buildQgs({
       name,
+      svg: svg ?? undefined,
       title: req.projectTitle || name,
       classes: built.classes,
       lon0: req.lon0,
@@ -351,7 +357,11 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
     zip,
     fileName: 'HoSoGIS.zip',
     dxf,
-    notes: [...built.notes, ...plan.notes, ...(qgzName ? [`Tạo tệp tổng hợp ${qgzName} (QGIS): các lớp tô màu theo phân loại như bản vẽ, nhãn theo tên đối tượng`] : [])],
+    notes: [...built.notes, ...plan.notes, ...(qgzName
+        ? [
+            `Tạo tệp tổng hợp ${qgzName} (QGIS): các lớp tô màu theo phân loại như bản vẽ, nhãn theo tên đối tượng${svgCount ? `, nhúng ${svgCount} ký hiệu SVG của Thông tư 16` : ''}`,
+          ]
+        : [])],
     report,
     classes: built.classes.map((c) => ({ target: c.target, count: c.features.length })),
     ms: performance.now() - t0,

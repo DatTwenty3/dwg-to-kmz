@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="94.08" height="94.56" viewBox="0 0 23.52 23.64">
+<title>Trạm trung thế — Hiện trạng</title>
+<path d="M0.6 1.32L11.4 1.32M12.12 1.32L22.92 1.32M0.6 4.68L9.72 4.68M13.8 4.68L22.92 4.68M0.6 8.04L8.16 8.04M15.48 8.04L22.92 8.04M0.6 11.4L6.48 11.4M17.04 11.4L22.92 11.4M0.6 14.76L4.8 14.76M18.72 14.76L22.92 14.76M0.6 18.12L3.12 18.12M20.4 18.12L22.92 18.12M0.6 21.48L1.44 21.48M22.08 21.48L22.92 21.48" fill="none" stroke="#ff0000" stroke-width="0.72" stroke-linecap="round"/>
+<path d="M22.44 22.68L23.28 23.28L11.76 1.32L22.44 22.68" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M23.28 23.28L11.76 1.32L11.76 0.12L23.28 23.28" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M11.76 1.32L11.76 0.12L1.08 22.68L11.76 1.32" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M11.76 0.12L1.08 22.68L0.24 23.28L11.76 0.12" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M1.08 22.68L0.24 23.28L22.44 22.68L1.08 22.68" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M0.24 23.28L22.44 22.68L23.28 23.28L0.24 23.28" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M22.2 22.32L23.52 23.64L22.2 1.32L22.2 22.32" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M23.52 23.64L22.2 1.32L23.52 0L23.52 23.64" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M22.2 1.32L23.52 0L1.32 1.32L22.2 1.32" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M23.52 0L1.32 1.32L0 0L23.52 0" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M1.32 1.32L0 0L1.32 22.32L1.32 1.32" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M0 0L1.32 22.32L0 23.64L0 0" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M1.32 22.32L0 23.64L22.2 22.32L1.32 22.32" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M0 23.64L22.2 22.32L23.52 23.64L0 23.64" fill="#ff0000" fill-rule="evenodd"/>
+</svg>

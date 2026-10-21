@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="115.68" height="100.32" viewBox="0 0 28.92 25.08">
+<title>Trạm xăng dầu — Quy hoạch dài hạn</title>
+<path d="M26.64 24.36L28.92 23.04L21.6 15.72L26.64 24.36" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M28.92 23.04L21.6 15.72L23.88 14.4L28.92 23.04" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M17.76 22.32L17.76 25.08L27.72 22.32L17.76 22.32" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M17.76 25.08L27.72 22.32L27.72 25.08L17.76 25.08" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M27.72 22.32L27.72 25.08" fill="none" stroke="#b85c5c" stroke-width="0.38" stroke-linecap="round"/>
+<path d="M18.24 9.96L20.64 8.64L13.32 1.32L18.24 9.96" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M20.64 8.64L13.32 1.32L15.6 0L20.64 8.64" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M13.32 1.32L15.6 0" fill="none" stroke="#b85c5c" stroke-width="0.38" stroke-linecap="round"/>
+<path d="M15.6 1.32L13.32 0L10.68 9.96L15.6 1.32" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M13.32 0L10.68 9.96L8.28 8.64L13.32 0" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M7.32 15.72L4.92 14.4L2.28 24.36L7.32 15.72" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M4.92 14.4L2.28 24.36L0 23.04L4.92 14.4" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M2.28 24.36L0 23.04" fill="none" stroke="#b85c5c" stroke-width="0.38" stroke-linecap="round"/>
+<path d="M1.2 22.32L1.2 25.08L11.04 22.32L1.2 22.32" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M1.2 25.08L11.04 22.32L11.04 25.08L1.2 25.08" fill="#b85c5c" fill-rule="evenodd"/>
+<text x="12.24" y="17.87" font-family="Arial, Helvetica, sans-serif" font-size="10.56" fill="#000000">d</text>
+</svg>

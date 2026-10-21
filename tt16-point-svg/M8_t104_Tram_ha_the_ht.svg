@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="150.72" height="110.88" viewBox="0 0 37.68 27.72">
+<title>Trạm hạ thế — Hiện trạng</title>
+<path d="M1.32 22.32L0 22.8L2.76 26.4L1.32 22.32" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M0 22.8L2.76 26.4L1.92 27.72L0 22.8" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M2.76 26.4L1.92 27.72L34.92 26.4L2.76 26.4" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M1.92 27.72L34.92 26.4L35.88 27.72L1.92 27.72" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M34.92 26.4L35.88 27.72L36.48 22.32L34.92 26.4" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M35.88 27.72L36.48 22.32L37.68 22.8L35.88 27.72" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M29.88 22.68L30.72 23.16L19.2 1.2L29.88 22.68" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M30.72 23.16L19.2 1.2L19.2 0L30.72 23.16" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M19.2 1.2L19.2 0L8.52 22.68L19.2 1.2" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M19.2 0L8.52 22.68L7.56 23.16L19.2 0" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M8.52 22.68L7.56 23.16L29.88 22.68L8.52 22.68" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M7.56 23.16L29.88 22.68L30.72 23.16L7.56 23.16" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M29.64 22.2L30.96 23.52L29.64 1.32L29.64 22.2" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M30.96 23.52L29.64 1.32L30.96 0L30.96 23.52" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M29.64 1.32L30.96 0L8.76 1.32L29.64 1.32" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M30.96 0L8.76 1.32L7.32 0L30.96 0" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M8.76 1.32L7.32 0L8.76 22.2L8.76 1.32" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M7.32 0L8.76 22.2L7.32 23.52L7.32 0" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M8.76 22.2L7.32 23.52L29.64 22.2L8.76 22.2" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M7.32 23.52L29.64 22.2L30.96 23.52L7.32 23.52" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M17.52 3.96L20.76 3.96" fill="none" stroke="#ff0000" stroke-width="0.72" stroke-linecap="round"/>
+<path d="M15.84 7.32L22.44 7.32" fill="none" stroke="#ff0000" stroke-width="0.72" stroke-linecap="round"/>
+<path d="M14.16 10.68L24.12 10.68" fill="none" stroke="#ff0000" stroke-width="0.72" stroke-linecap="round"/>
+<path d="M12.48 13.92L25.8 13.92" fill="none" stroke="#ff0000" stroke-width="0.72" stroke-linecap="round"/>
+<path d="M10.8 17.28L27.48 17.28" fill="none" stroke="#ff0000" stroke-width="0.72" stroke-linecap="round"/>
+<path d="M9.12 20.64L29.16 20.64" fill="none" stroke="#ff0000" stroke-width="0.72" stroke-linecap="round"/>
+</svg>

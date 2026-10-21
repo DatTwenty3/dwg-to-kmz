@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="117.6" height="117.6" viewBox="0 0 29.4 29.4">
+<title>Tổng đài bưu điện — Hiện trạng</title>
+<path d="M0.24 29.16L0 29.4L29.16 29.16L0.24 29.16" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M0 29.4L29.16 29.16L29.4 29.4L0 29.4" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M29.16 29.16L29.4 29.4L29.16 0.24L29.16 29.16" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M29.4 29.4L29.16 0.24L29.4 0L29.4 29.4" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M29.16 0.24L29.4 0L0.24 0.24L29.16 0.24" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M29.4 0L0.24 0.24L0 0L29.4 0" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M0.24 0.24L0 0L0.24 29.16L0.24 0.24" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M0 0L0.24 29.16L0 29.4L0 0" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M13.44 15.96L15.96 15.96M14.64 14.64L14.76 14.64M13.2 13.32L16.08 13.32M11.88 11.88L17.52 11.88M10.56 10.56L18.84 10.56M9.24 9.24L20.16 9.24M7.92 7.92L21.48 7.92M6.48 6.6L22.8 6.6M5.16 5.16L24.24 5.16M3.84 3.84L25.56 3.84M12.12 17.28L17.28 17.28M10.8 18.6L18.6 18.6M9.36 20.04L19.92 20.04M8.04 21.36L21.36 21.36M6.72 22.68L22.68 22.68M5.4 24L24 24M4.08 25.32L25.32 25.32M26.52 2.88L2.76 26.64M2.76 2.88L26.52 26.64" fill="none" stroke="#00dda5" stroke-width="0.72" stroke-linecap="round"/>
+<path d="M3.12 26.28L2.52 26.88L26.28 26.28L3.12 26.28" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M2.52 26.88L26.28 26.28L26.88 26.88L2.52 26.88" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M26.28 26.28L26.88 26.88L26.28 3.12L26.28 26.28" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M26.88 26.88L26.28 3.12L26.88 2.52L26.88 26.88" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M26.28 3.12L26.88 2.52L3.12 3.12L26.28 3.12" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M26.88 2.52L3.12 3.12L2.52 2.52L26.88 2.52" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M3.12 3.12L2.52 2.52L3.12 26.28L3.12 3.12" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M2.52 2.52L3.12 26.28L2.52 26.88L2.52 2.52" fill="#00dda5" fill-rule="evenodd"/>
+</svg>

@@ -23,3 +23,18 @@ mkdirSync(sqlDest, { recursive: true });
 // The browser build (package "exports" → sql-wasm-browser.js) loads sql-wasm-browser.wasm.
 copyFileSync(join(root, 'node_modules', 'sql.js', 'dist', 'sql-wasm-browser.wasm'), join(sqlDest, 'sql-wasm-browser.wasm'));
 console.log('copied sql.js wasm -> public/sqljs/');
+
+// SVG symbols of Phụ lục I (tt16-hatch-svg/, tt16-point-svg/ at the project root) for the QGIS project of "Bóc tách DWG":
+// the worker reads index.json and fetches the SVG files it embeds from /tt16-svg/hatch|point/.
+import { copyFileSync as cp, existsSync, mkdirSync as mk, readdirSync } from 'node:fs';
+for (const [from, to] of [
+  ['tt16-hatch-svg', 'hatch'],
+  ['tt16-point-svg', 'point'],
+]) {
+  const dir = join(root, from);
+  if (!existsSync(dir)) continue;
+  const out = join(root, 'public', 'tt16-svg', to);
+  mk(out, { recursive: true });
+  for (const f of readdirSync(dir)) if (/\.svg$/i.test(f) || f === 'index.json') cp(join(dir, f), join(out, f));
+  console.log(`copied ${from} -> public/tt16-svg/${to}/`);
+}

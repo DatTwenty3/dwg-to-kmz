@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="124.8" height="108.48" viewBox="0 0 31.2 27.12">
+<title>Trạm xăng dầu — Quy hoạch đợt đầu</title>
+<path d="M26.64 24.36L31.2 27.12L15.6 5.4L26.64 24.36" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M31.2 27.12L15.6 5.4L15.6 0L31.2 27.12" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M15.6 5.4L15.6 0L4.68 24.36L15.6 5.4" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M15.6 0L4.68 24.36L0 27.12L15.6 0" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M4.68 24.36L0 27.12L26.64 24.36L4.68 24.36" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M0 27.12L26.64 24.36L31.2 27.12L0 27.12" fill="#b85c5c" fill-rule="evenodd"/>
+<text x="13.44" y="19.91" font-family="Arial, Helvetica, sans-serif" font-size="10.56" fill="#000000">d</text>
+</svg>

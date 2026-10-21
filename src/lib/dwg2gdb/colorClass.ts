@@ -28,6 +28,13 @@ export function classifyColor(hex: string, section: number | null): ColorMatch {
   return m;
 }
 
+/** The symbol of Phụ lục I a hatch is drawn for (exact / near colour match in a land-use map), or null. */
+export function hatchSymbol(e: Pick<CadEntity, 'kind' | 'color'>, ctx: ColorContext | undefined): Tt16Symbol | null {
+  if (!ctx || e.kind !== 'polygon' || ctx.section === null || !colorRole(ctx.role)) return null;
+  const m = classifyColor(e.color.toLowerCase(), ctx.section);
+  return (m.level === 'exact' || m.level === 'near') && m.best ? m.best : null;
+}
+
 /**
  * Colour group of an entity inside its layer row: `''` (not split: not a hatch, a map without colours, neutral or
  * unknown colour) or `c<rrggbb>` — one group per real colour, so two near shades of one symbol stay visible.

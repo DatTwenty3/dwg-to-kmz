@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="118.08" height="117.6" viewBox="0 0 29.52 29.4">
+<title>Tổng đài bưu điện — Quy hoạch dài hạn</title>
+<path d="M2.88 25.92L2.88 27.24L11.4 25.92L2.88 25.92" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M2.88 27.24L11.4 25.92L11.4 27.24L2.88 27.24" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M18.12 25.92L18.12 27.24L26.64 25.92L18.12 25.92" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M18.12 27.24L26.64 25.92L26.64 27.24L18.12 27.24" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M26.64 25.92L26.64 27.24" fill="none" stroke="#00dda5" stroke-width="0.38" stroke-linecap="round"/>
+<path d="M25.92 26.64L27.36 26.64L25.92 18.12L25.92 26.64" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M27.36 26.64L25.92 18.12L27.36 18.12L27.36 26.64" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M25.92 11.4L27.36 11.4L25.92 2.88L25.92 11.4" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M27.36 11.4L25.92 2.88L27.36 2.88L27.36 11.4" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M25.92 2.88L27.36 2.88" fill="none" stroke="#00dda5" stroke-width="0.38" stroke-linecap="round"/>
+<path d="M26.64 3.48L26.64 2.16L18.12 3.48L26.64 3.48" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M26.64 2.16L18.12 3.48L18.12 2.16L26.64 2.16" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M11.4 3.48L11.4 2.16L2.88 3.48L11.4 3.48" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M11.4 2.16L2.88 3.48L2.88 2.16L11.4 2.16" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M2.88 3.48L2.88 2.16" fill="none" stroke="#00dda5" stroke-width="0.38" stroke-linecap="round"/>
+<path d="M3.6 2.88L2.16 2.88L3.6 11.4L3.6 2.88" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M2.16 2.88L3.6 11.4L2.16 11.4L2.16 2.88" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M3.6 18.12L2.16 18.12L3.6 26.64L3.6 18.12" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M2.16 18.12L3.6 26.64L2.16 26.64L2.16 18.12" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M3.6 26.64L2.16 26.64" fill="none" stroke="#00dda5" stroke-width="0.38" stroke-linecap="round"/>
+<path d="M0.36 29.16L0 29.4L29.16 29.16L0.36 29.16" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M0 29.4L29.16 29.16L29.52 29.4L0 29.4" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M29.16 29.16L29.52 29.4L29.16 0.24L29.16 29.16" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M29.52 29.4L29.16 0.24L29.52 0L29.52 29.4" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M29.16 0.24L29.52 0L0.36 0.24L29.16 0.24" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M29.52 0L0.36 0.24L0 0L29.52 0" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M0.36 0.24L0 0L0.36 29.16L0.36 0.24" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M0 0L0.36 29.16L0 29.4L0 0" fill="#00dda5" fill-rule="evenodd"/>
+<path d="M26.64 2.88L2.88 26.64M2.88 2.88L26.64 26.64M13.56 15.96L15.96 15.96M14.64 14.64L14.88 14.64M13.32 13.32L16.2 13.32M12 11.88L17.52 11.88M10.68 10.56L18.84 10.56M9.24 9.24L20.28 9.24M7.92 7.92L21.6 7.92M6.6 6.6L22.92 6.6M5.28 5.16L24.24 5.16M3.96 3.84L25.56 3.84M12.12 17.28L17.4 17.28M10.8 18.6L18.72 18.6M9.48 20.04L20.04 20.04M8.16 21.36L21.36 21.36M6.84 22.68L22.68 22.68M5.4 24L24.12 24M4.08 25.32L25.44 25.32" fill="none" stroke="#00dda5" stroke-width="0.72" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="120.48" height="104.16" viewBox="0 0 30.12 26.04">
+<title>Trạm bơm tăng áp — Hiện trạng</title>
+<path d="M28.08 24.84L30.12 26.04L15.12 2.4L28.08 24.84" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M30.12 26.04L15.12 2.4L15.12 0L30.12 26.04" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M15.12 2.4L15.12 0L2.04 24.84L15.12 2.4" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M15.12 0L2.04 24.84L0 26.04L15.12 0" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M2.04 24.84L0 26.04L28.08 24.84L2.04 24.84" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M0 26.04L28.08 24.84L30.12 26.04L0 26.04" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M11.88 16.32L18.24 16.32M13.32 13.92L16.8 13.92M14.64 11.52L15.48 11.52M10.44 18.72L19.68 18.72" fill="none" stroke="#0000ff" stroke-width="0.72" stroke-linecap="round"/>
+<path d="M19.68 20.04L21.72 21.24L15.12 12L19.68 20.04" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M21.72 21.24L15.12 12L15.12 9.6L21.72 21.24" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M15.12 12L15.12 9.6L10.44 20.04L15.12 12" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M15.12 9.6L10.44 20.04L8.4 21.24L15.12 9.6" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M10.44 20.04L8.4 21.24L19.68 20.04L10.44 20.04" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M8.4 21.24L19.68 20.04L21.72 21.24L8.4 21.24" fill="#0000ff" fill-rule="evenodd"/>
+</svg>

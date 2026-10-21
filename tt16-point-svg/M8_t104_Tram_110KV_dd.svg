@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="94.56" height="94.08" viewBox="0 0 23.64 23.52">
+<title>Trạm 110KV — Quy hoạch đợt đầu</title>
+<path d="M1.08 22.92L11.88 0.84L22.56 22.92L1.08 22.92" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M22.32 22.2L23.64 23.52L22.32 1.32L22.32 22.2" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M23.64 23.52L22.32 1.32L23.64 0L23.64 23.52" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M22.32 1.32L23.64 0L1.32 1.32L22.32 1.32" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M23.64 0L1.32 1.32L0 0L23.64 0" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M1.32 1.32L0 0L1.32 22.2L1.32 1.32" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M0 0L1.32 22.2L0 23.52L0 0" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M1.32 22.2L0 23.52L22.32 22.2L1.32 22.2" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M0 23.52L22.32 22.2L23.64 23.52L0 23.52" fill="#ff0000" fill-rule="evenodd"/>
+</svg>

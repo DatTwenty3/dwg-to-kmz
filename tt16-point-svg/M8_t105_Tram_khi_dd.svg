@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="105.6" height="105.6" viewBox="0 0 26.4 26.4">
+<title>Trạm khí — Quy hoạch đợt đầu</title>
+<path d="M2.76 23.76L0 26.4L23.76 23.76L2.76 23.76" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M0 26.4L23.76 23.76L26.4 26.4L0 26.4" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M23.76 23.76L26.4 26.4L23.76 2.76L23.76 23.76" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M26.4 26.4L23.76 2.76L26.4 0L26.4 26.4" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M23.76 2.76L26.4 0L2.76 2.76L23.76 2.76" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M26.4 0L2.76 2.76L0 0L26.4 0" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M2.76 2.76L0 0L2.76 23.76L2.76 2.76" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M0 0L2.76 23.76L0 26.4L0 0" fill="#b85c5c" fill-rule="evenodd"/>
+<text x="10.92" y="15.71" font-family="Arial, Helvetica, sans-serif" font-size="10.56" fill="#000000">k</text>
+</svg>

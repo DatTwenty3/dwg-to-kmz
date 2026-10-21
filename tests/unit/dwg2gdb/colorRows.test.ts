@@ -152,3 +152,16 @@ describe('templates with colour', () => {
     expect(t.rules[1].color).toBeUndefined();
   });
 });
+
+describe('symbol of a category by its land use', () => {
+  it('a grey hatch (not classified by colour) still gets the symbol its land use names, for its SVG', () => {
+    const d = doc([TITLE, poly('DAT_HTKT_Nghiatrang', sq(X0 + 100, Y0 + 100, 100), aciHex(251)), poly('DAT_NN_Tronglua', sq(X0 + 300, Y0 + 100, 100), LUA)]);
+    const a = analyzeDrawings(parsed(d), 7);
+    const m = initialMapping(a, null);
+    const built = buildFeatures([{ id: 'd1', name: 'QH06.dwg', doc: d, inside: a.inside.get('d1')!, color: colorContexts(a).get('d1') }], m, { boundary: null, sourceInGhiChu: false });
+    const styles = built.classes.find((c) => c.target === LAND_USE)!.styles;
+    // Cemetery: grey (số 251), found by the name of the land use in Mục 7. Rice: by its colour.
+    expect(styles.find((s) => s.phanLoai === 'Đất nghĩa trang, nhà tang lễ')?.symbol).toMatchObject({ section: 7, aci: 251 });
+    expect(styles.find((s) => s.phanLoai === 'Đất trồng lúa')?.symbol).toMatchObject({ section: 7, aci: 3 });
+  });
+});

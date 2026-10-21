@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="121.44" height="68.64" viewBox="0 0 30.36 17.16">
+<title>Nghĩa trang — Quy hoạch đợt đầu</title>
+<path d="M1.08 15L1.08 17.16L12.6 15L1.08 15" fill="#000000" fill-rule="evenodd"/>
+<path d="M1.08 17.16L12.6 15L12.6 17.16L1.08 17.16" fill="#000000" fill-rule="evenodd"/>
+<path d="M17.64 15L17.64 17.16L29.28 15L17.64 15" fill="#000000" fill-rule="evenodd"/>
+<path d="M17.64 17.16L29.28 15L29.28 17.16L17.64 17.16" fill="#000000" fill-rule="evenodd"/>
+<path d="M29.28 15L29.28 17.16" fill="none" stroke="#000000" stroke-width="0.38" stroke-linecap="round"/>
+<path d="M28.2 16.08L30.36 16.08L28.2 11.04L28.2 16.08" fill="#000000" fill-rule="evenodd"/>
+<path d="M30.36 16.08L28.2 11.04L30.36 11.04L30.36 16.08" fill="#000000" fill-rule="evenodd"/>
+<path d="M28.2 6L30.36 6L28.2 0.96L28.2 6" fill="#000000" fill-rule="evenodd"/>
+<path d="M30.36 6L28.2 0.96L30.36 0.96L30.36 6" fill="#000000" fill-rule="evenodd"/>
+<path d="M28.2 0.96L30.36 0.96" fill="none" stroke="#000000" stroke-width="0.38" stroke-linecap="round"/>
+<path d="M29.28 2.04L29.28 0L17.64 2.04L29.28 2.04" fill="#000000" fill-rule="evenodd"/>
+<path d="M29.28 0L17.64 2.04L17.64 0L29.28 0" fill="#000000" fill-rule="evenodd"/>
+<path d="M12.6 2.04L12.6 0L1.08 2.04L12.6 2.04" fill="#000000" fill-rule="evenodd"/>
+<path d="M12.6 0L1.08 2.04L1.08 0L12.6 0" fill="#000000" fill-rule="evenodd"/>
+<path d="M1.08 2.04L1.08 0" fill="none" stroke="#000000" stroke-width="0.38" stroke-linecap="round"/>
+<path d="M2.16 0.96L0 0.96L2.16 6L2.16 0.96" fill="#000000" fill-rule="evenodd"/>
+<path d="M0 0.96L2.16 6L0 6L0 0.96" fill="#000000" fill-rule="evenodd"/>
+<path d="M2.16 11.04L0 11.04L2.16 16.08L2.16 11.04" fill="#000000" fill-rule="evenodd"/>
+<path d="M0 11.04L2.16 16.08L0 16.08L0 11.04" fill="#000000" fill-rule="evenodd"/>
+<path d="M2.16 16.08L0 16.08" fill="none" stroke="#000000" stroke-width="0.38" stroke-linecap="round"/>
+<path d="M13.2 9.48L13.2 7.68L4.44 9.48L13.2 9.48" fill="#000000" fill-rule="evenodd"/>
+<path d="M13.2 7.68L4.44 9.48L4.44 7.68L13.2 7.68" fill="#000000" fill-rule="evenodd"/>
+<path d="M9.84 4.2L7.92 4.2L9.84 12.96L9.84 4.2" fill="#000000" fill-rule="evenodd"/>
+<path d="M7.92 4.2L9.84 12.96L7.92 12.96L7.92 4.2" fill="#000000" fill-rule="evenodd"/>
+<path d="M22.32 4.2L20.4 4.2L22.32 12.96L22.32 4.2" fill="#000000" fill-rule="evenodd"/>
+<path d="M20.4 4.2L22.32 12.96L20.4 12.96L20.4 4.2" fill="#000000" fill-rule="evenodd"/>
+<path d="M25.68 9.48L25.68 7.68L16.92 9.48L25.68 9.48" fill="#000000" fill-rule="evenodd"/>
+<path d="M25.68 7.68L16.92 9.48L16.92 7.68L25.68 7.68" fill="#000000" fill-rule="evenodd"/>
+</svg>

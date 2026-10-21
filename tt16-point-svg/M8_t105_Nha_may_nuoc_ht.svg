@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="120.48" height="104.64" viewBox="0 0 30.12 26.16">
+<title>Nhà máy nước — Hiện trạng</title>
+<path d="M9 20.64L21.12 20.64M9 18.24L21.12 18.24M9 15.84L21.12 15.84M9 13.44L21.12 13.44M9 23.04L21.12 23.04" fill="none" stroke="#0000ff" stroke-width="0.72" stroke-linecap="round"/>
+<path d="M8.4 12.48L9.6 13.68L21.72 12.48L8.4 12.48" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M9.6 13.68L21.72 12.48L20.4 13.68L9.6 13.68" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M21.72 12.48L20.4 13.68L21.72 25.68L21.72 12.48" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M20.4 13.68L21.72 25.68L20.4 24.48L20.4 13.68" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M21.72 25.68L20.4 24.48L8.4 25.68L21.72 25.68" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M20.4 24.48L8.4 25.68L9.6 24.48L20.4 24.48" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M8.4 25.68L9.6 24.48L8.4 12.48L8.4 25.68" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M9.6 24.48L8.4 12.48L9.6 13.68L9.6 24.48" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M27.96 24.96L30.12 26.16L15 2.4L27.96 24.96" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M30.12 26.16L15 2.4L15 0L30.12 26.16" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M15 2.4L15 0L2.04 24.96L15 2.4" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M15 0L2.04 24.96L0 26.16L15 0" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M2.04 24.96L0 26.16L27.96 24.96L2.04 24.96" fill="#0000ff" fill-rule="evenodd"/>
+<path d="M0 26.16L27.96 24.96L30.12 26.16L0 26.16" fill="#0000ff" fill-rule="evenodd"/>
+</svg>

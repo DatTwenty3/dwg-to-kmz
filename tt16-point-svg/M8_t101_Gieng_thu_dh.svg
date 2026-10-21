@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="78.24" height="40.8" viewBox="0 0 19.56 10.2">
+<title>Giếng thu — Quy hoạch dài hạn</title>
+<path d="M19.56 0L19.32 0.24L19.56 10.2L19.56 0" fill="#000000" fill-rule="evenodd"/>
+<path d="M19.32 0.24L19.56 10.2L19.32 9.96L19.32 0.24" fill="#000000" fill-rule="evenodd"/>
+<path d="M19.56 10.2L19.32 9.96L0 10.2L19.56 10.2" fill="#000000" fill-rule="evenodd"/>
+<path d="M19.32 9.96L0 10.2L0.24 9.96L19.32 9.96" fill="#000000" fill-rule="evenodd"/>
+<path d="M0 10.2L0.24 9.96L0 0L0 10.2" fill="#000000" fill-rule="evenodd"/>
+<path d="M0.24 9.96L0 0L0.24 0.24L0.24 9.96" fill="#000000" fill-rule="evenodd"/>
+<path d="M0 0L0.24 0.24L19.56 0L0 0" fill="#000000" fill-rule="evenodd"/>
+<path d="M0.24 0.24L19.56 0L19.32 0.24L0.24 0.24" fill="#000000" fill-rule="evenodd"/>
+<path d="M0 9.96L0.12 10.2L19.32 0L0 9.96" fill="#000000" fill-rule="evenodd"/>
+<path d="M0.12 10.2L19.32 0L19.44 0.24L0.12 10.2" fill="#000000" fill-rule="evenodd"/>
+</svg>

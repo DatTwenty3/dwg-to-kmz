@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="94.56" height="94.56" viewBox="0 0 23.64 23.64">
+<title>Trạm 110KV — Quy hoạch dài hạn</title>
+<path d="M22.56 22.68L23.4 23.16L11.76 1.32L22.56 22.68" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M23.4 23.16L11.76 1.32L11.76 0.12L23.4 23.16" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M11.76 1.32L11.76 0.12L1.08 22.68L11.76 1.32" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M11.76 0.12L1.08 22.68L0.24 23.16L11.76 0.12" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M1.08 22.68L0.24 23.16L22.56 22.68L1.08 22.68" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M0.24 23.16L22.56 22.68L23.4 23.16L0.24 23.16" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M22.32 22.32L23.64 23.64L22.32 1.32L22.32 22.32" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M23.64 23.64L22.32 1.32L23.64 0L23.64 23.64" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M22.32 1.32L23.64 0L1.32 1.32L22.32 1.32" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M23.64 0L1.32 1.32L0 0L23.64 0" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M1.32 1.32L0 0L1.32 22.32L1.32 1.32" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M0 0L1.32 22.32L0 23.64L0 0" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M1.32 22.32L0 23.64L22.32 22.32L1.32 22.32" fill="#ff0000" fill-rule="evenodd"/>
+<path d="M0 23.64L22.32 22.32L23.64 23.64L0 23.64" fill="#ff0000" fill-rule="evenodd"/>
+</svg>

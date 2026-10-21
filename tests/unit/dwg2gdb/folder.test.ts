@@ -25,6 +25,7 @@ import {
 } from '@/lib/dwg2gdb';
 import { collectGdbs, readCatalog, runCheck, type GdbEntry, type SubmissionReport } from '@/lib/gdb';
 import { fixGdalOutput } from '@/lib/gdb/gdalFix';
+import { loadSvgLibrary } from '@/lib/dwg2gdb/qgisSvg';
 import { executePlan, planNormalization, schemaKey, type NormalizeSource } from '@/lib/gdb/normalize';
 import { buildSchemaGpkg } from '@/lib/gdb/schemaGpkg';
 import initSqlJs from 'sql.js';
@@ -131,7 +132,16 @@ describe.skipIf(!existsSync(ROOT))('Bóc tách DWG → TT16 — xã Long Hiệp'
     expect(Number(land[0].dienTich)).toBeGreaterThan(0);
     // Tệp tổng hợp (QGIS project) next to the geodatabases.
     const b = a.boundary!.ring;
+    // The SVG symbols of Phụ lục I, read from the project folders instead of /tt16-svg/.
+    const fromDisk = (async (url: string) => {
+      const m = /\/tt16-svg\/(hatch|point)\/(.+)$/.exec(String(url));
+      const path = m ? `tt16-${m[1]}-svg/${m[2]}` : '';
+      return existsSync(path) ? new Response(readFileSync(path)) : new Response('', { status: 404 });
+    }) as unknown as typeof fetch;
+    const svg = await loadSvgLibrary(built.classes, 'http://local', fromDisk);
+    expect(svg?.files.size).toBeGreaterThan(0);
     qgs = buildQgs({
+      svg: svg ?? undefined,
       name: 'QHC_XaLongHiep',
       title: 'QUY HOẠCH CHUNG XÃ LONG HIỆP, TỈNH VĨNH LONG ĐẾN NĂM 2050',
       classes: built.classes,

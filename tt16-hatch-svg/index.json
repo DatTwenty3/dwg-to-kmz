@@ -1,0 +1,2672 @@
+[
+ {
+  "file": "M2_DAT_DD_Donvio_30.svg",
+  "muc": 2,
+  "page": 62,
+  "layer": "DAT_DD_Donvio",
+  "label": "KHU ĐẤT DÂN DỤNG",
+  "aci": 30,
+  "colors": [
+   "#ff7f00"
+  ],
+  "paths": 27,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M2_DAT_DD_Honhop_22.svg",
+  "muc": 2,
+  "page": 62,
+  "layer": "DAT_DD_Honhop",
+  "label": "Hỗn hợp",
+  "aci": 22,
+  "colors": [
+   "#dd3700"
+  ],
+  "paths": 69,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M2_DAT_DD_DVCCdothi_1.svg",
+  "muc": 2,
+  "page": 62,
+  "layer": "DAT_DD_DVCCdothi",
+  "label": "Dịch vụ - công cộng đô thị",
+  "aci": 1,
+  "colors": [
+   "#ff0000"
+  ],
+  "paths": 23,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M2_DAT_DD_Coquandothi_34.svg",
+  "muc": 2,
+  "page": 62,
+  "layer": "DAT_DD_Coquandothi",
+  "label": "Cơ quan, trụ sở đô thị",
+  "aci": 34,
+  "colors": [
+   "#b85c00"
+  ],
+  "paths": 19,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M2_DAT_DD_CayxanhCCdothi_72.svg",
+  "muc": 2,
+  "page": 62,
+  "layer": "DAT_DD_CayxanhCCdothi",
+  "label": "Cây xanh sử dụng công cộng đô thị",
+  "aci": 72,
+  "colors": [
+   "#6edd00"
+  ],
+  "paths": 137,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 26.0
+ },
+ {
+  "file": "M2_DAT_DD_Giaothongdothi_8.svg",
+  "muc": 2,
+  "page": 62,
+  "layer": "DAT_DD_Giaothongdothi",
+  "label": "Giao thông đô thị",
+  "aci": 8,
+  "colors": [
+   "#808080"
+  ],
+  "paths": 34,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M2_DAT_DD_HTkhacdothi_195.svg",
+  "muc": 2,
+  "page": 62,
+  "layer": "DAT_DD_HTkhacdothi",
+  "label": "Hạ tầng kỹ thuật khác cấp đô thị",
+  "aci": 195,
+  "colors": [
+   "#8a5cb8"
+  ],
+  "paths": 109,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M2_DAT_NDD_Congnghiep_192.svg",
+  "muc": 2,
+  "page": 62,
+  "layer": "DAT_NDD_Congnghiep",
+  "label": "Sản xuất công nghiệp, kho tàng",
+  "aci": 192,
+  "colors": [
+   "#6e00dd"
+  ],
+  "paths": 23,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 26.0
+ },
+ {
+  "file": "M2_DAT_NDD_Daotao_144.svg",
+  "muc": 2,
+  "page": 62,
+  "layer": "DAT_NDD_Daotao",
+  "label": "Đào tạo, nghiên cứu",
+  "aci": 144,
+  "colors": [
+   "#008ab8"
+  ],
+  "paths": 57,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 26.0
+ },
+ {
+  "file": "M2_DAT_NDD_Coquan_46.svg",
+  "muc": 2,
+  "page": 63,
+  "layer": "DAT_NDD_Coquan",
+  "label": "Cơ quan, trụ sở",
+  "aci": 46,
+  "colors": [
+   "#957000"
+  ],
+  "paths": 36,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 26.6
+ },
+ {
+  "file": "M2_DAT_NDD_Dulich_210.svg",
+  "muc": 2,
+  "page": 63,
+  "layer": "DAT_NDD_Dulich",
+  "label": "Dịch vụ du lịch",
+  "aci": 210,
+  "colors": [
+   "#ff00ff"
+  ],
+  "paths": 99,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M2_DAT_NDD_Yte_220.svg",
+  "muc": 2,
+  "page": 63,
+  "layer": "DAT_NDD_Yte",
+  "label": "Y tế",
+  "aci": 220,
+  "colors": [
+   "#ff00bf"
+  ],
+  "paths": 1,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M2_DAT_NDD_Vanhoathethao_94.svg",
+  "muc": 2,
+  "page": 63,
+  "layer": "DAT_NDD_Vanhoathethao",
+  "label": "Văn hóa, thể dục thể thao",
+  "aci": 94,
+  "colors": [
+   "#00b800"
+  ],
+  "paths": 11,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M2_DAT_NDD_CayxanhSDHC_94.svg",
+  "muc": 2,
+  "page": 63,
+  "layer": "DAT_NDD_CayxanhSDHC",
+  "label": "Cây xanh sử dụng hạn chế",
+  "aci": 94,
+  "colors": [
+   "#00b800"
+  ],
+  "paths": 19,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M2_DAT_NDD_CayxanhCD_126.svg",
+  "muc": 2,
+  "page": 63,
+  "layer": "DAT_NDD_CayxanhCD",
+  "label": "Cây xanh chuyên dụng",
+  "aci": 126,
+  "colors": [
+   "#009570"
+  ],
+  "paths": 83,
+  "frameRemoved": true,
+  "width": 56.5,
+  "height": 26.2
+ },
+ {
+  "file": "M2_DAT_NDD_Ditich_16.svg",
+  "muc": 2,
+  "page": 63,
+  "layer": "DAT_NDD_Ditich",
+  "label": "Di tích, tôn giáo",
+  "aci": 16,
+  "colors": [
+   "#950000"
+  ],
+  "paths": 88,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 26.0
+ },
+ {
+  "file": "M2_DAT_NDD_DancuNT_57.svg",
+  "muc": 2,
+  "page": 63,
+  "layer": "DAT_NDD_DancuNT",
+  "label": "Dân cư nông thôn",
+  "aci": 57,
+  "colors": [
+   "#95954a"
+  ],
+  "paths": 19,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 26.0
+ },
+ {
+  "file": "M2_DAT_NDD_Anninh_64.svg",
+  "muc": 2,
+  "page": 63,
+  "layer": "DAT_NDD_Anninh",
+  "label": "An ninh",
+  "aci": 64,
+  "colors": [
+   "#8ab800"
+  ],
+  "paths": 55,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M2_DAT_NDD_Quocphong_79.svg",
+  "muc": 2,
+  "page": 63,
+  "layer": "DAT_NDD_Quocphong",
+  "label": "Quốc phòng",
+  "aci": 79,
+  "colors": [
+   "#567239"
+  ],
+  "paths": 58,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M2_DAT_NDD_GiaothongDN_251.svg",
+  "muc": 2,
+  "page": 63,
+  "layer": "DAT_NDD_GiaothongDN",
+  "label": "Giao thông đối ngoại",
+  "aci": 251,
+  "colors": [
+   "#767676"
+  ],
+  "paths": 35,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M2_DAT_NDD_HTkhacdoingoai_199.svg",
+  "muc": 2,
+  "page": 64,
+  "layer": "DAT_NDD_HTkhacdoingoai",
+  "label": "Hạ tầng kỹ thuật khác ngoài đô thị",
+  "aci": 199,
+  "colors": [
+   "#563972"
+  ],
+  "paths": 126,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M2_DAT_NNK_Nongnghiep_3.svg",
+  "muc": 2,
+  "page": 64,
+  "layer": "DAT_NNK_Nongnghiep",
+  "label": "Sản xuất nông nghiệp",
+  "aci": 3,
+  "colors": [
+   "#00ff00"
+  ],
+  "paths": 75,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M2_DAT_NNK_Rungdacdung_148.svg",
+  "muc": 2,
+  "page": 64,
+  "layer": "DAT_NNK_Rungdacdung",
+  "label": "Rừng đặc dụng",
+  "aci": 148,
+  "colors": [
+   "#005672"
+  ],
+  "paths": 89,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M2_DAT_NNK_Rungphongho_129.svg",
+  "muc": 2,
+  "page": 64,
+  "layer": "DAT_NNK_Rungphongho",
+  "label": "Rừng phòng hộ",
+  "aci": 129,
+  "colors": [
+   "#397264"
+  ],
+  "paths": 102,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M2_DAT_NNK_Rungsanxuat_107.svg",
+  "muc": 2,
+  "page": 64,
+  "layer": "DAT_NNK_Rungsanxuat",
+  "label": "Rừng sản xuất",
+  "aci": 107,
+  "colors": [
+   "#4a955d"
+  ],
+  "paths": 30,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M2_DAT_NNK_Thuysan_150.svg",
+  "muc": 2,
+  "page": 64,
+  "layer": "DAT_NNK_Thuysan",
+  "label": "Nuôi trồng thủy sản",
+  "aci": 150,
+  "colors": [
+   "#007fff"
+  ],
+  "paths": 96,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M2_DAT_NNK_Chuasudung_9.svg",
+  "muc": 2,
+  "page": 64,
+  "layer": "DAT_NNK_Chuasudung",
+  "label": "Chưa sử dụng",
+  "aci": 9,
+  "colors": [
+   "#dcdcdc"
+  ],
+  "paths": 103,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 26.0
+ },
+ {
+  "file": "M2_DAT_NNK_Honuoc_154.svg",
+  "muc": 2,
+  "page": 64,
+  "layer": "DAT_NNK_Honuoc",
+  "label": "Hồ, ao, đầm",
+  "aci": 154,
+  "colors": [
+   "#005cb8"
+  ],
+  "paths": 25,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M2_DAT_NNK_Songsuoi_152.svg",
+  "muc": 2,
+  "page": 64,
+  "layer": "DAT_NNK_Songsuoi",
+  "label": "Sông, suối, kênh, rạch",
+  "aci": 152,
+  "colors": [
+   "#006edd"
+  ],
+  "paths": 5,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M2_DAT_NNK_Matnuocbien_152.svg",
+  "muc": 2,
+  "page": 64,
+  "layer": "DAT_NNK_Matnuocbien",
+  "label": "Mặt nước ven biển",
+  "aci": 152,
+  "colors": [
+   "#006edd"
+  ],
+  "paths": 34,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M3_DAT_DD_Nhomnhao_42.svg",
+  "muc": 3,
+  "page": 67,
+  "layer": "DAT_DD_Nhomnhao",
+  "label": "Nhóm nhà ở",
+  "aci": 42,
+  "colors": [
+   "#dda500"
+  ],
+  "paths": 96,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M3_DAT_DD_Honhop_Nhomo_22.svg",
+  "muc": 3,
+  "page": 67,
+  "layer": "DAT_DD_Honhop_Nhomo",
+  "label": "Hỗn hợp (nhóm nhà ở và dịch vụ)",
+  "aci": 22,
+  "colors": [
+   "#dd3700"
+  ],
+  "paths": 74,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M3_DAT_DD_TruongTHPT_24.svg",
+  "muc": 3,
+  "page": 67,
+  "layer": "DAT_DD_TruongTHPT",
+  "label": "Trường THPT",
+  "aci": 24,
+  "colors": [
+   "#b82e00"
+  ],
+  "paths": 51,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M3_DAT_DD_Truonghoc_15.svg",
+  "muc": 3,
+  "page": 67,
+  "layer": "DAT_DD_Truonghoc",
+  "label": "Trường THCS, tiểu học, mầm non",
+  "aci": 15,
+  "colors": [
+   "#b85c5c"
+  ],
+  "paths": 57,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M3_DAT_DD_DVCCdothi_1.svg",
+  "muc": 3,
+  "page": 67,
+  "layer": "DAT_DD_DVCCdothi",
+  "label": "Dịch vụ - công cộng đô thị",
+  "aci": 1,
+  "colors": [
+   "#ff0000"
+  ],
+  "paths": 23,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M3_DAT_DD_Coquandothi_34.svg",
+  "muc": 3,
+  "page": 67,
+  "layer": "DAT_DD_Coquandothi",
+  "label": "Cơ quan, trụ sở đô thị",
+  "aci": 34,
+  "colors": [
+   "#b85c00"
+  ],
+  "paths": 19,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M3_DAT_DD_CayxanhCCdothi_72.svg",
+  "muc": 3,
+  "page": 67,
+  "layer": "DAT_DD_CayxanhCCdothi",
+  "label": "Cây xanh sử dụng công cộng đô thị",
+  "aci": 72,
+  "colors": [
+   "#6edd00"
+  ],
+  "paths": 137,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M3_DAT_DD_Giaothongdothi_8.svg",
+  "muc": 3,
+  "page": 67,
+  "layer": "DAT_DD_Giaothongdothi",
+  "label": "Giao thông đô thị",
+  "aci": 8,
+  "colors": [
+   "#808080"
+  ],
+  "paths": 34,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M3_DAT_DD_HTkhacdothi_195.svg",
+  "muc": 3,
+  "page": 67,
+  "layer": "DAT_DD_HTkhacdothi",
+  "label": "Hạ tầng kỹ thuật khác cấp đô thị",
+  "aci": 195,
+  "colors": [
+   "#8a5cb8"
+  ],
+  "paths": 109,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M3_DAT_NDD_Congnghiep_192.svg",
+  "muc": 3,
+  "page": 68,
+  "layer": "DAT_NDD_Congnghiep",
+  "label": "Sản xuất công nghiệp, kho tàng",
+  "aci": 192,
+  "colors": [
+   "#6e00dd"
+  ],
+  "paths": 23,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M3_DAT_NDD_Daotao_144.svg",
+  "muc": 3,
+  "page": 68,
+  "layer": "DAT_NDD_Daotao",
+  "label": "Đào tạo, nghiên cứu",
+  "aci": 144,
+  "colors": [
+   "#008ab8"
+  ],
+  "paths": 57,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M3_DAT_NDD_Coquan_46.svg",
+  "muc": 3,
+  "page": 68,
+  "layer": "DAT_NDD_Coquan",
+  "label": "Cơ quan, trụ sở",
+  "aci": 46,
+  "colors": [
+   "#957000"
+  ],
+  "paths": 34,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M3_DAT_NDD_Dulich_210.svg",
+  "muc": 3,
+  "page": 68,
+  "layer": "DAT_NDD_Dulich",
+  "label": "Dịch vụ du lịch",
+  "aci": 210,
+  "colors": [
+   "#ff00ff"
+  ],
+  "paths": 99,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M3_DAT_NDD_Yte_220.svg",
+  "muc": 3,
+  "page": 68,
+  "layer": "DAT_NDD_Yte",
+  "label": "Y tế",
+  "aci": 220,
+  "colors": [
+   "#ff00bf"
+  ],
+  "paths": 1,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M3_DAT_NDD_Vanhoathethao_94.svg",
+  "muc": 3,
+  "page": 68,
+  "layer": "DAT_NDD_Vanhoathethao",
+  "label": "Văn hóa, thể dục thể thao",
+  "aci": 94,
+  "colors": [
+   "#00b800"
+  ],
+  "paths": 11,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M3_DAT_NDD_CayxanhSDHC_94.svg",
+  "muc": 3,
+  "page": 68,
+  "layer": "DAT_NDD_CayxanhSDHC",
+  "label": "Cây xanh sử dụng hạn chế",
+  "aci": 94,
+  "colors": [
+   "#00b800"
+  ],
+  "paths": 19,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M3_DAT_NDD_CayxanhCD_126.svg",
+  "muc": 3,
+  "page": 68,
+  "layer": "DAT_NDD_CayxanhCD",
+  "label": "Cây xanh chuyên dụng",
+  "aci": 126,
+  "colors": [
+   "#009570"
+  ],
+  "paths": 83,
+  "frameRemoved": true,
+  "width": 56.5,
+  "height": 26.3
+ },
+ {
+  "file": "M3_DAT_NDD_Ditich_16.svg",
+  "muc": 3,
+  "page": 68,
+  "layer": "DAT_NDD_Ditich",
+  "label": "Di tích, tôn giáo",
+  "aci": 16,
+  "colors": [
+   "#950000"
+  ],
+  "paths": 88,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M3_DAT_NDD_Anninh_64.svg",
+  "muc": 3,
+  "page": 68,
+  "layer": "DAT_NDD_Anninh",
+  "label": "An ninh",
+  "aci": 64,
+  "colors": [
+   "#8ab800"
+  ],
+  "paths": 55,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M3_DAT_NDD_Quocphong_79.svg",
+  "muc": 3,
+  "page": 69,
+  "layer": "DAT_NDD_Quocphong",
+  "label": "Quốc phòng",
+  "aci": 79,
+  "colors": [
+   "#567239"
+  ],
+  "paths": 58,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M3_DAT_NDD_GiaothongDN_251.svg",
+  "muc": 3,
+  "page": 69,
+  "layer": "DAT_NDD_GiaothongDN",
+  "label": "Giao thông đối ngoại",
+  "aci": 251,
+  "colors": [
+   "#767676"
+  ],
+  "paths": 35,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M3_DAT_NDD_HTkhacdoingoai_199.svg",
+  "muc": 3,
+  "page": 69,
+  "layer": "DAT_NDD_HTkhacdoingoai",
+  "label": "Hạ tầng kỹ thuật khác ngoài đô thị",
+  "aci": 199,
+  "colors": [
+   "#563972"
+  ],
+  "paths": 126,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M3_DAT_NNK_Nongnghiep_3.svg",
+  "muc": 3,
+  "page": 69,
+  "layer": "DAT_NNK_Nongnghiep",
+  "label": "Sản xuất nông nghiệp",
+  "aci": 3,
+  "colors": [
+   "#00ff00"
+  ],
+  "paths": 75,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M3_DAT_NNK_Rungdacdung_148.svg",
+  "muc": 3,
+  "page": 69,
+  "layer": "DAT_NNK_Rungdacdung",
+  "label": "Rừng đặc dụng",
+  "aci": 148,
+  "colors": [
+   "#005672"
+  ],
+  "paths": 89,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M3_DAT_NNK_Rungphongho_129.svg",
+  "muc": 3,
+  "page": 69,
+  "layer": "DAT_NNK_Rungphongho",
+  "label": "Rừng phòng hộ",
+  "aci": 129,
+  "colors": [
+   "#397264"
+  ],
+  "paths": 102,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M3_DAT_NNK_Rungsanxuat_107.svg",
+  "muc": 3,
+  "page": 69,
+  "layer": "DAT_NNK_Rungsanxuat",
+  "label": "Rừng sản xuất",
+  "aci": 107,
+  "colors": [
+   "#4a955d"
+  ],
+  "paths": 30,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M3_DAT_NNK_Thuysan_150.svg",
+  "muc": 3,
+  "page": 69,
+  "layer": "DAT_NNK_Thuysan",
+  "label": "Nuôi trồng thủy sản",
+  "aci": 150,
+  "colors": [
+   "#007fff"
+  ],
+  "paths": 96,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M3_DAT_NNK_Chuasudung_9.svg",
+  "muc": 3,
+  "page": 70,
+  "layer": "DAT_NNK_Chuasudung",
+  "label": "Chưa sử dụng",
+  "aci": 9,
+  "colors": [
+   "#dcdcdc"
+  ],
+  "paths": 103,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M3_DAT_NNK_Honuoc_154.svg",
+  "muc": 3,
+  "page": 70,
+  "layer": "DAT_NNK_Honuoc",
+  "label": "Hồ, ao, đầm",
+  "aci": 154,
+  "colors": [
+   "#005cb8"
+  ],
+  "paths": 25,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M3_DAT_NNK_Songsuoi_152.svg",
+  "muc": 3,
+  "page": 70,
+  "layer": "DAT_NNK_Songsuoi",
+  "label": "Sông, suối, kênh, rạch",
+  "aci": 152,
+  "colors": [
+   "#006edd"
+  ],
+  "paths": 5,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M3_DAT_NNK_Matnuocbien_152.svg",
+  "muc": 3,
+  "page": 70,
+  "layer": "DAT_NNK_Matnuocbien",
+  "label": "Mặt nước ven biển",
+  "aci": 152,
+  "colors": [
+   "#006edd"
+  ],
+  "paths": 34,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_O_Nhomnhao_42.svg",
+  "muc": 4,
+  "page": 73,
+  "layer": "DAT_O_Nhomnhao",
+  "label": "Nhóm nhà ở",
+  "aci": 42,
+  "colors": [
+   "#dda500"
+  ],
+  "paths": 96,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M4_DAT_O_Honhop_Nhomo_22.svg",
+  "muc": 4,
+  "page": 73,
+  "layer": "DAT_O_Honhop_Nhomo",
+  "label": "Hỗn hợp (nhóm nhà ở và dịch vụ)",
+  "aci": 22,
+  "colors": [
+   "#dd3700"
+  ],
+  "paths": 74,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_O_Langxom_57.svg",
+  "muc": 4,
+  "page": 73,
+  "layer": "DAT_O_Langxom",
+  "label": "Làng xóm, dân cư nông thôn",
+  "aci": 57,
+  "colors": [
+   "#95954a"
+  ],
+  "paths": 15,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M4_DAT_HTXH_Yte_220.svg",
+  "muc": 4,
+  "page": 73,
+  "layer": "DAT_HTXH_Yte",
+  "label": "Y tế",
+  "aci": 220,
+  "colors": [
+   "#ff00bf"
+  ],
+  "paths": 1,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_HTXH_Vanhoa_243.svg",
+  "muc": 4,
+  "page": 73,
+  "layer": "DAT_HTXH_Vanhoa",
+  "label": "Văn hóa",
+  "aci": 243,
+  "colors": [
+   "#dd6e8a"
+  ],
+  "paths": 46,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M4_DAT_HTXH_Theducthethao_94.svg",
+  "muc": 4,
+  "page": 73,
+  "layer": "DAT_HTXH_Theducthethao",
+  "label": "Thể dục thể thao",
+  "aci": 94,
+  "colors": [
+   "#00b800"
+  ],
+  "paths": 11,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M4_DAT_HTXH_TruongTHPT_24.svg",
+  "muc": 4,
+  "page": 73,
+  "layer": "DAT_HTXH_TruongTHPT",
+  "label": "Trường THPT",
+  "aci": 24,
+  "colors": [
+   "#b82e00"
+  ],
+  "paths": 51,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M4_DAT_HTXH_Truonghoc_15.svg",
+  "muc": 4,
+  "page": 73,
+  "layer": "DAT_HTXH_Truonghoc",
+  "label": "Trường THCS, tiểu học, mầm non",
+  "aci": 15,
+  "colors": [
+   "#b85c5c"
+  ],
+  "paths": 57,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_HTXH_CayxanhCC_72.svg",
+  "muc": 4,
+  "page": 73,
+  "layer": "DAT_HTXH_CayxanhCC",
+  "label": "Cây xanh sử dụng công cộng",
+  "aci": 72,
+  "colors": [
+   "#6edd00"
+  ],
+  "paths": 137,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_Cayxanhhanche_94.svg",
+  "muc": 4,
+  "page": 74,
+  "layer": "DAT_Cayxanhhanche",
+  "label": "Cây xanh sử dụng hạn chế",
+  "aci": 94,
+  "colors": [
+   "#00b800"
+  ],
+  "paths": 19,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_Cayxanhchuyendung_126.svg",
+  "muc": 4,
+  "page": 74,
+  "layer": "DAT_Cayxanhchuyendung",
+  "label": "Cây xanh chuyên dụng",
+  "aci": 126,
+  "colors": [
+   "#009570"
+  ],
+  "paths": 83,
+  "frameRemoved": true,
+  "width": 56.5,
+  "height": 26.3
+ },
+ {
+  "file": "M4_DAT_SX_Congnghiep_192.svg",
+  "muc": 4,
+  "page": 74,
+  "layer": "DAT_SX_Congnghiep",
+  "label": "Sản xuất công nghiệp, kho tàng",
+  "aci": 192,
+  "colors": [
+   "#6e00dd"
+  ],
+  "paths": 23,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_SX_Vatlieu_175.svg",
+  "muc": 4,
+  "page": 74,
+  "layer": "DAT_SX_Vatlieu",
+  "label": "Khai thác, chế biến khoáng sản, vật liệu xây dựng",
+  "aci": 175,
+  "colors": [
+   "#5c5cb8"
+  ],
+  "paths": 23,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_DaotaoNC_144.svg",
+  "muc": 4,
+  "page": 74,
+  "layer": "DAT_DaotaoNC",
+  "label": "Đào tạo, nghiên cứu",
+  "aci": 144,
+  "colors": [
+   "#008ab8"
+  ],
+  "paths": 57,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_Coquan_34.svg",
+  "muc": 4,
+  "page": 74,
+  "layer": "DAT_Coquan",
+  "label": "Cơ quan, trụ sở",
+  "aci": 34,
+  "colors": [
+   "#b85c00"
+  ],
+  "paths": 18,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M4_DAT_Dichvu_12.svg",
+  "muc": 4,
+  "page": 74,
+  "layer": "DAT_Dichvu",
+  "label": "Dịch vụ",
+  "aci": 12,
+  "colors": [
+   "#dd0000"
+  ],
+  "paths": 21,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_Dulich_210.svg",
+  "muc": 4,
+  "page": 74,
+  "layer": "DAT_Dulich",
+  "label": "Dịch vụ du lịch",
+  "aci": 210,
+  "colors": [
+   "#ff00ff"
+  ],
+  "paths": 99,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_Ditich_tongiao_16.svg",
+  "muc": 4,
+  "page": 74,
+  "layer": "DAT_Ditich_tongiao",
+  "label": "Di tích, tôn giáo",
+  "aci": 16,
+  "colors": [
+   "#950000"
+  ],
+  "paths": 88,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_Anninh_64.svg",
+  "muc": 4,
+  "page": 74,
+  "layer": "DAT_Anninh",
+  "label": "An ninh",
+  "aci": 64,
+  "colors": [
+   "#8ab800"
+  ],
+  "paths": 55,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_Quocphong_79.svg",
+  "muc": 4,
+  "page": 75,
+  "layer": "DAT_Quocphong",
+  "label": "Quốc phòng",
+  "aci": 79,
+  "colors": [
+   "#567239"
+  ],
+  "paths": 58,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_HTKT_DuongGT_251.svg",
+  "muc": 4,
+  "page": 75,
+  "layer": "DAT_HTKT_DuongGT",
+  "label": "Đường giao thông",
+  "aci": 251,
+  "colors": [
+   "#767676"
+  ],
+  "paths": 35,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_HTKT_Baidoxe_252.svg",
+  "muc": 4,
+  "page": 75,
+  "layer": "DAT_HTKT_Baidoxe",
+  "label": "Bãi đỗ xe",
+  "aci": 252,
+  "colors": [
+   "#989898"
+  ],
+  "paths": 19,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_HTKT_Nghiatrang_251.svg",
+  "muc": 4,
+  "page": 75,
+  "layer": "DAT_HTKT_Nghiatrang",
+  "label": "Nghĩa trang",
+  "aci": 251,
+  "colors": [
+   "#767676"
+  ],
+  "paths": 91,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.2
+ },
+ {
+  "file": "M4_BV_Ten_Chugiai_199.svg",
+  "muc": 4,
+  "page": 75,
+  "layer": "BV_Ten_Chugiai",
+  "label": "",
+  "aci": 199,
+  "colors": [
+   "#563972"
+  ],
+  "paths": 9,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_NN_Nongnghiep_3.svg",
+  "muc": 4,
+  "page": 75,
+  "layer": "DAT_NN_Nongnghiep",
+  "label": "Sản xuất nông nghiệp",
+  "aci": 3,
+  "colors": [
+   "#00ff00"
+  ],
+  "paths": 75,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M4_DAT_NN_Rungdacdung_148.svg",
+  "muc": 4,
+  "page": 75,
+  "layer": "DAT_NN_Rungdacdung",
+  "label": "Rừng đặc dụng",
+  "aci": 148,
+  "colors": [
+   "#005672"
+  ],
+  "paths": 89,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M4_DAT_NN_Rungphongho_129.svg",
+  "muc": 4,
+  "page": 75,
+  "layer": "DAT_NN_Rungphongho",
+  "label": "Rừng phòng hộ",
+  "aci": 129,
+  "colors": [
+   "#397264"
+  ],
+  "paths": 102,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M4_DAT_NN_Rungsanxuat_107.svg",
+  "muc": 4,
+  "page": 75,
+  "layer": "DAT_NN_Rungsanxuat",
+  "label": "Rừng sản xuất",
+  "aci": 107,
+  "colors": [
+   "#4a955d"
+  ],
+  "paths": 30,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M4_DAT_NN_Thuysan_150.svg",
+  "muc": 4,
+  "page": 75,
+  "layer": "DAT_NN_Thuysan",
+  "label": "Nuôi trồng thủy sản",
+  "aci": 150,
+  "colors": [
+   "#007fff"
+  ],
+  "paths": 96,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_KHAC_Chuasudung_9.svg",
+  "muc": 4,
+  "page": 76,
+  "layer": "DAT_KHAC_Chuasudung",
+  "label": "Chưa sử dụng",
+  "aci": 9,
+  "colors": [
+   "#dcdcdc"
+  ],
+  "paths": 103,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_KHAC_Honuoc_154.svg",
+  "muc": 4,
+  "page": 76,
+  "layer": "DAT_KHAC_Honuoc",
+  "label": "Hồ, ao, đầm",
+  "aci": 154,
+  "colors": [
+   "#005cb8"
+  ],
+  "paths": 25,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_KHAC_Songsuoi_152.svg",
+  "muc": 4,
+  "page": 76,
+  "layer": "DAT_KHAC_Songsuoi",
+  "label": "Sông, suối, kênh, rạch",
+  "aci": 152,
+  "colors": [
+   "#006edd"
+  ],
+  "paths": 5,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M4_DAT_KHAC_Matnuocbien_152.svg",
+  "muc": 4,
+  "page": 76,
+  "layer": "DAT_KHAC_Matnuocbien",
+  "label": "Mặt nước ven biển",
+  "aci": 152,
+  "colors": [
+   "#006edd"
+  ],
+  "paths": 34,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_NO_Nhaolienke_32.svg",
+  "muc": 5,
+  "page": 80,
+  "layer": "DAT_NO_Nhaolienke",
+  "label": "Nhà ở liền kề",
+  "aci": 32,
+  "colors": [
+   "#dd6e00"
+  ],
+  "paths": 49,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M5_DAT_NO_Nhaobietthu_56.svg",
+  "muc": 5,
+  "page": 80,
+  "layer": "DAT_NO_Nhaobietthu",
+  "label": "Nhà ở biệt thự",
+  "aci": 56,
+  "colors": [
+   "#959500"
+  ],
+  "paths": 97,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_NO_Nhaochungcu_40.svg",
+  "muc": 5,
+  "page": 80,
+  "layer": "DAT_NO_Nhaochungcu",
+  "label": "Nhà chung cư",
+  "aci": 40,
+  "colors": [
+   "#ffbf00"
+  ],
+  "paths": 62,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M5_DAT_NO_NhaochungcuHH_44.svg",
+  "muc": 5,
+  "page": 80,
+  "layer": "DAT_NO_NhaochungcuHH",
+  "label": "Nhà chung cư hỗn hợp",
+  "aci": 44,
+  "colors": [
+   "#b88a00"
+  ],
+  "paths": 1,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_NO_Nhaonongthon_57.svg",
+  "muc": 5,
+  "page": 80,
+  "layer": "DAT_NO_Nhaonongthon",
+  "label": "Nhà ở nông thôn",
+  "aci": 57,
+  "colors": [
+   "#95954a"
+  ],
+  "paths": 15,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_CTHTXH_Vanhoa_243.svg",
+  "muc": 5,
+  "page": 80,
+  "layer": "DAT_CTHTXH_Vanhoa",
+  "label": "Văn hóa",
+  "aci": 243,
+  "colors": [
+   "#dd6e8a"
+  ],
+  "paths": 3,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_CTHTXH_Yte_220.svg",
+  "muc": 5,
+  "page": 80,
+  "layer": "DAT_CTHTXH_Yte",
+  "label": "Y tế",
+  "aci": 220,
+  "colors": [
+   "#ff00bf"
+  ],
+  "paths": 1,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_CTHTXH_TruongTHPT_24.svg",
+  "muc": 5,
+  "page": 80,
+  "layer": "DAT_CTHTXH_TruongTHPT",
+  "label": "Trường THPT",
+  "aci": 24,
+  "colors": [
+   "#b82e00"
+  ],
+  "paths": 51,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M5_DAT_CTHTXH_Truonghoc_15.svg",
+  "muc": 5,
+  "page": 80,
+  "layer": "DAT_CTHTXH_Truonghoc",
+  "label": "Trường THCS, tiểu học, mầm non",
+  "aci": 15,
+  "colors": [
+   "#b85c5c"
+  ],
+  "paths": 57,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_CTHTXH_Theducthethao_94.svg",
+  "muc": 5,
+  "page": 81,
+  "layer": "DAT_CTHTXH_Theducthethao",
+  "label": "Thể dục thể thao",
+  "aci": 94,
+  "colors": [
+   "#00b800"
+  ],
+  "paths": 11,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 26.0
+ },
+ {
+  "file": "M5_DAT_CTHTXH_CayxanhCC_72.svg",
+  "muc": 5,
+  "page": 81,
+  "layer": "DAT_CTHTXH_CayxanhCC",
+  "label": "Cây xanh sử dụng công cộng",
+  "aci": 72,
+  "colors": [
+   "#6edd00"
+  ],
+  "paths": 137,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_CTHTXD_ThuongmaiDV_12.svg",
+  "muc": 5,
+  "page": 81,
+  "layer": "DAT_CTHTXD_ThuongmaiDV",
+  "label": "Thương mại, dịch vụ",
+  "aci": 12,
+  "colors": [
+   "#dd0000"
+  ],
+  "paths": 25,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_CTSX_Congnghiep_192.svg",
+  "muc": 5,
+  "page": 81,
+  "layer": "DAT_CTSX_Congnghiep",
+  "label": "Sản xuất công nghiệp, kho tàng",
+  "aci": 192,
+  "colors": [
+   "#6e00dd"
+  ],
+  "paths": 23,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_CT_Daotaonghiencuu_144.svg",
+  "muc": 5,
+  "page": 81,
+  "layer": "DAT_CT_Daotaonghiencuu",
+  "label": "Đào tạo, nghiên cứu",
+  "aci": 144,
+  "colors": [
+   "#008ab8"
+  ],
+  "paths": 57,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 26.0
+ },
+ {
+  "file": "M5_DAT_CT_Coquan_34.svg",
+  "muc": 5,
+  "page": 81,
+  "layer": "DAT_CT_Coquan",
+  "label": "Cơ quan, trụ sở",
+  "aci": 34,
+  "colors": [
+   "#b85c00"
+  ],
+  "paths": 18,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_CT_Dichvu_12.svg",
+  "muc": 5,
+  "page": 81,
+  "layer": "DAT_CT_Dichvu",
+  "label": "Dịch vụ",
+  "aci": 12,
+  "colors": [
+   "#dd0000"
+  ],
+  "paths": 21,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_CT_Dulich_210.svg",
+  "muc": 5,
+  "page": 81,
+  "layer": "DAT_CT_Dulich",
+  "label": "Dịch vụ du lịch",
+  "aci": 210,
+  "colors": [
+   "#ff00ff"
+  ],
+  "paths": 99,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_CT_Ditichtongiao_16.svg",
+  "muc": 5,
+  "page": 81,
+  "layer": "DAT_CT_Ditichtongiao",
+  "label": "Di tích, tôn giáo",
+  "aci": 16,
+  "colors": [
+   "#950000"
+  ],
+  "paths": 88,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_CT_Cayxanhhanche_94.svg",
+  "muc": 5,
+  "page": 81,
+  "layer": "DAT_CT_Cayxanhhanche",
+  "label": "Cây xanh sử dụng hạn chế",
+  "aci": 94,
+  "colors": [
+   "#00b800"
+  ],
+  "paths": 19,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_CT_Cayxanhchuyendung_126.svg",
+  "muc": 5,
+  "page": 81,
+  "layer": "DAT_CT_Cayxanhchuyendung",
+  "label": "Cây xanh chuyên dụng",
+  "aci": 126,
+  "colors": [
+   "#009570"
+  ],
+  "paths": 2,
+  "frameRemoved": true,
+  "width": 56.5,
+  "height": 26.3
+ },
+ {
+  "file": "M5_DAT_CTHTKT_DuongGT_251.svg",
+  "muc": 5,
+  "page": 82,
+  "layer": "DAT_CTHTKT_DuongGT",
+  "label": "Đường giao thông",
+  "aci": 251,
+  "colors": [
+   "#767676"
+  ],
+  "paths": 35,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 26.0
+ },
+ {
+  "file": "M5_DAT_CTHTKT_Baidoxe_252.svg",
+  "muc": 5,
+  "page": 82,
+  "layer": "DAT_CTHTKT_Baidoxe",
+  "label": "Bãi đỗ xe",
+  "aci": 252,
+  "colors": [
+   "#989898"
+  ],
+  "paths": 19,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 26.0
+ },
+ {
+  "file": "M5_DAT_CTHTKT_Nghiatrang_251.svg",
+  "muc": 5,
+  "page": 82,
+  "layer": "DAT_CTHTKT_Nghiatrang",
+  "label": "Nghĩa trang",
+  "aci": 251,
+  "colors": [
+   "#767676"
+  ],
+  "paths": 91,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 26.2
+ },
+ {
+  "file": "M5_DAT_CTHTKT_Hatangkhac_199.svg",
+  "muc": 5,
+  "page": 82,
+  "layer": "DAT_CTHTKT_Hatangkhac",
+  "label": "Hạ tầng kỹ thuật khác",
+  "aci": 199,
+  "colors": [
+   "#563972"
+  ],
+  "paths": 9,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_CT_Anninh_64.svg",
+  "muc": 5,
+  "page": 82,
+  "layer": "DAT_CT_Anninh",
+  "label": "An ninh",
+  "aci": 64,
+  "colors": [
+   "#8ab800"
+  ],
+  "paths": 55,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_CT_Quocphong_79.svg",
+  "muc": 5,
+  "page": 82,
+  "layer": "DAT_CT_Quocphong",
+  "label": "Quốc phòng",
+  "aci": 79,
+  "colors": [
+   "#567239"
+  ],
+  "paths": 58,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_NLK_Nongnghiep_3.svg",
+  "muc": 5,
+  "page": 82,
+  "layer": "DAT_NLK_Nongnghiep",
+  "label": "Sản xuất nông nghiệp",
+  "aci": 3,
+  "colors": [
+   "#00ff00"
+  ],
+  "paths": 75,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_NLK_Rungdacdung_148.svg",
+  "muc": 5,
+  "page": 82,
+  "layer": "DAT_NLK_Rungdacdung",
+  "label": "Rừng đặc dụng",
+  "aci": 148,
+  "colors": [
+   "#005672"
+  ],
+  "paths": 89,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_NLK_Rungphongho_129.svg",
+  "muc": 5,
+  "page": 82,
+  "layer": "DAT_NLK_Rungphongho",
+  "label": "Rừng phòng hộ",
+  "aci": 129,
+  "colors": [
+   "#397264"
+  ],
+  "paths": 102,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M5_DAT_NLK_Rungsanxuat_107.svg",
+  "muc": 5,
+  "page": 82,
+  "layer": "DAT_NLK_Rungsanxuat",
+  "label": "Rừng sản xuất",
+  "aci": 107,
+  "colors": [
+   "#4a955d"
+  ],
+  "paths": 30,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_NLK_Thuysan_150.svg",
+  "muc": 5,
+  "page": 83,
+  "layer": "DAT_NLK_Thuysan",
+  "label": "Nuôi trồng thủy sản",
+  "aci": 150,
+  "colors": [
+   "#007fff"
+  ],
+  "paths": 96,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 26.0
+ },
+ {
+  "file": "M5_DAT_NLK_Chuasudung_9.svg",
+  "muc": 5,
+  "page": 83,
+  "layer": "DAT_NLK_Chuasudung",
+  "label": "Chưa sử dụng",
+  "aci": 9,
+  "colors": [
+   "#dcdcdc"
+  ],
+  "paths": 103,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_NLK_Honuoc_154.svg",
+  "muc": 5,
+  "page": 83,
+  "layer": "DAT_NLK_Honuoc",
+  "label": "Hồ, ao, đầm",
+  "aci": 154,
+  "colors": [
+   "#005cb8"
+  ],
+  "paths": 25,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_NLK_Songsuoi_152.svg",
+  "muc": 5,
+  "page": 83,
+  "layer": "DAT_NLK_Songsuoi",
+  "label": "Sông, suối, kênh, rạch",
+  "aci": 152,
+  "colors": [
+   "#006edd"
+  ],
+  "paths": 5,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M5_DAT_NLK_Matnuocbien_152.svg",
+  "muc": 5,
+  "page": 83,
+  "layer": "DAT_NLK_Matnuocbien",
+  "label": "Mặt nước ven biển",
+  "aci": 152,
+  "colors": [
+   "#006edd"
+  ],
+  "paths": 34,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M6_DAT_KXD_Dancudothi_30.svg",
+  "muc": 6,
+  "page": 86,
+  "layer": "DAT_KXD_Dancudothi",
+  "label": "CÁC CHỨC NĂNG",
+  "aci": 30,
+  "colors": [
+   "#ff7f00"
+  ],
+  "paths": 27,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M6_DAT_KXD_Dancunongthon_57.svg",
+  "muc": 6,
+  "page": 86,
+  "layer": "DAT_KXD_Dancunongthon",
+  "label": "Phát triển dân cư nông thôn",
+  "aci": 57,
+  "colors": [
+   "#95954a"
+  ],
+  "paths": 19,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 26.0
+ },
+ {
+  "file": "M6_DAT_KXD_Honhop_22.svg",
+  "muc": 6,
+  "page": 86,
+  "layer": "DAT_KXD_Honhop",
+  "label": "Hỗn hợp",
+  "aci": 22,
+  "colors": [
+   "#dd3700"
+  ],
+  "paths": 69,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 26.0
+ },
+ {
+  "file": "M6_DAT_KXD_Dichvucongcong_1.svg",
+  "muc": 6,
+  "page": 86,
+  "layer": "DAT_KXD_Dichvucongcong",
+  "label": "Dịch vụ - công cộng",
+  "aci": 1,
+  "colors": [
+   "#ff0000"
+  ],
+  "paths": 23,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 26.0
+ },
+ {
+  "file": "M6_DAT_KXD_CayxanhCC_72.svg",
+  "muc": 6,
+  "page": 86,
+  "layer": "DAT_KXD_CayxanhCC",
+  "label": "Cây xanh sử dụng công cộng",
+  "aci": 72,
+  "colors": [
+   "#6edd00"
+  ],
+  "paths": 137,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M6_DAT_KXD_CayxanhSDHC_94.svg",
+  "muc": 6,
+  "page": 86,
+  "layer": "DAT_KXD_CayxanhSDHC",
+  "label": "Cây xanh sử dụng hạn chế",
+  "aci": 94,
+  "colors": [
+   "#00b800"
+  ],
+  "paths": 19,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M6_DAT_KXD_CayxanhCD_126.svg",
+  "muc": 6,
+  "page": 86,
+  "layer": "DAT_KXD_CayxanhCD",
+  "label": "Cây xanh chuyên dụng",
+  "aci": 126,
+  "colors": [
+   "#009570"
+  ],
+  "paths": 83,
+  "frameRemoved": true,
+  "width": 56.5,
+  "height": 26.2
+ },
+ {
+  "file": "M6_DAT_KXD_Congnghiep_192.svg",
+  "muc": 6,
+  "page": 86,
+  "layer": "DAT_KXD_Congnghiep",
+  "label": "Sản xuất công nghiệp, kho tàng",
+  "aci": 192,
+  "colors": [
+   "#6e00dd"
+  ],
+  "paths": 23,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M6_DAT_KXD_Daotao_144.svg",
+  "muc": 6,
+  "page": 86,
+  "layer": "DAT_KXD_Daotao",
+  "label": "Đào tạo, nghiên cứu",
+  "aci": 144,
+  "colors": [
+   "#008ab8"
+  ],
+  "paths": 57,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 26.0
+ },
+ {
+  "file": "M6_DAT_KXD_Coquantruso_34.svg",
+  "muc": 6,
+  "page": 87,
+  "layer": "DAT_KXD_Coquantruso",
+  "label": "Cơ quan, trụ sở",
+  "aci": 34,
+  "colors": [
+   "#b85c00"
+  ],
+  "paths": 19,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 25.9
+ },
+ {
+  "file": "M6_DAT_KXD_Yte_220.svg",
+  "muc": 6,
+  "page": 87,
+  "layer": "DAT_KXD_Yte",
+  "label": "Y tế",
+  "aci": 220,
+  "colors": [
+   "#ff00bf"
+  ],
+  "paths": 1,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M6_DAT_KXD_Vanhoathethao_94.svg",
+  "muc": 6,
+  "page": 87,
+  "layer": "DAT_KXD_Vanhoathethao",
+  "label": "Văn hóa, thể dục thể thao",
+  "aci": 94,
+  "colors": [
+   "#00b800"
+  ],
+  "paths": 11,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M6_DAT_KXD_Dulich_210.svg",
+  "muc": 6,
+  "page": 87,
+  "layer": "DAT_KXD_Dulich",
+  "label": "Dịch vụ du lịch",
+  "aci": 210,
+  "colors": [
+   "#ff00ff"
+  ],
+  "paths": 99,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M6_DAT_KXD_Ditich_16.svg",
+  "muc": 6,
+  "page": 87,
+  "layer": "DAT_KXD_Ditich",
+  "label": "Di tích, tôn giáo",
+  "aci": 16,
+  "colors": [
+   "#950000"
+  ],
+  "paths": 88,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 26.0
+ },
+ {
+  "file": "M6_DAT_KXD_Anninh_64.svg",
+  "muc": 6,
+  "page": 87,
+  "layer": "DAT_KXD_Anninh",
+  "label": "An ninh",
+  "aci": 64,
+  "colors": [
+   "#8ab800"
+  ],
+  "paths": 55,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 26.0
+ },
+ {
+  "file": "M6_DAT_KXD_Quocphong_79.svg",
+  "muc": 6,
+  "page": 87,
+  "layer": "DAT_KXD_Quocphong",
+  "label": "Quốc phòng",
+  "aci": 79,
+  "colors": [
+   "#567239"
+  ],
+  "paths": 58,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M6_DAT_KXD_Giaothong_8.svg",
+  "muc": 6,
+  "page": 87,
+  "layer": "DAT_KXD_Giaothong",
+  "label": "Giao thông",
+  "aci": 8,
+  "colors": [
+   "#808080"
+  ],
+  "paths": 34,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M6_DAT_KXD_HTKTkhac_195.svg",
+  "muc": 6,
+  "page": 87,
+  "layer": "DAT_KXD_HTKTkhac",
+  "label": "Hạ tầng kỹ thuật khác",
+  "aci": 195,
+  "colors": [
+   "#8a5cb8"
+  ],
+  "paths": 109,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M6_DAT_NNK_Nongnghiep_3.svg",
+  "muc": 6,
+  "page": 87,
+  "layer": "DAT_NNK_Nongnghiep",
+  "label": "Sản xuất nông nghiệp",
+  "aci": 3,
+  "colors": [
+   "#00ff00"
+  ],
+  "paths": 75,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 26.0
+ },
+ {
+  "file": "M6_DAT_NNK_Rungdacdung_148.svg",
+  "muc": 6,
+  "page": 88,
+  "layer": "DAT_NNK_Rungdacdung",
+  "label": "Rừng đặc dụng",
+  "aci": 148,
+  "colors": [
+   "#005672"
+  ],
+  "paths": 89,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M6_DAT_NNK_Rungphongho_129.svg",
+  "muc": 6,
+  "page": 88,
+  "layer": "DAT_NNK_Rungphongho",
+  "label": "Rừng phòng hộ",
+  "aci": 129,
+  "colors": [
+   "#397264"
+  ],
+  "paths": 102,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M6_DAT_NNK_Rungsanxuat_107.svg",
+  "muc": 6,
+  "page": 88,
+  "layer": "DAT_NNK_Rungsanxuat",
+  "label": "Rừng sản xuất",
+  "aci": 107,
+  "colors": [
+   "#4a955d"
+  ],
+  "paths": 30,
+  "frameRemoved": true,
+  "width": 56.0,
+  "height": 26.0
+ },
+ {
+  "file": "M6_DAT_NNK_Thuysan_150.svg",
+  "muc": 6,
+  "page": 88,
+  "layer": "DAT_NNK_Thuysan",
+  "label": "Nuôi trồng thủy sản",
+  "aci": 150,
+  "colors": [
+   "#007fff"
+  ],
+  "paths": 96,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M6_DAT_NNK_Chuasudung_9.svg",
+  "muc": 6,
+  "page": 88,
+  "layer": "DAT_NNK_Chuasudung",
+  "label": "Chưa sử dụng",
+  "aci": 9,
+  "colors": [
+   "#dcdcdc"
+  ],
+  "paths": 103,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M6_DAT_NNK_Honuoc_154.svg",
+  "muc": 6,
+  "page": 88,
+  "layer": "DAT_NNK_Honuoc",
+  "label": "Hồ, ao, đầm",
+  "aci": 154,
+  "colors": [
+   "#005cb8"
+  ],
+  "paths": 25,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M6_DAT_NNK_Songsuoi_152.svg",
+  "muc": 6,
+  "page": 88,
+  "layer": "DAT_NNK_Songsuoi",
+  "label": "Sông, suối, kênh, rạch",
+  "aci": 152,
+  "colors": [
+   "#006edd"
+  ],
+  "paths": 5,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M6_DAT_NNK_Matnuocbien_152.svg",
+  "muc": 6,
+  "page": 88,
+  "layer": "DAT_NNK_Matnuocbien",
+  "label": "Mặt nước ven biển",
+  "aci": 152,
+  "colors": [
+   "#006edd"
+  ],
+  "paths": 34,
+  "frameRemoved": true,
+  "width": 55.9,
+  "height": 25.9
+ },
+ {
+  "file": "M7_Dat_trong_lua_3.svg",
+  "muc": 7,
+  "page": 93,
+  "layer": null,
+  "label": "Đất trồng lúa",
+  "aci": 3,
+  "colors": [
+   "#00ff00"
+  ],
+  "paths": 36,
+  "frameRemoved": true,
+  "width": 70.0,
+  "height": 32.4
+ },
+ {
+  "file": "M7_Dat_trong_trot_khac_94.svg",
+  "muc": 7,
+  "page": 93,
+  "layer": null,
+  "label": "Đất trồng trọt khác",
+  "aci": 94,
+  "colors": [
+   "#00b800"
+  ],
+  "paths": 72,
+  "frameRemoved": true,
+  "width": 70.1,
+  "height": 32.4
+ },
+ {
+  "file": "M7_Dat_rung_san_xuat_107.svg",
+  "muc": 7,
+  "page": 93,
+  "layer": null,
+  "label": "Đất rừng sản xuất",
+  "aci": 107,
+  "colors": [
+   "#4a955d"
+  ],
+  "paths": 78,
+  "frameRemoved": true,
+  "width": 70.1,
+  "height": 32.5
+ },
+ {
+  "file": "M7_Dat_rung_phong_ho_129.svg",
+  "muc": 7,
+  "page": 93,
+  "layer": null,
+  "label": "Đất rừng phòng hộ",
+  "aci": 129,
+  "colors": [
+   "#397264"
+  ],
+  "paths": 63,
+  "frameRemoved": true,
+  "width": 70.0,
+  "height": 32.4
+ },
+ {
+  "file": "M7_Dat_rung_dac_dung_148.svg",
+  "muc": 7,
+  "page": 93,
+  "layer": null,
+  "label": "Đất rừng đặc dụng",
+  "aci": 148,
+  "colors": [
+   "#005672"
+  ],
+  "paths": 46,
+  "frameRemoved": true,
+  "width": 70.0,
+  "height": 32.4
+ },
+ {
+  "file": "M7_Dat_nuoi_trong_thuy_san_144.svg",
+  "muc": 7,
+  "page": 93,
+  "layer": null,
+  "label": "Đất nuôi trồng thủy sản",
+  "aci": 144,
+  "colors": [
+   "#008ab8"
+  ],
+  "paths": 89,
+  "frameRemoved": true,
+  "width": 70.0,
+  "height": 32.4
+ },
+ {
+  "file": "M7_Dat_lam_muoi_126.svg",
+  "muc": 7,
+  "page": 93,
+  "layer": null,
+  "label": "Đất làm muối",
+  "aci": 126,
+  "colors": [
+   "#009570"
+  ],
+  "paths": 83,
+  "frameRemoved": true,
+  "width": 70.0,
+  "height": 32.4
+ },
+ {
+  "file": "M7_Dat_nong_nghiep_khac_72.svg",
+  "muc": 7,
+  "page": 93,
+  "layer": null,
+  "label": "Đất nông nghiệp khác",
+  "aci": 72,
+  "colors": [
+   "#6edd00"
+  ],
+  "paths": 86,
+  "frameRemoved": true,
+  "width": 70.0,
+  "height": 32.5
+ },
+ {
+  "file": "M7_Dat_o_57.svg",
+  "muc": 7,
+  "page": 94,
+  "layer": null,
+  "label": "Đất ở",
+  "aci": 57,
+  "colors": [
+   "#95954a"
+  ],
+  "paths": 80,
+  "frameRemoved": true,
+  "width": 70.0,
+  "height": 32.4
+ },
+ {
+  "file": "M7_Dat_cong_cong_1.svg",
+  "muc": 7,
+  "page": 94,
+  "layer": null,
+  "label": "Đất công cộng",
+  "aci": 1,
+  "colors": [
+   "#ff0000"
+  ],
+  "paths": 71,
+  "frameRemoved": true,
+  "width": 70.0,
+  "height": 32.4
+ },
+ {
+  "file": "M7_Dat_cay_xanh_the_duc_the_thao_76.svg",
+  "muc": 7,
+  "page": 94,
+  "layer": null,
+  "label": "Đất cây xanh, thể dục thể thao",
+  "aci": 76,
+  "colors": [
+   "#4a9500"
+  ],
+  "paths": 166,
+  "frameRemoved": true,
+  "width": 70.0,
+  "height": 32.4
+ },
+ {
+  "file": "M7_Dat_ton_giao_danh_lam_di_tich_dinh_den_16.svg",
+  "muc": 7,
+  "page": 94,
+  "layer": null,
+  "label": "Đất tôn giáo, danh lam di tích, đình đền",
+  "aci": 16,
+  "colors": [
+   "#950000"
+  ],
+  "paths": 73,
+  "frameRemoved": true,
+  "width": 70.0,
+  "height": 32.4
+ },
+ {
+  "file": "M7_Dat_cong_nghiep_tieu_thu_cong_nghiep_va_lang_nghe_192.svg",
+  "muc": 7,
+  "page": 94,
+  "layer": null,
+  "label": "Đất công nghiệp, tiểu thủ công nghiệp và làng nghề",
+  "aci": 192,
+  "colors": [
+   "#6e00dd"
+  ],
+  "paths": 29,
+  "frameRemoved": true,
+  "width": 70.0,
+  "height": 32.4
+ },
+ {
+  "file": "M7_Dat_khoang_san_va_san_xuat_vat_lieu_xay_dung_177.svg",
+  "muc": 7,
+  "page": 94,
+  "layer": null,
+  "label": "Đất khoáng sản và sản xuất vật liệu xây dựng",
+  "aci": 177,
+  "colors": [
+   "#4a4a95"
+  ],
+  "paths": 29,
+  "frameRemoved": true,
+  "width": 70.0,
+  "height": 32.4
+ },
+ {
+  "file": "M7_Dat_xay_dung_cac_chuc_nang_khac_34.svg",
+  "muc": 7,
+  "page": 94,
+  "layer": null,
+  "label": "Đất xây dựng các chức năng khác",
+  "aci": 34,
+  "colors": [
+   "#b85c00"
+  ],
+  "paths": 13,
+  "frameRemoved": true,
+  "width": 70.0,
+  "height": 32.5
+ },
+ {
+  "file": "M7_Dat_xu_ly_chat_thai_ran_8.svg",
+  "muc": 7,
+  "page": 95,
+  "layer": null,
+  "label": "Đất xử lý chất thải rắn",
+  "aci": 8,
+  "colors": [
+   "#808080"
+  ],
+  "paths": 55,
+  "frameRemoved": true,
+  "width": 70.0,
+  "height": 32.4
+ },
+ {
+  "file": "M7_Dat_nghia_trang_nghia_dia_251.svg",
+  "muc": 7,
+  "page": 95,
+  "layer": null,
+  "label": "Đất nghĩa trang, nghĩa địa",
+  "aci": 251,
+  "colors": [
+   "#767676"
+  ],
+  "paths": 85,
+  "frameRemoved": true,
+  "width": 70.0,
+  "height": 32.4
+ },
+ {
+  "file": "M7_Dat_ha_tang_ky_thuat_khac_195.svg",
+  "muc": 7,
+  "page": 95,
+  "layer": null,
+  "label": "Đất hạ tầng kỹ thuật khác",
+  "aci": 195,
+  "colors": [
+   "#8a5cb8"
+  ],
+  "paths": 70,
+  "frameRemoved": true,
+  "width": 70.0,
+  "height": 32.4
+ },
+ {
+  "file": "M7_Dat_ha_tang_phuc_vu_san_xuat_203.svg",
+  "muc": 7,
+  "page": 95,
+  "layer": null,
+  "label": "Đất hạ tầng phục vụ sản xuất",
+  "aci": 203,
+  "colors": [
+   "#c16edd"
+  ],
+  "paths": 2,
+  "frameRemoved": true,
+  "width": 70.0,
+  "height": 32.4
+ },
+ {
+  "file": "M7_Dat_quoc_phong_an_ninh_69.svg",
+  "muc": 7,
+  "page": 95,
+  "layer": null,
+  "label": "Đất quốc phòng, an ninh",
+  "aci": 69,
+  "colors": [
+   "#647239"
+  ],
+  "paths": 109,
+  "frameRemoved": true,
+  "width": 72.8,
+  "height": 35.2
+ },
+ {
+  "file": "M7_Dat_song_ngoi_kenh_rach_mat_nuoc_chuyen_dung_152.svg",
+  "muc": 7,
+  "page": 95,
+  "layer": null,
+  "label": "Đất sông ngòi, kênh rạch, mặt nước chuyên dùng",
+  "aci": 152,
+  "colors": [
+   "#006edd"
+  ],
+  "paths": 90,
+  "frameRemoved": true,
+  "width": 70.0,
+  "height": 32.4
+ },
+ {
+  "file": "M7_Dat_chua_su_dung_73.svg",
+  "muc": 7,
+  "page": 95,
+  "layer": null,
+  "label": "Đất chưa sử dụng",
+  "aci": 73,
+  "colors": [
+   "#a5dd6e"
+  ],
+  "paths": 83,
+  "frameRemoved": true,
+  "width": 70.0,
+  "height": 32.4
+ }
+]

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="77.76" height="77.76" viewBox="0 0 19.44 19.44">
+<title>Điểm tập trung CTR — Quy hoạch dài hạn</title>
+<path d="M19.44 9.72L17.28 9.72L19.2 7.56L19.44 9.72" fill="#000000" fill-rule="evenodd"/>
+<path d="M17.28 9.72L19.2 7.56L17.04 8.04L17.28 9.72" fill="#000000" fill-rule="evenodd"/>
+<path d="M19.2 7.56L17.04 8.04L18.48 5.52L19.2 7.56" fill="#000000" fill-rule="evenodd"/>
+<path d="M17.04 8.04L18.48 5.52L16.56 6.48L17.04 8.04" fill="#000000" fill-rule="evenodd"/>
+<path d="M18.48 5.52L16.56 6.48L17.28 3.6L18.48 5.52" fill="#000000" fill-rule="evenodd"/>
+<path d="M16.56 6.48L17.28 3.6L15.6 5.04L16.56 6.48" fill="#000000" fill-rule="evenodd"/>
+<path d="M17.28 3.6L15.6 5.04L15.84 2.16L17.28 3.6" fill="#000000" fill-rule="evenodd"/>
+<path d="M15.6 5.04L15.84 2.16L14.52 3.84L15.6 5.04" fill="#000000" fill-rule="evenodd"/>
+<path d="M15.84 17.16L14.52 15.6L17.28 15.72L15.84 17.16" fill="#000000" fill-rule="evenodd"/>
+<path d="M14.52 15.6L17.28 15.72L15.6 14.4L14.52 15.6" fill="#000000" fill-rule="evenodd"/>
+<path d="M17.28 15.72L15.6 14.4L18.48 13.92L17.28 15.72" fill="#000000" fill-rule="evenodd"/>
+<path d="M15.6 14.4L18.48 13.92L16.56 12.96L15.6 14.4" fill="#000000" fill-rule="evenodd"/>
+<path d="M18.48 13.92L16.56 12.96L19.2 11.88L18.48 13.92" fill="#000000" fill-rule="evenodd"/>
+<path d="M16.56 12.96L19.2 11.88L17.04 11.4L16.56 12.96" fill="#000000" fill-rule="evenodd"/>
+<path d="M19.2 11.88L17.04 11.4L19.44 9.72L19.2 11.88" fill="#000000" fill-rule="evenodd"/>
+<path d="M17.04 11.4L19.44 9.72L17.28 9.72L17.04 11.4" fill="#000000" fill-rule="evenodd"/>
+<path d="M9.72 0L9.72 2.16" fill="none" stroke="#000000" stroke-width="0.38" stroke-linecap="round"/>
+<path d="M3.48 2.28L4.92 3.84L2.04 3.6L3.48 2.28" fill="#000000" fill-rule="evenodd"/>
+<path d="M4.92 3.84L2.04 3.6L3.72 5.04L4.92 3.84" fill="#000000" fill-rule="evenodd"/>
+<path d="M2.04 3.6L3.72 5.04L0.96 5.52L2.04 3.6" fill="#000000" fill-rule="evenodd"/>
+<path d="M3.72 5.04L0.96 5.52L2.88 6.48L3.72 5.04" fill="#000000" fill-rule="evenodd"/>
+<path d="M0.96 5.52L2.88 6.48L0.24 7.56L0.96 5.52" fill="#000000" fill-rule="evenodd"/>
+<path d="M2.88 6.48L0.24 7.56L2.28 8.04L2.88 6.48" fill="#000000" fill-rule="evenodd"/>
+<path d="M0.24 7.56L2.28 8.04L0 9.72L0.24 7.56" fill="#000000" fill-rule="evenodd"/>
+<path d="M2.28 8.04L0 9.72L2.16 9.72L2.28 8.04" fill="#000000" fill-rule="evenodd"/>
+<path d="M0 9.72L2.16 9.72L0.24 11.88L0 9.72" fill="#000000" fill-rule="evenodd"/>
+<path d="M2.16 9.72L0.24 11.88L2.28 11.4L2.16 9.72" fill="#000000" fill-rule="evenodd"/>
+<path d="M0.24 11.88L2.28 11.4L0.96 13.92L0.24 11.88" fill="#000000" fill-rule="evenodd"/>
+<path d="M2.28 11.4L0.96 13.92L2.88 12.96L2.28 11.4" fill="#000000" fill-rule="evenodd"/>
+<path d="M0.96 13.92L2.88 12.96L2.04 15.72L0.96 13.92" fill="#000000" fill-rule="evenodd"/>
+<path d="M2.88 12.96L2.04 15.72L3.72 14.4L2.88 12.96" fill="#000000" fill-rule="evenodd"/>
+<path d="M2.04 15.72L3.72 14.4L3.6 17.28L2.04 15.72" fill="#000000" fill-rule="evenodd"/>
+<path d="M3.72 14.4L3.6 17.28L4.92 15.6L3.72 14.4" fill="#000000" fill-rule="evenodd"/>
+<path d="M9.72 19.44L9.72 17.28" fill="none" stroke="#000000" stroke-width="0.38" stroke-linecap="round"/>
+<text x="6.37" y="12.64" font-family="Arial, Helvetica, sans-serif" font-size="8.4" fill="#000000">R</text>
+</svg>

@@ -65,3 +65,7 @@ next-env.d.ts
 /templete/
 /shapefile/
 /public/sqljs/
+
+# SVG symbols of Phụ lục I: copied to public/tt16-svg/ by scripts/copy-wasm.mjs; the HTML previews are not shipped
+/public/tt16-svg/
+/tt16-*-svg/index.html

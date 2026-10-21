@@ -9,6 +9,7 @@ import { foldVietnamese } from '@/lib/geo/provinces';
 import { TT16_DATABASES } from '@/lib/gdb/tt16';
 import type { ClassData, CategoryStyle } from './features';
 import { pascalName } from '@/lib/gdb/normalize';
+import { hatchSvgFor, pointSvgFor, ptToMm, svgToBase64, type PointSvg, type SvgLibrary } from './qgisSvg';
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 
@@ -86,8 +87,35 @@ function lineLayer(color: string, width: number, style = 'solid') {
   });
 }
 
-function symbolFor(geom: 'A' | 'L' | 'P', s: Pick<CategoryStyle, 'color' | 'hatch'>, name: string, cls: string): string {
+/** An SVG marker of Phụ lục I, embedded in the project (base64), 3–7 mm at its natural size. */
+function svgMarkerLayer(svg: string, pt: PointSvg) {
+  return layerXml('SvgMarker', {
+    name: svgToBase64(svg),
+    color: '0,0,0,255',
+    outline_color: '35,35,35,255',
+    outline_width: '0',
+    outline_width_unit: 'MM',
+    size: String(Math.min(7, Math.max(3, ptToMm(Math.max(pt.width, pt.height))))),
+    size_unit: 'MM',
+    angle: '0',
+    scale_method: 'diameter',
+    offset: '0,0',
+    offset_unit: 'MM',
+    horizontal_anchor_point: '1',
+    vertical_anchor_point: '1',
+  });
+}
+
+/** What a class may take from the SVG library: its database picks the stage of the point symbols. */
+interface SvgCtx {
+  db: string;
+  lib?: SvgLibrary;
+}
+
+function symbolFor(geom: 'A' | 'L' | 'P', s: Pick<CategoryStyle, 'color' | 'hatch' | 'phanLoai' | 'symbol'>, name: string, cls: string, ctx: SvgCtx): string {
   const color = visible(s.color);
+  const lib = ctx.lib;
+  const svgText = (dir: 'hatch' | 'point', file: string | undefined) => (file ? lib?.files.get(`${dir}/${file}`) : undefined);
   if (cls === 'RanhGioiQuyHoach_A')
     return `${symbolOpen('fill', name)}${layerXml('SimpleLine', {
       line_color: '255,0,0,255',
@@ -104,6 +132,11 @@ function symbolFor(geom: 'A' | 'L' | 'P', s: Pick<CategoryStyle, 'color' | 'hatc
       draw_inside_polygon: '0',
     })}</symbol>`;
   if (geom === 'L') return `${symbolOpen('line', name)}${lineLayer(color, 0.4)}</symbol>`;
+  if (geom === 'P') {
+    const pt = lib ? pointSvgFor(s.phanLoai, 'P', ctx.db, lib.index) : null;
+    const text = svgText('point', pt?.file);
+    if (pt && text) return `${symbolOpen('marker', name)}${svgMarkerLayer(text, pt)}</symbol>`;
+  }
   if (geom === 'P')
     return `${symbolOpen('marker', name)}${layerXml('SimpleMarker', {
       name: 'circle',
@@ -122,8 +155,11 @@ function symbolFor(geom: 'A' | 'L' | 'P', s: Pick<CategoryStyle, 'color' | 'hatc
       horizontal_anchor_point: '1',
       joinstyle: 'bevel',
     })}</symbol>`;
+  const hs = lib ? hatchSvgFor(s, lib.index) : null;
+  const hatchText = svgText('hatch', hs?.file);
   const fill = layerXml('SimpleFill', {
-    color: rgba(color, s.hatch ? 90 : 170),
+    // An SVG hatch of Phụ lục I has a transparent background (only its strokes are coloured).
+    color: rgba(color, hatchText ? 0 : s.hatch ? 90 : 170),
     style: 'solid',
     outline_color: rgba(color),
     outline_style: 'solid',
@@ -134,7 +170,23 @@ function symbolFor(geom: 'A' | 'L' | 'P', s: Pick<CategoryStyle, 'color' | 'hatc
     offset: '0,0',
     offset_unit: 'MM',
   });
-  const pattern = s.hatch
+  const pattern = hs && hatchText
+    ? layerXml(
+        'SVGFill',
+        {
+          angle: '0',
+          svgFile: svgToBase64(hatchText),
+          patternWidth: String(ptToMm(hs.width)),
+          patternWidth_unit: 'MM',
+          patternWidth_map_unit_scale: '3x:0,0,0,0,0,0',
+          svgFillColor: '0,0,0,255',
+          svgOutlineColor: '35,35,35,255',
+          svgOutlineWidth: '0.2',
+          svgOutlineWidth_unit: 'MM',
+        },
+        `${symbolOpen('line', `@${name}@1`)}${lineLayer(color, 0, 'no')}</symbol>`,
+      )
+    : s.hatch
     ? layerXml(
         'LinePatternFill',
         {
@@ -152,19 +204,27 @@ function symbolFor(geom: 'A' | 'L' | 'P', s: Pick<CategoryStyle, 'color' | 'hatc
         `${symbolOpen('line', `@${name}@1`)}${lineLayer(color, 0.2)}</symbol>`,
       )
     : '';
-  return `${symbolOpen('fill', name)}${fill}${pattern}</symbol>`;
+  // Function symbols of Mục 2–7 ("Chợ", "Trường tiểu học"…) at the centre of the parcels of that category.
+  const pt = lib ? pointSvgFor(s.phanLoai, 'A', ctx.db, lib.index) : null;
+  const ptText = svgText('point', pt?.file);
+  const centre =
+    pt && ptText
+      ? layerXml('CentroidFill', { point_on_surface: '1', clip_on_current_part_only: '0', clip_points: '0' }, `${symbolOpen('marker', `@${name}@2`)}${svgMarkerLayer(ptText, pt)}</symbol>`)
+      : '';
+  return `${symbolOpen('fill', name)}${fill}${pattern}${centre}</symbol>`;
 }
 
-function renderer(c: ClassData): string {
+function renderer(c: ClassData, lib?: SvgLibrary): string {
+  const ctx: SvgCtx = { db: c.db, lib };
   const named = c.styles.filter((s) => s.phanLoai);
   if (named.length < 2 || c.cls === 'RanhGioiQuyHoach_A') {
-    const s = c.styles.slice().sort((a, b) => b.count - a.count)[0] ?? { color: '#888888', hatch: null };
-    return `<renderer-v2 type="singleSymbol" symbollevels="0" enableorderby="0" forceraster="0" referencescale="-1"><symbols>${symbolFor(c.geom, s, '0', c.cls)}</symbols><rotation/><sizescale/></renderer-v2>`;
+    const s = c.styles.slice().sort((a, b) => b.count - a.count)[0] ?? { color: '#888888', hatch: null, phanLoai: null };
+    return `<renderer-v2 type="singleSymbol" symbollevels="0" enableorderby="0" forceraster="0" referencescale="-1"><symbols>${symbolFor(c.geom, s, '0', c.cls, ctx)}</symbols><rotation/><sizescale/></renderer-v2>`;
   }
   const cats = c.styles
     .map((s, i) => `<category value="${esc(s.phanLoai ?? '')}" symbol="${i}" label="${esc(s.phanLoai ?? '(chưa phân loại)')}" render="true" type="string" uuid="{cat-${i}}"/>`)
     .join('');
-  const syms = c.styles.map((s, i) => symbolFor(c.geom, s, String(i), c.cls)).join('');
+  const syms = c.styles.map((s, i) => symbolFor(c.geom, s, String(i), c.cls, ctx)).join('');
   return `<renderer-v2 type="categorizedSymbol" attr="phanLoai" symbollevels="0" enableorderby="0" forceraster="0" referencescale="-1"><categories>${cats}</categories><symbols>${syms}</symbols><rotation/><sizescale/></renderer-v2>`;
 }
 
@@ -193,6 +253,8 @@ export interface QgisProjectInput {
   zone: 3 | 6;
   /** [xmin, ymin, xmax, ymax] in VN-2000 metres. */
   extent: [number, number, number, number];
+  /** SVG symbols of Phụ lục I to embed (qgisSvg.ts): hatches of the land-use classes, points of the infrastructure classes. */
+  svg?: SvgLibrary;
 }
 
 /**
@@ -264,7 +326,7 @@ export function buildQgs(p: QgisProjectInput): string {
         `<layername>${esc(name)}</layername><srs>${srs}</srs><resourceMetadata><identifier></identifier><parentidentifier></parentidentifier><language></language><type>dataset</type><title>${esc(name)}</title><abstract></abstract><links/><fees></fees><encoding></encoding><crs>${srs}</crs><extent/></resourceMetadata>` +
         `<provider encoding="UTF-8">ogr</provider><vectorjoins/><layerDependencies/><dataDependencies/><expressionfields/>` +
         `<map-layer-style-manager current="default"><map-layer-style name="default"/></map-layer-style-manager><auxiliaryLayer/><metadataUrls/><flags><Identifiable>1</Identifiable><Removable>1</Removable><Searchable>1</Searchable><Private>0</Private></flags>` +
-        `${renderer(c)}${lbl}<blendMode>0</blendMode><featureBlendMode>0</featureBlendMode><layerOpacity>1</layerOpacity>` +
+        `${renderer(c, p.svg)}${lbl}<blendMode>0</blendMode><featureBlendMode>0</featureBlendMode><layerOpacity>1</layerOpacity>` +
         `<previewExpression>"tenDoiTuong"</previewExpression><mapTip enabled="1"></mapTip><layerGeometryType>${c.geom === 'A' ? 2 : c.geom === 'L' ? 1 : 0}</layerGeometryType>` +
         `</maplayer>`
       );

@@ -1,0 +1,1841 @@
+[
+ {
+  "file": "M8_t97_Ben_xe_khach_bus_lien_vung_quoc_te_ht.svg",
+  "muc": 8,
+  "page": 97,
+  "label": "Bến xe khách, bus liên vùng, quốc tế",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000"
+  ],
+  "width": 34.0,
+  "height": 34.1
+ },
+ {
+  "file": "M8_t97_Ben_xe_khach_bus_lien_vung_quoc_te_dd.svg",
+  "muc": 8,
+  "page": 97,
+  "label": "Bến xe khách, bus liên vùng, quốc tế",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#000000"
+  ],
+  "width": 36.5,
+  "height": 36.5
+ },
+ {
+  "file": "M8_t97_Ben_xe_khach_bus_lien_vung_quoc_te_dh.svg",
+  "muc": 8,
+  "page": 97,
+  "label": "Bến xe khách, bus liên vùng, quốc tế",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#000000"
+  ],
+  "width": 36.5,
+  "height": 36.5
+ },
+ {
+  "file": "M8_t97_Ben_xe_tai_ht.svg",
+  "muc": 8,
+  "page": 97,
+  "label": "Bến xe tải",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000"
+  ],
+  "width": 34.0,
+  "height": 34.0
+ },
+ {
+  "file": "M8_t97_Ben_xe_tai_dd.svg",
+  "muc": 8,
+  "page": 97,
+  "label": "Bến xe tải",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#000000"
+  ],
+  "width": 36.5,
+  "height": 36.5
+ },
+ {
+  "file": "M8_t97_Ben_xe_tai_dh.svg",
+  "muc": 8,
+  "page": 97,
+  "label": "Bến xe tải",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#000000"
+  ],
+  "width": 36.5,
+  "height": 36.5
+ },
+ {
+  "file": "M8_t97_Bai_do_xe_ht.svg",
+  "muc": 8,
+  "page": 97,
+  "label": "Bãi đỗ xe",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000"
+  ],
+  "width": 34.0,
+  "height": 34.0
+ },
+ {
+  "file": "M8_t97_Bai_do_xe_dd.svg",
+  "muc": 8,
+  "page": 97,
+  "label": "Bãi đỗ xe",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#000000"
+  ],
+  "width": 36.5,
+  "height": 36.4
+ },
+ {
+  "file": "M8_t97_Bai_do_xe_dh.svg",
+  "muc": 8,
+  "page": 97,
+  "label": "Bãi đỗ xe",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#000000"
+  ],
+  "width": 36.5,
+  "height": 36.4
+ },
+ {
+  "file": "M8_t97_Tram_ban_xang_dau_ht.svg",
+  "muc": 8,
+  "page": 97,
+  "label": "Trạm bán xăng dầu",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000"
+  ],
+  "width": 34.0,
+  "height": 34.1
+ },
+ {
+  "file": "M8_t97_Tram_ban_xang_dau_dd.svg",
+  "muc": 8,
+  "page": 97,
+  "label": "Trạm bán xăng dầu",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#000000"
+  ],
+  "width": 36.5,
+  "height": 36.5
+ },
+ {
+  "file": "M8_t97_Tram_ban_xang_dau_dh.svg",
+  "muc": 8,
+  "page": 97,
+  "label": "Trạm bán xăng dầu",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#000000"
+  ],
+  "width": 36.5,
+  "height": 31.8
+ },
+ {
+  "file": "M8_t98_Tong_hop_ht.svg",
+  "muc": 8,
+  "page": 98,
+  "label": "Tổng hợp",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000",
+   "#0000ff"
+  ],
+  "width": 30.6,
+  "height": 30.6
+ },
+ {
+  "file": "M8_t98_Tong_hop_dd.svg",
+  "muc": 8,
+  "page": 98,
+  "label": "Tổng hợp",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#000000",
+   "#0000ff"
+  ],
+  "width": 32.2,
+  "height": 32.2
+ },
+ {
+  "file": "M8_t98_Tong_hop_dh.svg",
+  "muc": 8,
+  "page": 98,
+  "label": "Tổng hợp",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#000000",
+   "#0000ff"
+  ],
+  "width": 32.2,
+  "height": 32.2
+ },
+ {
+  "file": "M8_t98_Hanh_khach_ht.svg",
+  "muc": 8,
+  "page": 98,
+  "label": "Hành khách",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000",
+   "#0000ff"
+  ],
+  "width": 30.6,
+  "height": 30.6
+ },
+ {
+  "file": "M8_t98_Hanh_khach_dd.svg",
+  "muc": 8,
+  "page": 98,
+  "label": "Hành khách",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#000000",
+   "#0000ff"
+  ],
+  "width": 32.2,
+  "height": 32.2
+ },
+ {
+  "file": "M8_t98_Hanh_khach_dh.svg",
+  "muc": 8,
+  "page": 98,
+  "label": "Hành khách",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#000000",
+   "#0000ff"
+  ],
+  "width": 32.2,
+  "height": 32.2
+ },
+ {
+  "file": "M8_t98_Hang_hoa_ht.svg",
+  "muc": 8,
+  "page": 98,
+  "label": "Hàng hóa",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000",
+   "#0000ff"
+  ],
+  "width": 30.6,
+  "height": 30.6
+ },
+ {
+  "file": "M8_t98_Hang_hoa_dd.svg",
+  "muc": 8,
+  "page": 98,
+  "label": "Hàng hóa",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#000000",
+   "#0000ff"
+  ],
+  "width": 32.2,
+  "height": 37.4
+ },
+ {
+  "file": "M8_t98_Hang_hoa_dh.svg",
+  "muc": 8,
+  "page": 98,
+  "label": "Hàng hóa",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#000000",
+   "#0000ff"
+  ],
+  "width": 32.2,
+  "height": 37.4
+ },
+ {
+  "file": "M8_t98_Cang_can_ht.svg",
+  "muc": 8,
+  "page": 98,
+  "label": "Cảng cạn",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#0000ff"
+  ],
+  "width": 30.6,
+  "height": 30.5
+ },
+ {
+  "file": "M8_t98_Cang_can_dd.svg",
+  "muc": 8,
+  "page": 98,
+  "label": "Cảng cạn",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#0000ff"
+  ],
+  "width": 32.2,
+  "height": 32.2
+ },
+ {
+  "file": "M8_t98_Cang_can_dh.svg",
+  "muc": 8,
+  "page": 98,
+  "label": "Cảng cạn",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#0000ff"
+  ],
+  "width": 32.2,
+  "height": 32.2
+ },
+ {
+  "file": "M8_t98_Chuyen_dung_ht.svg",
+  "muc": 8,
+  "page": 98,
+  "label": "Chuyên dụng",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000",
+   "#0000ff"
+  ],
+  "width": 34.7,
+  "height": 30.1
+ },
+ {
+  "file": "M8_t98_Chuyen_dung_dd.svg",
+  "muc": 8,
+  "page": 98,
+  "label": "Chuyên dụng",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#000000",
+   "#0000ff"
+  ],
+  "width": 37.6,
+  "height": 32.5
+ },
+ {
+  "file": "M8_t98_Chuyen_dung_dh.svg",
+  "muc": 8,
+  "page": 98,
+  "label": "Chuyên dụng",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#000000",
+   "#0000ff"
+  ],
+  "width": 35.8,
+  "height": 31.0
+ },
+ {
+  "file": "M8_t98_Ben_pha_ht.svg",
+  "muc": 8,
+  "page": 98,
+  "label": "Bến phà",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#0000ff"
+  ],
+  "width": 30.7,
+  "height": 30.8
+ },
+ {
+  "file": "M8_t98_Ben_pha_dd.svg",
+  "muc": 8,
+  "page": 98,
+  "label": "Bến phà",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#0000ff"
+  ],
+  "width": 32.2,
+  "height": 32.2
+ },
+ {
+  "file": "M8_t98_Ben_pha_dh.svg",
+  "muc": 8,
+  "page": 98,
+  "label": "Bến phà",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#0000ff"
+  ],
+  "width": 32.2,
+  "height": 32.2
+ },
+ {
+  "file": "M8_t99_Cang_hang_khong_quoc_te_ht.svg",
+  "muc": 8,
+  "page": 99,
+  "label": "Cảng hàng không quốc tế:",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000"
+  ],
+  "width": 37.4,
+  "height": 37.4
+ },
+ {
+  "file": "M8_t99_Cang_hang_khong_quoc_te_dh.svg",
+  "muc": 8,
+  "page": 99,
+  "label": "Cảng hàng không quốc tế:",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#000000"
+  ],
+  "width": 38.8,
+  "height": 38.8
+ },
+ {
+  "file": "M8_t99_Cang_hang_khong_noi_dia_ht.svg",
+  "muc": 8,
+  "page": 99,
+  "label": "Cảng hàng không nội địa:",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000"
+  ],
+  "width": 32.0,
+  "height": 32.0
+ },
+ {
+  "file": "M8_t99_Cang_hang_khong_noi_dia_dh.svg",
+  "muc": 8,
+  "page": 99,
+  "label": "Cảng hàng không nội địa:",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#000000"
+  ],
+  "width": 33.4,
+  "height": 33.4
+ },
+ {
+  "file": "M8_t99_San_bay_ht.svg",
+  "muc": 8,
+  "page": 99,
+  "label": "Sân bay:",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000"
+  ],
+  "width": 32.0,
+  "height": 32.0
+ },
+ {
+  "file": "M8_t99_San_bay_dh.svg",
+  "muc": 8,
+  "page": 99,
+  "label": "Sân bay:",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#000000"
+  ],
+  "width": 33.4,
+  "height": 33.4
+ },
+ {
+  "file": "M8_t101_Tram_bom_tieu_ht.svg",
+  "muc": 8,
+  "page": 101,
+  "label": "Trạm bơm tiêu",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000"
+  ],
+  "width": 20.4,
+  "height": 20.4
+ },
+ {
+  "file": "M8_t101_Tram_bom_tieu_dd.svg",
+  "muc": 8,
+  "page": 101,
+  "label": "Trạm bơm tiêu",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#000000"
+  ],
+  "width": 20.4,
+  "height": 20.4
+ },
+ {
+  "file": "M8_t101_Tram_bom_tieu_dh.svg",
+  "muc": 8,
+  "page": 101,
+  "label": "Trạm bơm tiêu",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#000000"
+  ],
+  "width": 20.4,
+  "height": 20.4
+ },
+ {
+  "file": "M8_t101_Gieng_thu_ht.svg",
+  "muc": 8,
+  "page": 101,
+  "label": "Giếng thu",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000"
+  ],
+  "width": 19.6,
+  "height": 10.2
+ },
+ {
+  "file": "M8_t101_Gieng_thu_dd.svg",
+  "muc": 8,
+  "page": 101,
+  "label": "Giếng thu",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#000000"
+  ],
+  "width": 19.6,
+  "height": 10.2
+ },
+ {
+  "file": "M8_t101_Gieng_thu_dh.svg",
+  "muc": 8,
+  "page": 101,
+  "label": "Giếng thu",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#000000"
+  ],
+  "width": 19.6,
+  "height": 10.2
+ },
+ {
+  "file": "M8_t101_S_Dao_H_Dao_TB_Dap_Dap_W_dat_dao_dap_dd.svg",
+  "muc": 8,
+  "page": 101,
+  "label": "S Đào H Đào TB Đắp Đắp W đất đào, đắp",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#000000"
+  ],
+  "width": 33.5,
+  "height": 33.5
+ },
+ {
+  "file": "M8_t102_Dat_xay_dung_thuan_loi_ht.svg",
+  "muc": 8,
+  "page": 102,
+  "label": "Đất xây dựng thuận lợi",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000"
+  ],
+  "width": 26.6,
+  "height": 26.6
+ },
+ {
+  "file": "M8_t102_Dat_XD_khong_thuan_loi_ht.svg",
+  "muc": 8,
+  "page": 102,
+  "label": "Đất XD không thuận lợi",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000"
+  ],
+  "width": 26.8,
+  "height": 26.8
+ },
+ {
+  "file": "M8_t102_Do_do_doc_ht.svg",
+  "muc": 8,
+  "page": 102,
+  "label": "Do độ dốc",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000"
+  ],
+  "width": 26.6,
+  "height": 26.6
+ },
+ {
+  "file": "M8_t102_Do_ngap_lut_ht.svg",
+  "muc": 8,
+  "page": 102,
+  "label": "Do ngập lụt",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000"
+  ],
+  "width": 26.6,
+  "height": 26.6
+ },
+ {
+  "file": "M8_t102_Do_lay_ht.svg",
+  "muc": 8,
+  "page": 102,
+  "label": "Do lầy",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000"
+  ],
+  "width": 26.8,
+  "height": 43.6
+ },
+ {
+  "file": "M8_t102_Dat_bi_o_nhiem_khi_doc_ht.svg",
+  "muc": 8,
+  "page": 102,
+  "label": "Đất bị ô nhiễm khí độc",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000"
+  ],
+  "width": 26.5,
+  "height": 26.4
+ },
+ {
+  "file": "M8_t103_Nha_may_thuy_dien_ht.svg",
+  "muc": 8,
+  "page": 103,
+  "label": "Nhà máy thủy điện",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#007fff"
+  ],
+  "width": 27.8,
+  "height": 27.8
+ },
+ {
+  "file": "M8_t103_Nha_may_thuy_dien_dd.svg",
+  "muc": 8,
+  "page": 103,
+  "label": "Nhà máy thủy điện",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#007fff"
+  ],
+  "width": 28.0,
+  "height": 27.8
+ },
+ {
+  "file": "M8_t103_Nha_may_thuy_dien_dh.svg",
+  "muc": 8,
+  "page": 103,
+  "label": "Nhà máy thủy điện",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#007fff"
+  ],
+  "width": 27.8,
+  "height": 27.8
+ },
+ {
+  "file": "M8_t104_Nha_may_phong_dien_ht.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Nhà máy phong điện",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 28.0,
+  "height": 28.0
+ },
+ {
+  "file": "M8_t104_Nha_may_phong_dien_dd.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Nhà máy phong điện",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 28.0,
+  "height": 28.0
+ },
+ {
+  "file": "M8_t104_Nha_may_phong_dien_dh.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Nhà máy phong điện",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 28.0,
+  "height": 28.0
+ },
+ {
+  "file": "M8_t104_Tram_500KV_ht.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Trạm 500KV",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 33.2,
+  "height": 33.2
+ },
+ {
+  "file": "M8_t104_Tram_500KV_dd.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Trạm 500KV",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 33.2,
+  "height": 33.2
+ },
+ {
+  "file": "M8_t104_Tram_500KV_dh.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Trạm 500KV",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 33.4,
+  "height": 33.2
+ },
+ {
+  "file": "M8_t104_Tram_220KV_ht.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Trạm 220KV",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 27.8,
+  "height": 27.8
+ },
+ {
+  "file": "M8_t104_Tram_220KV_dd.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Trạm 220KV",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 28.0,
+  "height": 27.8
+ },
+ {
+  "file": "M8_t104_Tram_220KV_dh.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Trạm 220KV",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 27.8,
+  "height": 27.8
+ },
+ {
+  "file": "M8_t104_Tram_110KV_ht.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Trạm 110KV",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 23.6,
+  "height": 23.6
+ },
+ {
+  "file": "M8_t104_Tram_110KV_dd.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Trạm 110KV",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 23.6,
+  "height": 23.5
+ },
+ {
+  "file": "M8_t104_Tram_110KV_dh.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Trạm 110KV",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 23.6,
+  "height": 23.6
+ },
+ {
+  "file": "M8_t104_Tram_trung_the_ht.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Trạm trung thế",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 23.5,
+  "height": 23.6
+ },
+ {
+  "file": "M8_t104_Tram_trung_the_dd.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Trạm trung thế",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 23.5,
+  "height": 23.5
+ },
+ {
+  "file": "M8_t104_Tram_trung_the_dh.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Trạm trung thế",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 23.6,
+  "height": 23.6
+ },
+ {
+  "file": "M8_t104_Tram_ha_the_ht.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Trạm hạ thế",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 37.7,
+  "height": 27.7
+ },
+ {
+  "file": "M8_t104_Tram_ha_the_dd.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Trạm hạ thế",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 37.7,
+  "height": 28.0
+ },
+ {
+  "file": "M8_t104_Tram_ha_the_dh.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Trạm hạ thế",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 37.7,
+  "height": 27.7
+ },
+ {
+  "file": "M8_t104_Tram_phat_Diezel_ht.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Trạm phát Diezel",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 26.0,
+  "height": 26.0
+ },
+ {
+  "file": "M8_t104_Tram_phat_Diezel_dd.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Trạm phát Diezel",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 27.1,
+  "height": 27.0
+ },
+ {
+  "file": "M8_t104_Tram_phat_Diezel_dh.svg",
+  "muc": 8,
+  "page": 104,
+  "label": "Trạm phát Diezel",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#ff0000"
+  ],
+  "width": 27.0,
+  "height": 27.0
+ },
+ {
+  "file": "M8_t105_Khu_vuc_bao_ve_nguon_nuoc_ht.svg",
+  "muc": 8,
+  "page": 105,
+  "label": "Khu vực bảo vệ nguồn nước",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000",
+   "#00bfff"
+  ],
+  "width": 45.6,
+  "height": 31.0
+ },
+ {
+  "file": "M8_t105_Nha_may_nuoc_ht.svg",
+  "muc": 8,
+  "page": 105,
+  "label": "Nhà máy nước",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#0000ff"
+  ],
+  "width": 30.1,
+  "height": 26.2
+ },
+ {
+  "file": "M8_t105_Nha_may_nuoc_dd.svg",
+  "muc": 8,
+  "page": 105,
+  "label": "Nhà máy nước",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#0000ff"
+  ],
+  "width": 30.1,
+  "height": 26.0
+ },
+ {
+  "file": "M8_t105_Nha_may_nuoc_dh.svg",
+  "muc": 8,
+  "page": 105,
+  "label": "Nhà máy nước",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#0000ff"
+  ],
+  "width": 30.1,
+  "height": 26.0
+ },
+ {
+  "file": "M8_t105_Tram_bom_cap_1_ht.svg",
+  "muc": 8,
+  "page": 105,
+  "label": "Trạm bơm cấp 1",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#0000ff"
+  ],
+  "width": 30.1,
+  "height": 26.2
+ },
+ {
+  "file": "M8_t105_Tram_bom_cap_1_dd.svg",
+  "muc": 8,
+  "page": 105,
+  "label": "Trạm bơm cấp 1",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#0000ff"
+  ],
+  "width": 30.1,
+  "height": 26.2
+ },
+ {
+  "file": "M8_t105_Tram_bom_cap_1_dh.svg",
+  "muc": 8,
+  "page": 105,
+  "label": "Trạm bơm cấp 1",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#0000ff"
+  ],
+  "width": 30.1,
+  "height": 26.2
+ },
+ {
+  "file": "M8_t105_Lo_khoan_tham_do_va_ht.svg",
+  "muc": 8,
+  "page": 105,
+  "label": "Lỗ khoan thăm dò và",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#00bfff"
+  ],
+  "width": 32.5,
+  "height": 14.3
+ },
+ {
+  "file": "M8_t105_Nguon_nuoc_khoang_ht.svg",
+  "muc": 8,
+  "page": 105,
+  "label": "Nguồn nước khoáng",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#00bfff"
+  ],
+  "width": 19.3,
+  "height": 19.3
+ },
+ {
+  "file": "M8_t105_Nuoc_ngam_lo_thien_ht.svg",
+  "muc": 8,
+  "page": 105,
+  "label": "Nước ngầm lộ thiên",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#00bfff"
+  ],
+  "width": 14.3,
+  "height": 26.3
+ },
+ {
+  "file": "M8_t105_Tram_bom_tang_ap_ht.svg",
+  "muc": 8,
+  "page": 105,
+  "label": "Trạm bơm tăng áp",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#0000ff"
+  ],
+  "width": 30.1,
+  "height": 26.0
+ },
+ {
+  "file": "M8_t105_Tram_bom_tang_ap_dd.svg",
+  "muc": 8,
+  "page": 105,
+  "label": "Trạm bơm tăng áp",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#0000ff"
+  ],
+  "width": 30.1,
+  "height": 26.0
+ },
+ {
+  "file": "M8_t105_Tram_bom_tang_ap_dh.svg",
+  "muc": 8,
+  "page": 105,
+  "label": "Trạm bơm tăng áp",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#0000ff"
+  ],
+  "width": 30.1,
+  "height": 26.2
+ },
+ {
+  "file": "M8_t105_Tram_bom_gieng_ht.svg",
+  "muc": 8,
+  "page": 105,
+  "label": "Trạm bơm giếng",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#0000ff"
+  ],
+  "width": 30.1,
+  "height": 44.5
+ },
+ {
+  "file": "M8_t105_Tram_khi_ht.svg",
+  "muc": 8,
+  "page": 105,
+  "label": "Trạm khí",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000",
+   "#b85c5c"
+  ],
+  "width": 24.2,
+  "height": 24.2
+ },
+ {
+  "file": "M8_t105_Tram_khi_dd.svg",
+  "muc": 8,
+  "page": 105,
+  "label": "Trạm khí",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#000000",
+   "#b85c5c"
+  ],
+  "width": 26.4,
+  "height": 26.4
+ },
+ {
+  "file": "M8_t105_Tram_khi_dh.svg",
+  "muc": 8,
+  "page": 105,
+  "label": "Trạm khí",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#000000",
+   "#b85c5c"
+  ],
+  "width": 26.4,
+  "height": 26.4
+ },
+ {
+  "file": "M8_t105_Tram_xang_dau_ht.svg",
+  "muc": 8,
+  "page": 105,
+  "label": "Trạm xăng dầu",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000",
+   "#b85c5c"
+  ],
+  "width": 27.5,
+  "height": 23.9
+ },
+ {
+  "file": "M8_t105_Tram_xang_dau_dd.svg",
+  "muc": 8,
+  "page": 105,
+  "label": "Trạm xăng dầu",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#000000",
+   "#b85c5c"
+  ],
+  "width": 31.2,
+  "height": 27.1
+ },
+ {
+  "file": "M8_t105_Tram_xang_dau_dh.svg",
+  "muc": 8,
+  "page": 105,
+  "label": "Trạm xăng dầu",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#000000",
+   "#b85c5c"
+  ],
+  "width": 28.9,
+  "height": 25.1
+ },
+ {
+  "file": "M8_t106_Noi_ht.svg",
+  "muc": 8,
+  "page": 106,
+  "label": "Nổi",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000",
+   "#b85c5c"
+  ],
+  "width": 22.6,
+  "height": 22.6
+ },
+ {
+  "file": "M8_t106_Noi_dd.svg",
+  "muc": 8,
+  "page": 106,
+  "label": "Nổi",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#000000",
+   "#b85c5c"
+  ],
+  "width": 26.0,
+  "height": 23.9
+ },
+ {
+  "file": "M8_t106_Chim_ht.svg",
+  "muc": 8,
+  "page": 106,
+  "label": "Chìm",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000",
+   "#b85c5c"
+  ],
+  "width": 22.6,
+  "height": 22.2
+ },
+ {
+  "file": "M8_t106_Chim_dd.svg",
+  "muc": 8,
+  "page": 106,
+  "label": "Chìm",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#000000",
+   "#b85c5c"
+  ],
+  "width": 26.0,
+  "height": 26.0
+ },
+ {
+  "file": "M8_t106_Gian_khoan_dau_khi_ht.svg",
+  "muc": 8,
+  "page": 106,
+  "label": "Giàn khoan dầu khí",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#7fffdf"
+  ],
+  "width": 34.2,
+  "height": 37.9
+ },
+ {
+  "file": "M8_t106_Gian_khoan_dau_khi_dd.svg",
+  "muc": 8,
+  "page": 106,
+  "label": "Giàn khoan dầu khí",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#7fffdf"
+  ],
+  "width": 34.2,
+  "height": 25.7
+ },
+ {
+  "file": "M8_t106_Tong_dai_buu_dien_ht.svg",
+  "muc": 8,
+  "page": 106,
+  "label": "Tổng đài bưu điện",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#00dda5"
+  ],
+  "width": 29.4,
+  "height": 29.4
+ },
+ {
+  "file": "M8_t106_Tong_dai_buu_dien_dd.svg",
+  "muc": 8,
+  "page": 106,
+  "label": "Tổng đài bưu điện",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#00dda5"
+  ],
+  "width": 29.5,
+  "height": 29.4
+ },
+ {
+  "file": "M8_t106_Tong_dai_buu_dien_dh.svg",
+  "muc": 8,
+  "page": 106,
+  "label": "Tổng đài bưu điện",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#00dda5"
+  ],
+  "width": 29.5,
+  "height": 29.4
+ },
+ {
+  "file": "M8_t106_Tram_ve_tinh_mat_dat_ht.svg",
+  "muc": 8,
+  "page": 106,
+  "label": "Trạm vệ tinh mặt đất",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#00dda5"
+  ],
+  "width": 22.1,
+  "height": 26.6
+ },
+ {
+  "file": "M8_t106_Tram_ve_tinh_mat_dat_dd.svg",
+  "muc": 8,
+  "page": 106,
+  "label": "Trạm vệ tinh mặt đất",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#00dda5"
+  ],
+  "width": 22.1,
+  "height": 26.6
+ },
+ {
+  "file": "M8_t106_Tram_ve_tinh_mat_dat_dh.svg",
+  "muc": 8,
+  "page": 106,
+  "label": "Trạm vệ tinh mặt đất",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#00dda5"
+  ],
+  "width": 22.1,
+  "height": 26.6
+ },
+ {
+  "file": "M8_t106_Cot_Anten_ht.svg",
+  "muc": 8,
+  "page": 106,
+  "label": "Cột Anten",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000",
+   "#00dda5"
+  ],
+  "width": 26.3,
+  "height": 32.5
+ },
+ {
+  "file": "M8_t106_Cot_Anten_dd.svg",
+  "muc": 8,
+  "page": 106,
+  "label": "Cột Anten",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#00dda5"
+  ],
+  "width": 26.3,
+  "height": 32.5
+ },
+ {
+  "file": "M8_t106_Cot_Anten_dh.svg",
+  "muc": 8,
+  "page": 106,
+  "label": "Cột Anten",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#00dda5"
+  ],
+  "width": 26.3,
+  "height": 32.5
+ },
+ {
+  "file": "M8_t106_Tram_dien_thoai_ht.svg",
+  "muc": 8,
+  "page": 106,
+  "label": "Trạm điện thoại",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#00dda5"
+  ],
+  "width": 22.6,
+  "height": 22.6
+ },
+ {
+  "file": "M8_t106_Tram_dien_thoai_dd.svg",
+  "muc": 8,
+  "page": 106,
+  "label": "Trạm điện thoại",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#00dda5"
+  ],
+  "width": 23.4,
+  "height": 23.4
+ },
+ {
+  "file": "M8_t106_Tram_dien_thoai_dh.svg",
+  "muc": 8,
+  "page": 106,
+  "label": "Trạm điện thoại",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#00dda5"
+  ],
+  "width": 23.4,
+  "height": 22.3
+ },
+ {
+  "file": "M8_t107_Diem_tap_trung_CTR_ht.svg",
+  "muc": 8,
+  "page": 107,
+  "label": "Điểm tập trung CTR",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000"
+  ],
+  "width": 17.9,
+  "height": 17.8
+ },
+ {
+  "file": "M8_t107_Diem_tap_trung_CTR_dh.svg",
+  "muc": 8,
+  "page": 107,
+  "label": "Điểm tập trung CTR",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#000000"
+  ],
+  "width": 19.4,
+  "height": 19.4
+ },
+ {
+  "file": "M8_t107_Khu_xu_ly_CTR_dd.svg",
+  "muc": 8,
+  "page": 107,
+  "label": "Khu xử lý CTR",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#000000"
+  ],
+  "width": 30.4,
+  "height": 45.1
+ },
+ {
+  "file": "M8_t107_Nghia_trang_ht.svg",
+  "muc": 8,
+  "page": 107,
+  "label": "Nghĩa trang",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000"
+  ],
+  "width": 28.7,
+  "height": 15.6
+ },
+ {
+  "file": "M8_t107_Nghia_trang_dd.svg",
+  "muc": 8,
+  "page": 107,
+  "label": "Nghĩa trang",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#000000"
+  ],
+  "width": 30.4,
+  "height": 17.2
+ },
+ {
+  "file": "M8_t107_Nghia_trang_dh.svg",
+  "muc": 8,
+  "page": 107,
+  "label": "Nghĩa trang",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#000000"
+  ],
+  "width": 30.4,
+  "height": 17.2
+ },
+ {
+  "file": "M8_t107_Tram_bom_ht.svg",
+  "muc": 8,
+  "page": 107,
+  "label": "Trạm bơm",
+  "stage": "Hiện trạng",
+  "colors": [
+   "#000000"
+  ],
+  "width": 37.2,
+  "height": 18.7
+ },
+ {
+  "file": "M8_t107_Tram_bom_dd.svg",
+  "muc": 8,
+  "page": 107,
+  "label": "Trạm bơm",
+  "stage": "Quy hoạch đợt đầu",
+  "colors": [
+   "#000000"
+  ],
+  "width": 37.2,
+  "height": 18.7
+ },
+ {
+  "file": "M8_t107_Tram_bom_dh.svg",
+  "muc": 8,
+  "page": 107,
+  "label": "Trạm bơm",
+  "stage": "Quy hoạch dài hạn",
+  "colors": [
+   "#000000"
+  ],
+  "width": 37.2,
+  "height": 18.7
+ },
+ {
+  "file": "M2_t62_Cong_trinh_y_te_cap_do_thi.svg",
+  "muc": 2,
+  "page": 62,
+  "label": "Công trình y tế cấp đô thị",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 18.8,
+  "height": 19.0,
+  "alsoIn": []
+ },
+ {
+  "file": "M2_t62_Cong_trinh_van_hoa_cap_do_thi.svg",
+  "muc": 2,
+  "page": 62,
+  "label": "Công trình văn hóa cấp đô thị",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 16.6,
+  "height": 16.7,
+  "alsoIn": [
+   3
+  ]
+ },
+ {
+  "file": "M2_t62_Truong_trung_hoc_pho_thong.svg",
+  "muc": 2,
+  "page": 62,
+  "label": "Trường trung học phổ thông",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 18.4,
+  "height": 18.2,
+  "alsoIn": []
+ },
+ {
+  "file": "M2_t62_Cho.svg",
+  "muc": 2,
+  "page": 62,
+  "label": "Chợ",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 19.0,
+  "height": 19.0,
+  "alsoIn": []
+ },
+ {
+  "file": "M2_t63_Chuc_nang_cap_quoc_gia.svg",
+  "muc": 2,
+  "page": 63,
+  "label": "Chức năng cấp quốc gia",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 23.9,
+  "height": 23.9,
+  "alsoIn": [
+   4,
+   6
+  ]
+ },
+ {
+  "file": "M2_t63_Chuc_nang_cap_vung.svg",
+  "muc": 2,
+  "page": 63,
+  "label": "Chức năng cấp vùng",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 23.9,
+  "height": 24.0,
+  "alsoIn": []
+ },
+ {
+  "file": "M3_t67_Cong_trinh_y_te_cap_do_thi.svg",
+  "muc": 3,
+  "page": 67,
+  "label": "Công trình y tế cấp đô thị",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 18.8,
+  "height": 19.0,
+  "alsoIn": []
+ },
+ {
+  "file": "M3_t67_Truong_trung_hoc_pho_thong.svg",
+  "muc": 3,
+  "page": 67,
+  "label": "Trường trung học phổ thông",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 18.2,
+  "height": 18.2,
+  "alsoIn": []
+ },
+ {
+  "file": "M3_t67_Cho.svg",
+  "muc": 3,
+  "page": 67,
+  "label": "Chợ",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 19.0,
+  "height": 19.0,
+  "alsoIn": []
+ },
+ {
+  "file": "M3_t68_Mam_non.svg",
+  "muc": 3,
+  "page": 68,
+  "label": "Mầm non",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 18.4,
+  "height": 18.2,
+  "alsoIn": []
+ },
+ {
+  "file": "M3_t68_Truong_trung_hoc_co_so.svg",
+  "muc": 3,
+  "page": 68,
+  "label": "Trường trung học cơ sở",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 18.4,
+  "height": 18.5,
+  "alsoIn": []
+ },
+ {
+  "file": "M3_t68_Truong_tieu_hoc.svg",
+  "muc": 3,
+  "page": 68,
+  "label": "Trường tiểu học",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 18.4,
+  "height": 18.5,
+  "alsoIn": []
+ },
+ {
+  "file": "M3_t69_Chuc_nang_cap_quoc_gia.svg",
+  "muc": 3,
+  "page": 69,
+  "label": "Chức năng cấp quốc gia",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 23.9,
+  "height": 24.0,
+  "alsoIn": [
+   5
+  ]
+ },
+ {
+  "file": "M3_t69_Chuc_nang_cap_vung.svg",
+  "muc": 3,
+  "page": 69,
+  "label": "Chức năng cấp vùng",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 23.9,
+  "height": 23.9,
+  "alsoIn": []
+ },
+ {
+  "file": "M3_t69_Chuc_nang_cap_tinh.svg",
+  "muc": 3,
+  "page": 69,
+  "label": "Chức năng cấp tỉnh",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 23.9,
+  "height": 23.9,
+  "alsoIn": []
+ },
+ {
+  "file": "M4_t73_Truong_trung_hoc_pho_thong.svg",
+  "muc": 4,
+  "page": 73,
+  "label": "Trường trung học phổ thông",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 18.2,
+  "height": 18.2,
+  "alsoIn": []
+ },
+ {
+  "file": "M4_t73_Mam_non.svg",
+  "muc": 4,
+  "page": 73,
+  "label": "Mầm non",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 18.2,
+  "height": 18.4,
+  "alsoIn": []
+ },
+ {
+  "file": "M4_t73_Truong_trung_hoc_co_so.svg",
+  "muc": 4,
+  "page": 73,
+  "label": "Trường trung học cơ sở",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 18.2,
+  "height": 18.5,
+  "alsoIn": []
+ },
+ {
+  "file": "M4_t73_Truong_tieu_hoc.svg",
+  "muc": 4,
+  "page": 73,
+  "label": "Trường tiểu học",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 18.2,
+  "height": 18.4,
+  "alsoIn": []
+ },
+ {
+  "file": "M4_t73_Truong_day_nghe.svg",
+  "muc": 4,
+  "page": 73,
+  "label": "Trường dạy nghề",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 15.8,
+  "height": 16.0,
+  "alsoIn": []
+ },
+ {
+  "file": "M4_t74_Chuc_nang_cap_quoc_gia.svg",
+  "muc": 4,
+  "page": 74,
+  "label": "Chức năng cấp quốc gia",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 23.9,
+  "height": 23.9,
+  "alsoIn": [
+   6
+  ]
+ },
+ {
+  "file": "M4_t74_Chuc_nang_cap_huyen.svg",
+  "muc": 4,
+  "page": 74,
+  "label": "Chức năng cấp huyện",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 23.9,
+  "height": 24.0,
+  "alsoIn": [
+   6
+  ]
+ },
+ {
+  "file": "M5_t80_Truong_trung_hoc_pho_thong.svg",
+  "muc": 5,
+  "page": 80,
+  "label": "Trường trung học phổ thông",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 18.2,
+  "height": 18.2,
+  "alsoIn": []
+ },
+ {
+  "file": "M5_t80_Mam_non.svg",
+  "muc": 5,
+  "page": 80,
+  "label": "Mầm non",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 18.4,
+  "height": 18.4,
+  "alsoIn": []
+ },
+ {
+  "file": "M5_t80_Truong_trung_hoc_co_so.svg",
+  "muc": 5,
+  "page": 80,
+  "label": "Trường trung học cơ sở",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 18.4,
+  "height": 18.5,
+  "alsoIn": []
+ },
+ {
+  "file": "M5_t80_Truong_tieu_hoc.svg",
+  "muc": 5,
+  "page": 80,
+  "label": "Trường tiểu học",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 18.4,
+  "height": 18.4,
+  "alsoIn": []
+ },
+ {
+  "file": "M5_t80_Truong_day_nghe.svg",
+  "muc": 5,
+  "page": 80,
+  "label": "Trường dạy nghề",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 15.8,
+  "height": 16.0,
+  "alsoIn": []
+ },
+ {
+  "file": "M5_t81_Chuc_nang_cap_quoc_gia.svg",
+  "muc": 5,
+  "page": 81,
+  "label": "Chức năng cấp quốc gia",
+  "stage": "Ký hiệu chức năng (ghi chú)",
+  "colors": [
+   "#000000"
+  ],
+  "width": 23.9,
+  "height": 23.9,
+  "alsoIn": []
+ }
+]

@@ -6,9 +6,10 @@ import type { CadDocument, CadEntity, Vec2 } from '@/lib/cad/types';
 import { foldVietnamese } from '@/lib/geo/provinces';
 import { chainRings, cleanRing, interiorPoint, isClosedLine, labelIn, labelIndex, lineMidpoint, ringsToPolygons } from './geometry';
 import { entityRowKey } from './inventory';
-import type { ColorContext } from './colorClass';
+import { colorRole, hatchSymbol, type ColorContext } from './colorClass';
 import { parseTarget, type TargetPath } from './suggest';
 import { targetOption, type MappingEntry } from './template';
+import { symbolsOfSection, type Tt16Symbol } from './tt16Symbols';
 
 export type GeoJsonGeometry =
   | { type: 'Point'; coordinates: number[] }
@@ -48,6 +49,8 @@ export interface CategoryStyle {
   color: string;
   /** Pattern hatch: angle (degrees) and spacing (metres) of its first line family. */
   hatch: { angle: number; distance: number } | null;
+  /** The Phụ lục I symbol (Mục + AutoCAD colour) the hatches of this category are drawn for — picks its SVG in the QGIS project. */
+  symbol?: { section: number; aci: number; layer: string | null; name: string };
   count: number;
 }
 
@@ -106,14 +109,24 @@ interface Tally {
   phanLoai: string | null;
   colors: Map<string, number>;
   hatch: { angle: number; distance: number } | null;
+  symbols: Map<string, { sym: Tt16Symbol; n: number }>;
+  /** Mục of Phụ lục I of the land-use hatches (colour classification on), for the symbol of a category by its land use. */
+  sections: Map<number, number>;
   count: number;
 }
 
-function tally(t: Map<string, Tally>, phanLoai: string | null, e: CadEntity) {
+function tally(t: Map<string, Tally>, phanLoai: string | null, e: CadEntity, sym?: Tt16Symbol | null, section?: number | null) {
   const key = phanLoai ?? '';
   let x = t.get(key);
-  if (!x) t.set(key, (x = { phanLoai, colors: new Map(), hatch: null, count: 0 }));
+  if (!x) t.set(key, (x = { phanLoai, colors: new Map(), hatch: null, symbols: new Map(), sections: new Map(), count: 0 }));
   x.count++;
+  if (section != null) x.sections.set(section, (x.sections.get(section) ?? 0) + 1);
+  if (sym) {
+    const k = `${sym.section}:${sym.aci}:${sym.layer ?? sym.name}`;
+    const s = x.symbols.get(k);
+    if (s) s.n++;
+    else x.symbols.set(k, { sym, n: 1 });
+  }
   x.colors.set(e.color, (x.colors.get(e.color) ?? 0) + 1);
   const line = e.kind === 'polygon' ? e.hatch?.lines[0] : undefined;
   if (line && !x.hatch) {
@@ -126,7 +139,21 @@ function tally(t: Map<string, Tally>, phanLoai: string | null, e: CadEntity) {
 
 function stylesOf(t: Map<string, Tally>): CategoryStyle[] {
   return [...t.values()]
-    .map((x) => ({ phanLoai: x.phanLoai, color: [...x.colors].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '#888888', hatch: x.hatch, count: x.count }))
+    .map((x): CategoryStyle => {
+      let top: Tt16Symbol | undefined = [...x.symbols.values()].sort((a, b) => b.n - a.n)[0]?.sym;
+      // No colour match (grey hatches such as cemeteries, or colours the office chose): the land use itself names the symbol.
+      if (!top && x.phanLoai) {
+        const section = [...x.sections].sort((a, b) => b[1] - a[1])[0]?.[0];
+        if (section != null) top = symbolsOfSection(section).find((s) => s.kind === 'A' && s.landUse === x.phanLoai);
+      }
+      return {
+        phanLoai: x.phanLoai,
+        color: [...x.colors].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '#888888',
+        hatch: x.hatch,
+        ...(top ? { symbol: { section: top.section, aci: top.aci, layer: top.layer, name: top.name } } : {}),
+        count: x.count,
+      };
+    })
     .sort((a, b) => (a.phanLoai ?? '').localeCompare(b.phanLoai ?? '', 'vi'));
 }
 
@@ -204,7 +231,7 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
       const c = classOf(m.target);
       const base = { phanLoai: m.phanLoai.trim().slice(0, 250) || null, ghiChu: o.sourceInGhiChu ? `Nguồn: ${d.name} · ${e.layer}`.slice(0, 250) : null };
       const refs: SourceRef[][] = [[[d.id, i]]];
-      tally(c.tally, base.phanLoai, e);
+      tally(c.tally, base.phanLoai, e, hatchSymbol(e, d.color), e.kind === 'polygon' && d.color && colorRole(d.color.role) ? d.color.section : null);
 
       if (c.geom === 'A') {
         let polys: Vec2[][][] = [];

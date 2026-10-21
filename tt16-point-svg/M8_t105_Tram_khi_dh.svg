@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="105.6" height="105.6" viewBox="0 0 26.4 26.4">
+<title>Trạm khí — Quy hoạch dài hạn</title>
+<path d="M1.32 23.76L1.32 26.4L9.84 23.76L1.32 23.76" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M1.32 26.4L9.84 23.76L9.84 26.4L1.32 26.4" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M2.76 16.56L0 16.56L2.76 25.08L2.76 16.56" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M0 16.56L2.76 25.08L0 25.08L0 16.56" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M2.76 25.08L0 25.08" fill="none" stroke="#b85c5c" stroke-width="0.38" stroke-linecap="round"/>
+<path d="M16.56 23.76L16.56 26.4L25.08 23.76L16.56 23.76" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M16.56 26.4L25.08 23.76L25.08 26.4L16.56 26.4" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M25.08 23.76L25.08 26.4" fill="none" stroke="#b85c5c" stroke-width="0.38" stroke-linecap="round"/>
+<path d="M23.76 25.08L26.4 25.08L23.76 16.56L23.76 25.08" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M26.4 25.08L23.76 16.56L26.4 16.56L26.4 25.08" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M23.76 9.96L26.4 9.96L23.76 1.44L23.76 9.96" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M26.4 9.96L23.76 1.44L26.4 1.44L26.4 9.96" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M23.76 1.44L26.4 1.44" fill="none" stroke="#b85c5c" stroke-width="0.38" stroke-linecap="round"/>
+<path d="M25.08 2.76L25.08 0L16.56 2.76L25.08 2.76" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M25.08 0L16.56 2.76L16.56 0L25.08 0" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M9.84 2.76L9.84 0L1.32 2.76L9.84 2.76" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M9.84 0L1.32 2.76L1.32 0L9.84 0" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M1.32 2.76L1.32 0" fill="none" stroke="#b85c5c" stroke-width="0.38" stroke-linecap="round"/>
+<path d="M2.76 1.44L0 1.44L2.76 9.96L2.76 1.44" fill="#b85c5c" fill-rule="evenodd"/>
+<path d="M0 1.44L2.76 9.96L0 9.96L0 1.44" fill="#b85c5c" fill-rule="evenodd"/>
+<text x="11.16" y="15.71" font-family="Arial, Helvetica, sans-serif" font-size="10.56" fill="#000000">k</text>
+</svg>

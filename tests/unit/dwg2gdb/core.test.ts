@@ -1,7 +1,7 @@
 // "Bóc tách DWG → TT16" on small synthetic drawings (no data files needed).
 import { TT16_SCHEMA, tt16Wkt } from '@/lib/gdb/tt16Schema';
 import { templateAttributes } from '@/lib/dwg2gdb/plan';
-import { LAND_USE } from '@/lib/dwg2gdb/suggest';
+import { LAND_USE, tt16LandUse } from '@/lib/dwg2gdb/suggest';
 import { describe, expect, it } from 'vitest';
 import type { CadDocument, CadEntity, Vec2 } from '@/lib/cad/types';
 import {
@@ -121,6 +121,18 @@ describe('suggestions', () => {
     expect(suggest('qh-sdd', 'LOGIOI_LINE', 'L').target).toBe('QuyHoach/QuyHoachCGDD_CGXDHanhLangHTKT/ChiGioiDuongDo_L');
     expect(suggest('qh-dien', 'HTKT_CD_Tuyen 22 kV', 'L')).toMatchObject({ target: 'QuyHoach/QuyHoachCapDien/MangLuoiPhanPhoiDien_L', phanLoai: 'Đường dây 22 kV' });
     expect(suggest('qh-dien', 'dien tram', 'A').target).toBe('QuyHoach/QuyHoachCapDien/CongTrinhCapDien_P');
+    // Layers named as Thông tư 16 names them get the land use of their symbol (Phụ lục I), prefixes and Mục aside.
+    expect(suggest('qh-sdd', 'DAT_NNK_Honuoc', 'A')).toMatchObject({ target: 'QuyHoach/QuyHoachSuDungDat/ChucNangSuDungDat_A', phanLoai: 'Đất sông, ngòi, kênh, rạch, suối, mặt nước' });
+    expect(suggest('qh-sdd', 'DAT KXD Dancunongthon', 'A')).toMatchObject({ target: 'QuyHoach/QuyHoachSuDungDat/ChucNangSuDungDat_A', phanLoai: 'Đất ở' });
+    expect(suggest('qh-sdd', 'QHDD_DAT_NNK_Honuoc', 'A').phanLoai).toBe('Đất sông, ngòi, kênh, rạch, suối, mặt nước');
+    expect(suggest('ht-sdd', 'HT_DAT_KXD_Dancunongthon', 'A')).toMatchObject({ target: 'HienTrang/HienTrangSuDungDat/ChucNangSuDungDat_A', phanLoai: 'Đất ở' });
+    expect(tt16LandUse('datnnkhonuoc')).toBe('Đất sông, ngòi, kênh, rạch, suối, mặt nước');
+    expect(tt16LandUse('datkxdkhudancu')).toBeNull(); // not a Thông tư name: the words of QCVN take over
+    // "DUONG DIEN" is a power line, not a road: it only shares the word "đường".
+    expect(suggest('qh-gt', 'DUONG DIEN', 'L').target).toBeNull(); // left for the user, not filed under traffic
+    expect(suggest('qh-dien', 'DUONG DIEN', 'L')).toMatchObject({ target: 'QuyHoach/QuyHoachCapDien/MangLuoiPhanPhoiDien_L' });
+    expect(suggest('ht-htkt', 'DUONG DAY DIEN', 'L').target).toMatch(/CapDien\/MangLuoiPhanPhoiDien_L$/);
+    expect(suggest('qh-gt', 'DUONG NHUA', 'L').target).toMatch(/MangLuoiGiaoThongDuongBo_L$/);
     expect(suggest('qh-nuoc', 'CAPNUOC', 'L').target).toBe('QuyHoach/QuyHoachCapNuoc/MangLuoiCapNuoc_L');
     expect(suggest('qh-tn', 'THOAT NUOC MUA', 'L').target).toBe('QuyHoach/QuyHoachChuanBiKyThuat/MangLuoiThoatNuocMua_L');
     expect(suggest('qh-tn', 'HT_Nuoc mua_Ho ga', 'A')).toMatchObject({ target: 'QuyHoach/QuyHoachChuanBiKyThuat/CongTrinhCBKT_P', phanLoai: 'Hố ga thoát nước mưa' });

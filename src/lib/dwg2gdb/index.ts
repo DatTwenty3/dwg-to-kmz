@@ -9,7 +9,7 @@ import { colorRole, colorSuggestion, type ColorContext } from './colorClass';
 import { drawingTexts, findBoundary, insideFlags, layerRows, pickBoundary, type BoundaryCandidate, type LayerRow } from './inventory';
 import { guessRole, roleById, type RoleId } from './roles';
 import { pickSection } from './section';
-import { compactName, landUseOf, sameLandUse, suggest, type GeomKind } from './suggest';
+import { compactName, layerLandUse, sameLandUse, suggest, type GeomKind } from './suggest';
 import { templateLookup, type MappingEntry, type MappingTemplate, type TemplateRule } from './template';
 import { placeXref, resolveXref, xrefNameRole, xrefOwners, type FolderFile, type MainDrawing } from './xrefs';
 
@@ -213,7 +213,7 @@ export function analyzeDrawings(parsed: ParsedDrawing[], section?: number | null
       for (const e of parsed.find((p) => p.id === id)!.doc.entities) {
         if (e.kind !== 'polygon') continue;
         polygons++;
-        if (landUseOf(compactName(e.layer))) landUse++;
+        if (layerLandUse(compactName(e.layer))) landUse++;
       }
       if (polygons >= 20 && landUse / polygons >= 0.4) upgraded.add(id);
     }

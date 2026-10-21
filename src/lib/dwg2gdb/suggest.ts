@@ -5,6 +5,7 @@
 // the user decides in the mapping table, and a saved template (template.ts) wins over these rules.
 import { foldVietnamese } from '@/lib/geo/provinces';
 import { roleById, type RoleId } from './roles';
+import { TT16_SYMBOLS } from './tt16Symbols';
 
 /** Geometry kinds of a layer row: vùng (hatch/solid), đường (polyline), điểm (point), chữ (text). */
 export type GeomKind = 'A' | 'L' | 'P' | 'T';
@@ -135,6 +136,30 @@ export const LAND_USE_M1: Record<string, string> = {
 /** Two labels that end in the same ChucNangSuDungDatM1 value ("Đất giáo dục" / "Đất công cộng"): no real disagreement. */
 export const sameLandUse = (a: string, b: string) => (LAND_USE_M1[a] ?? a) === (LAND_USE_M1[b] ?? b);
 
+/**
+ * Land use of a layer named as Thông tư 16 names its land-use layers (`DAT_<nhóm>_<Tên>`: DAT_NNK_Honuoc, DAT_KXD_Dancunongthon…,
+ * with the office's prefix QHDD_ / QHDH_ / HT_ …): the name after the group is looked up in the table of Phụ lục I, so
+ * the layer gets the land use of its symbol whatever its colour or the Mục in use. The names after the group never
+ * point to two land uses.
+ */
+const TAIL_LAND_USE = new Map<string, string>();
+const GROUP_TOKENS = new Set<string>();
+for (const x of TT16_SYMBOLS) {
+  const parts = x.layer?.split('_') ?? [];
+  if (x.kind !== 'A' || !x.landUse || parts[0] !== 'DAT' || parts.length < 3) continue;
+  GROUP_TOKENS.add(parts[1].toLowerCase());
+  TAIL_LAND_USE.set(compactName(parts.slice(2).join('')), x.landUse);
+}
+const TT16_LAYER = new RegExp(`^(?:qhdd|qhdh|hkqh|qh|ht|hk|ntm)?dat(${[...GROUP_TOKENS].sort((a, b) => b.length - a.length).join('|')})(.+)$`);
+
+export function tt16LandUse(compact: string): string | null {
+  const m = TT16_LAYER.exec(compact);
+  return (m && TAIL_LAND_USE.get(m[2])) || null;
+}
+
+/** Land use of a layer name: the Thông tư 16 layer names first, then the words of QCVN 01:2021. */
+export const layerLandUse = (compact: string): string | null => tt16LandUse(compact) ?? landUseOf(compact);
+
 export function landUseOf(compact: string): string | null {
   for (const [re, label] of LAND_USE) if (re.test(compact)) return label;
   return null;
@@ -166,6 +191,8 @@ const LAND_USE_BACKGROUND = /^(qhdd|qhdh|ht|hkqh|ntm|hkqhntm)?dat|^ntm|^qhdd|^qh
 type Pick = { theme: Theme; cls: string; phanLoai: string } | null;
 
 function roads(c: string, kind: GeomKind, p: string): Pick {
+  // "Đường điện / đường ống / đường dây …" are utility lines, not roads (they only share the word "đường").
+  if (/duong(day)?dien|duongong|duongnuoc|duongcap|duongthoat|duongtruyen/.test(c)) return null;
   if (!/duong|giaothong|^gt|gt$|quoclo|tinhlo|huyenlo|^ql|^dt|^dh|lo$|nhua|betong|cau$|^cau|ben|baido|tim|mepduong|bovia|leduong|hem|ngo|mcn|logioi|chigioi/.test(c)) return null;
   if (/logioi|chigioiduongdo|cgdd|duongdo/.test(c)) return kind === 'L' ? { theme: 'cg', cls: 'ChiGioiDuongDo_L', phanLoai: 'Chỉ giới đường đỏ' } : null;
   if (/chigioixaydung|cgxd/.test(c)) return kind === 'L' ? { theme: 'cg', cls: 'ChiGioiXayDung_L', phanLoai: 'Chỉ giới xây dựng' } : null;
@@ -276,7 +303,7 @@ export function suggest(roleId: RoleId, layer: string, kind: GeomKind, facts: La
       if (/nha|bkc|kientruc|congtrinh|nhaxay/.test(c) && !/nhavanhoa|nhatho|nhatang/.test(c))
         return at({ theme: 'ktcq', cls: 'CongTrinh_A', phanLoai: /bkc/.test(c) ? 'Nhà bán kiên cố' : /kc|kiencuo/.test(c) ? 'Nhà kiên cố' : 'Nhà, công trình' }, 'Nhà / công trình');
       if (/phankhu/.test(c) && !hien) return at({ theme: 'sdd', cls: 'PhanKhuQuyHoach_A', phanLoai: p }, 'Phân khu');
-      const lu = landUseOf(c);
+      const lu = layerLandUse(c);
       if (lu) return at({ theme: 'sdd', cls: 'ChucNangSuDungDat_A', phanLoai: lu }, 'Loại đất nhận ra từ tên layer');
       if (/^(qhdd|qhdh|ht|hkqh)?dat|^ntm/.test(c)) return at({ theme: 'sdd', cls: 'ChucNangSuDungDat_A', phanLoai: p }, 'Layer đất (DAT_…)');
       return unknown('Chưa nhận ra loại đất — hãy chọn lớp');
@@ -326,7 +353,7 @@ export function suggest(roleId: RoleId, layer: string, kind: GeomKind, facts: La
   if (roleId === 'qh-mt') {
     if (/quantrac/.test(c) && kind !== 'L') return at({ theme: 'mt', cls: 'DiemQuanTrac_P', phanLoai: p }, 'Điểm quan trắc');
   }
-  if ((kind === 'A' || kind === 'L') && landUseOf(c)) return none('Nền sử dụng đất — đã lấy từ bản đồ sử dụng đất');
+  if ((kind === 'A' || kind === 'L') && layerLandUse(c)) return none('Nền sử dụng đất — đã lấy từ bản đồ sử dụng đất');
   if (/sodo|ghepmanh|luoito?a?do|^level/.test(c)) return none('Sơ đồ ghép mảnh / lưới — không phải dữ liệu GIS');
   return unknown('Chưa nhận ra — hãy chọn lớp nếu layer có dữ liệu');
 }

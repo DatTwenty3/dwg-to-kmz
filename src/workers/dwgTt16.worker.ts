@@ -21,7 +21,9 @@ import {
   guessesInProvince,
   loadFolder,
   buildQgs,
+  cadLayerData,
   cleanProjectName,
+  planCadGpkg,
   planStage1,
   planUnitFromTitle,
   projectNameFromTexts,
@@ -74,6 +76,8 @@ export type DwgTt16Request =
       roles: Record<string, RoleId>;
       /** Add the QGIS project <projectName>.qgz (tệp tổng hợp) to HoSoGIS. */
       qgz: boolean;
+      /** With the .qgz: the CAD drawing (lines with their widths, symbols, texts) as BanVeCAD.gpkg + a group "Bản vẽ CAD". */
+      cad: boolean;
       projectName: string;
       /** Objects the user removed on the map (drawing id → entity indexes): left out of every output. */
       excluded: Record<string, number[]>;
@@ -262,15 +266,19 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
 
   // Summary drawing: the same objects as drawn in CAD (hatch patterns, colours, widths) + the texts.
   let dxf: Extract<DwgTt16Response, { type: 'done' }>['dxf'] = null;
-  if (req.dxf) {
+  const wantCad = req.qgz && req.cad;
+  const doc =
+    req.dxf || wantCad
+      ? summaryDocument(
+          parsed
+            .filter((p) => ids.has(p.id))
+            .map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: insideOf(p.id), color: colors.get(p.id), role: req.roles[p.id] ?? 'other' })),
+          new Map(req.mapping),
+          { boundary: analysis.boundary?.ring ?? null, texts: true },
+        )
+      : null;
+  if (req.dxf && doc) {
     post({ type: 'progress', stage: 'Ghi bản vẽ tổng hợp (.dxf)', done: 0, total: 1 });
-    const doc = summaryDocument(
-      parsed
-        .filter((p) => ids.has(p.id))
-        .map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: insideOf(p.id), color: colors.get(p.id), role: req.roles[p.id] ?? 'other' })),
-      new Map(req.mapping),
-      { boundary: analysis.boundary?.ring ?? null, texts: true },
-    );
     const text = toDxf(doc, { units: 'm', layers: doc.layers.map((l) => l.name) });
     dxf = { blob: new Blob([text], { type: 'application/dxf' }), fileName: 'BanVeTongHop.dxf', layers: doc.layers.length, entities: doc.entities.length };
   }
@@ -322,6 +330,39 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
 
   post({ type: 'progress', stage: 'Đóng gói và kiểm tra HoSoGIS', done: 0, total: 1 });
   const out: { path: string; bytes: Uint8Array; read: () => Promise<Uint8Array> }[] = fixGdalOutput(await outputEntries(Gdal, p2, (rel) => `HoSoGIS/${rel}`));
+  // "Bản vẽ CAD": the summary drawing as BanVeCAD.gpkg (the project draws it like AutoCAD). Not needed for the geodatabases,
+  // so a failure only leaves it out.
+  let cad: { counts: Record<'lines' | 'areas' | 'texts' | 'points', number>; patternColors: string[] } | undefined;
+  let cadNote = '';
+  if (wantCad && doc) {
+    post({ type: 'progress', stage: 'Ghi bản vẽ CAD (BanVeCAD.gpkg)', done: 0, total: 1 });
+    const data = cadLayerData(doc);
+    const plan = planCadGpkg(data, tt16Wkt(req.lon0, req.zone));
+    if (plan.steps.length) {
+      const pc = nextPrefix('c');
+      try {
+        const oc = await openAll(
+          Gdal,
+          plan.inputs.map((i) => new File([i.json], i.fileName, { type: 'application/geo+json' })),
+        );
+        try {
+          await executePlan(Gdal, new Map(oc.datasets.map((d) => [d.path.replace(/^.*\//, '').replace(/\.geojson$/i, ''), d])), plan, pc, (done, total, label) =>
+            post({ type: 'progress', stage: label ? `Ghi ${label}` : 'Hoàn tất ghi bản vẽ CAD', done, total }),
+          );
+        } finally {
+          for (const d of oc.datasets) await Gdal.close(d).catch(() => {});
+        }
+        const gp = (await outputEntries(Gdal, pc, (rel) => `HoSoGIS/${rel}`)).filter((e) => /\.gpkg$/i.test(e.path));
+        if (gp.length) {
+          out.push(...gp);
+          cad = { counts: data.counts, patternColors: data.patternColors };
+          cadNote = `Bản vẽ CAD trong .qgz: ${data.counts.lines.toLocaleString('vi-VN')} đường, ${data.counts.areas.toLocaleString('vi-VN')} vùng, ${data.counts.texts.toLocaleString('vi-VN')} chữ (tệp BanVeCAD.gpkg cạnh các geodatabase)`;
+        }
+      } catch (e) {
+        cadNote = `Không ghi được BanVeCAD.gpkg (${gdalFailure(e).message}) — tệp .qgz không có nhóm Bản vẽ CAD`;
+      }
+    }
+  }
   // Tệp tổng hợp: QGIS project next to the geodatabases.
   let qgzName: string | null = null;
   let svgCount = 0;
@@ -337,6 +378,7 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
     svgCount = svg?.files.size ?? 0;
     const qgs = buildQgs({
       name,
+      cad,
       svg: svg ?? undefined,
       title: req.projectTitle || name,
       classes: built.classes,
@@ -357,7 +399,7 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
     zip,
     fileName: 'HoSoGIS.zip',
     dxf,
-    notes: [...built.notes, ...plan.notes, ...(qgzName
+    notes: [...built.notes, ...plan.notes, ...(cadNote ? [cadNote] : []), ...(qgzName
         ? [
             `Tạo tệp tổng hợp ${qgzName} (QGIS): các lớp tô màu theo phân loại như bản vẽ, nhãn theo tên đối tượng${svgCount ? `, nhúng ${svgCount} ký hiệu SVG của Thông tư 16` : ''}`,
           ]

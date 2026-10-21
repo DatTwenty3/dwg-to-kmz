@@ -10,9 +10,11 @@ import { TT16_DATABASES } from '@/lib/gdb/tt16';
 import type { ClassData, CategoryStyle } from './features';
 import { pascalName } from '@/lib/gdb/normalize';
 import { buildLayouts } from './qgisLayout';
+import { cadLayerList, cadMaplayerXml, cadTreeXml } from './qgisCad';
+import type { CadTable } from './cadLayers';
 import { hatchSvgFor, pointSvgFor, ptToMm, svgToBase64, type PointSvg, type SvgLibrary } from './qgisSvg';
+import { DDP, esc, layerXml, symbolOpen, vectorLayerXml } from './qgisXml';
 
-const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 
 /** File name of the project from the title block ("QUY HOẠCH CHUNG XÃ LONG HIỆP…" → "QHC_XaLongHiep"). */
 export function projectNameFromTexts(texts: string[]): string | null {
@@ -54,22 +56,6 @@ function visible(hex: string): string {
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
   return r + g + b > 690 ? '#5a5a5a' : `#${h}`;
 }
-
-/** <Option type="Map"> with string values + the same as <prop k v> (older QGIS). */
-function opts(o: Record<string, string>): string {
-  const map = Object.entries(o)
-    .map(([k, v]) => `<Option name="${esc(k)}" value="${esc(v)}" type="QString"/>`)
-    .join('');
-  const props = Object.entries(o)
-    .map(([k, v]) => `<prop k="${esc(k)}" v="${esc(v)}"/>`)
-    .join('');
-  return `<Option type="Map">${map}</Option>${props}`;
-}
-
-const DDP = '<data_defined_properties><Option type="Map"><Option name="name" value="" type="QString"/><Option name="properties"/><Option name="type" value="collection" type="QString"/></Option></data_defined_properties>';
-const symbolOpen = (type: 'fill' | 'line' | 'marker', name: string) =>
-  `<symbol type="${type}" name="${esc(name)}" alpha="1" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0">${DDP}`;
-const layerXml = (cls: string, o: Record<string, string>, inner = '') => `<layer class="${cls}" enabled="1" locked="0" pass="0">${opts(o)}${DDP}${inner}</layer>`;
 
 function lineLayer(color: string, width: number, style = 'solid') {
   return layerXml('SimpleLine', {
@@ -256,6 +242,11 @@ export interface QgisProjectInput {
   extent: [number, number, number, number];
   /** SVG symbols of Phụ lục I to embed (qgisSvg.ts): hatches of the land-use classes, points of the infrastructure classes. */
   svg?: SvgLibrary;
+  /**
+   * The CAD drawing layers of BanVeCAD.gpkg (cadLayers.ts): a group "Bản vẽ CAD" drawn as in AutoCAD, on top. The
+   * geodatabase layers it repeats (lines, areas other than land use, labelled points) start hidden.
+   */
+  cad?: { counts: Record<CadTable, number>; patternColors?: string[] };
 }
 
 /**
@@ -273,8 +264,6 @@ function srsXml(lon0: number, zone: 3 | 6): string {
     `<ellipsoidacronym>EPSG:7030</ellipsoidacronym><geographicflag>false</geographicflag></spatialrefsys>`
   );
 }
-
-const GEOM = { A: ['Polygon', 'MultiPolygon'], L: ['Line', 'MultiLineString'], P: ['Point', 'Point'] } as const;
 
 /**
  * The print layout "Bản đồ quy hoạch": frame, map, legend (the planning layers, headed by their Thông tư alias),
@@ -305,6 +294,10 @@ export function buildQgs(p: QgisProjectInput): string {
   // Draw order inside a group: points, lines, then areas (the boundary on top of everything).
   const rank = (c: ClassData) => (c.cls === 'RanhGioiQuyHoach_A' ? -1 : c.geom === 'P' ? 0 : c.geom === 'L' ? 1 : 2);
   const dbOrder = ['QuyHoach', 'HienTrang', 'MocGioi'];
+  const cadLayers = p.cad ? cadLayerList(p.cad.counts) : [];
+  /** With the CAD drawing on, the geodatabase layers it already draws stay unchecked (land use and symbol points stay). */
+  const shown = (c: ClassData) =>
+    !cadLayers.length || c.cls === 'ChucNangSuDungDat_A' || (c.geom === 'P' && !!p.svg && c.styles.some((s) => pointSvgFor(s.phanLoai, 'P', c.db, p.svg!.index)));
   const layers = p.classes
     .filter((c) => c.features.length)
     .sort((a, b) => dbOrder.indexOf(a.db) - dbOrder.indexOf(b.db) || a.dataset.localeCompare(b.dataset) || rank(a) - rank(b) || a.cls.localeCompare(b.cls))
@@ -325,7 +318,7 @@ export function buildQgs(p: QgisProjectInput): string {
             .filter((l) => l.c.db === db && l.c.dataset === ds)
             .map(
               (l) =>
-                `<layer-tree-layer id="${l.id}" name="${esc(l.name)}" source="${esc(l.source)}" providerKey="ogr" checked="Qt::Checked" expanded="${l.c.styles.length > 1 ? 1 : 0}" legend_exp="" patch_size="-1,-1" legend_split_behavior="0"><customproperties><Option/></customproperties></layer-tree-layer>`,
+                `<layer-tree-layer id="${l.id}" name="${esc(l.name)}" source="${esc(l.source)}" providerKey="ogr" checked="${shown(l.c) ? 'Qt::Checked' : 'Qt::Unchecked'}" expanded="${l.c.styles.length > 1 ? 1 : 0}" legend_exp="" patch_size="-1,-1" legend_split_behavior="0"><customproperties><Option/></customproperties></layer-tree-layer>`,
             )
             .join('');
           return `<layer-tree-group name="${esc(ds)}" checked="Qt::Checked" expanded="0" groupLayer=""><customproperties><Option type="Map"><Option name="title" value="${esc(dsTitle.get(`${db}/${ds}`) ?? ds)}" type="QString"/></Option></customproperties>${items}</layer-tree-group>`;
@@ -336,30 +329,32 @@ export function buildQgs(p: QgisProjectInput): string {
     })
     .join('');
 
-  const maplayers = layers
-    .map(({ c, id, name, source }) => {
-      const [geometry, wkb] = GEOM[c.geom];
-      const lbl = labeling(c);
-      return (
-        `<maplayer type="vector" geometry="${geometry}" wkbType="${wkb}" autoRefreshMode="Disabled" autoRefreshTime="0" refreshOnNotifyEnabled="0" refreshOnNotifyMessage="" hasScaleBasedVisibilityFlag="0" minScale="100000000" maxScale="0" readOnly="0" simplifyAlgorithm="0" simplifyDrawingHints="1" simplifyDrawingTol="1" simplifyLocal="1" simplifyMaxScale="1" styleCategories="AllStyleCategories" symbologyReferenceScale="-1" labelsEnabled="${lbl ? 1 : 0}" legendPlaceholderImage="">` +
-        `<extent>${ext}</extent><id>${id}</id><datasource>${esc(source)}</datasource><keywordList><value></value></keywordList>` +
-        `<layername>${esc(name)}</layername><srs>${srs}</srs><resourceMetadata><identifier></identifier><parentidentifier></parentidentifier><language></language><type>dataset</type><title>${esc(name)}</title><abstract></abstract><links/><fees></fees><encoding></encoding><crs>${srs}</crs><extent/></resourceMetadata>` +
-        `<provider encoding="UTF-8">ogr</provider><vectorjoins/><layerDependencies/><dataDependencies/><expressionfields/>` +
-        `<map-layer-style-manager current="default"><map-layer-style name="default"/></map-layer-style-manager><auxiliaryLayer/><metadataUrls/><flags><Identifiable>1</Identifiable><Removable>1</Removable><Searchable>1</Searchable><Private>0</Private></flags>` +
-        `${renderer(c, p.svg)}${lbl}<blendMode>0</blendMode><featureBlendMode>0</featureBlendMode><layerOpacity>1</layerOpacity>` +
-        `<previewExpression>"tenDoiTuong"</previewExpression><mapTip enabled="1"></mapTip><layerGeometryType>${c.geom === 'A' ? 2 : c.geom === 'L' ? 1 : 0}</layerGeometryType>` +
-        `</maplayer>`
-      );
-    })
-    .join('');
-  const order = layers.map((l) => `<layer id="${l.id}"/>`).join('');
+  const maplayers =
+    layers
+      .map(({ c, id, name, source }) =>
+        vectorLayerXml({
+          id,
+          name,
+          source,
+          geom: c.geom,
+          srs,
+          extent: ext,
+          renderer: renderer(c, p.svg),
+          // Labels of the points are the texts of the CAD drawing when that is shown.
+          labeling: cadLayers.length && c.geom === 'P' ? '' : labeling(c),
+          previewExpression: '"tenDoiTuong"',
+        }),
+      )
+      .join('') + cadLayers.map((l) => cadMaplayerXml(l, srs, ext, p.cad?.patternColors)).join('');
+  const ids = [...cadLayers.map((l) => l.id), ...layers.map((l) => l.id)];
+  const order = ids.map((id) => `<layer id="${id}"/>`).join('');
 
   return (
     `<!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>\n` +
     `<qgis projectname="${esc(p.title)}" version="3.34.0-Prizren" saveUser="" saveUserFull="" saveDateTime="${new Date().toISOString().slice(0, 19)}">` +
     `<homePath path=""/><title>${esc(p.title)}</title><transaction mode="Disabled"/><projectFlags set=""/>` +
     `<projectCrs>${srs}</projectCrs>` +
-    `<layer-tree-group><customproperties><Option/></customproperties>${tree}<custom-order enabled="0">${layers.map((l) => `<item>${l.id}</item>`).join('')}</custom-order></layer-tree-group>` +
+    `<layer-tree-group><customproperties><Option/></customproperties>${cadLayers.length ? cadTreeXml(cadLayers) : ''}${tree}<custom-order enabled="0">${ids.map((id) => `<item>${id}</item>`).join('')}</custom-order></layer-tree-group>` +
     `<snapping-settings enabled="0" mode="2" type="1" tolerance="12" unit="1" intersection-snapping="0"/><relations/><polymorphicRelations/>` +
     `<mapcanvas annotationsVisible="1" name="theMapCanvas"><units>meters</units><extent>${ext}</extent><rotation>0</rotation><destinationsrs>${srs}</destinationsrs><rendermaptile>0</rendermaptile><expressionContextScope/></mapcanvas>` +
     `<projectModels/><legend updateDrawingOrder="true"/>` +

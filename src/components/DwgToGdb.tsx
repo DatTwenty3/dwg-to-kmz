@@ -138,6 +138,7 @@ type ExportOptions = {
   sourceInGhiChu: boolean;
   dxf: boolean;
   qgz: boolean;
+  cad: boolean;
   projectName: string;
 };
 
@@ -1297,6 +1298,7 @@ function ExportDialog({
   const [sourceInGhiChu, setSourceInGhiChu] = useState(false);
   const [withDxf, setWithDxf] = useState(true);
   const [withQgz, setWithQgz] = useState(true);
+  const [withCad, setWithCad] = useState(true);
   const [projectName, setProjectName] = useState(defaultName);
   const { progress, result, error } = state;
   const running = !!progress && !result && !error;
@@ -1363,6 +1365,15 @@ function ExportDialog({
                     <span className="text-zinc-400">(các lớp tô màu theo phân loại như bản vẽ, nhãn theo tên đối tượng)</span>
                   </span>
                 </label>
+                {withQgz && (
+                  <label className="ml-6 flex items-start gap-2">
+                    <input type="checkbox" className="ui-check mt-0.5" checked={withCad} onChange={(e) => setWithCad(e.target.checked)} disabled={running} />
+                    <span className="text-zinc-700">
+                      Thêm <b className="font-medium">bản vẽ CAD</b> vào .qgz{' '}
+                      <span className="text-zinc-400">(đường có độ rộng, ký hiệu, chữ như AutoCAD — thêm tệp BanVeCAD.gpkg, khoảng 10–30 MB)</span>
+                    </span>
+                  </label>
+                )}
                 {withQgz && (
                   <label className="ml-6 flex items-center gap-2">
                     <span className="shrink-0 text-[12px] text-zinc-500">Tên đồ án</span>
@@ -1540,6 +1551,7 @@ function ExportDialog({
                     sourceInGhiChu,
                     dxf: withDxf,
                     qgz: withQgz,
+                    cad: withCad,
                     projectName: cleanProjectName(projectName),
                   })
                 }

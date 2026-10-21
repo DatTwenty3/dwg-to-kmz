@@ -13,6 +13,7 @@ import { compactName, layerLandUse, sameLandUse, suggest, type GeomKind } from '
 import { templateLookup, type MappingEntry, type MappingTemplate, type TemplateRule } from './template';
 import { placeXref, resolveXref, xrefNameRole, xrefOwners, type FolderFile, type MainDrawing } from './xrefs';
 
+export * from './cadLayers';
 export * from './color';
 export * from './colorClass';
 export * from './features';

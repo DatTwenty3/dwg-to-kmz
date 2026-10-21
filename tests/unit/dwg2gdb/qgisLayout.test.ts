@@ -52,7 +52,7 @@ describe('the layout in the project', () => {
     expect(qgs).not.toMatch(/legend\/title-label[^>]*Tên đơn vị hành chính/);
   });
   it('the map is centred on the extent at the sheet scale', () => {
-    const m = /<Extent xmin="([\d.]+)" ymin="([\d.]+)" xmax="([\d.]+)" ymax="([\d.]+)"/.exec(qgs)!;
+    const m = /<Extent xmin="([0-9.]+)" ymin="([0-9.]+)" xmax="([0-9.]+)" ymax="([0-9.]+)"/.exec(qgs)!;
     expect((+m[1] + +m[3]) / 2).toBeCloseTo(595000, 0);
     expect((+m[2] + +m[4]) / 2).toBeCloseTo(1074000, 0);
   });
@@ -64,5 +64,21 @@ describe('wind rose (hoa gió)', () => {
     createRequire(import.meta.url)('sax').parser(true).write(svg).close();
     for (const t of ['>B<', '>Đ<', '>N<', '>T<']) expect(svg).toContain(t);
     expect((svg.match(/<polygon/g) ?? []).length).toBe(16);
+  });
+  it('has no outer ring, and sits at the top of the column with the scale bar centred under it, above the legend', () => {
+    expect(windRoseSvg()).not.toContain('<circle');
+    const l = buildLayouts({ name: 'n', title: 't', mapName: 'm', extent: [0, 0, 5000, 3500], legend: [{ id: 'a', name: 'A', source: 's', title: 'x' }] });
+    const at = (id: string) => {
+      const m = new RegExp(`id="${id}"[^>]*?position="([0-9.]+),([0-9.]+),mm"[^>]*?size="([0-9.]+),([0-9.]+),mm"`).exec(l)!;
+      return { x: +m[1], y: +m[2], w: +m[3], h: +m[4] };
+    };
+    const rose = at('hoa_gio');
+    const bar = at('thuoc_ty_le');
+    const legend = at('chu_giai');
+    expect(rose.y).toBeLessThan(bar.y);
+    expect(bar.y + bar.h).toBeLessThan(legend.y);
+    // The bar (without its label overhang) is centred on the rose, within a few mm.
+    const barW = 4 * ((250 / 10000) * 1000);
+    expect(Math.abs(bar.x + 3 + barW / 2 - (rose.x + rose.w / 2))).toBeLessThan(1);
   });
 });

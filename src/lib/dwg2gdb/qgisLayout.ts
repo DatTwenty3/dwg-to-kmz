@@ -61,7 +61,7 @@ export function scaleBarSegment(scale: number): number {
 }
 
 /**
- * "Hoa gió" (compass rose) as SVG: eight two-tone points around a circle, B (Bắc) / Đ / N / T on the four main ones.
+ * "Hoa gió" (compass rose) as SVG: eight two-tone points (no outer ring), B (Bắc) / Đ / N / T on the four main ones.
  * A plain direction symbol — it carries no wind data (a wind rose with frequencies comes from the climate data of
  * the plan, drawn by the office).
  */
@@ -85,7 +85,6 @@ export function windRoseSvg(): string {
     `<text x="${x}" y="${y}" text-anchor="middle" font-family="Arial" font-size="20" font-weight="bold" fill="#000000">${t}</text>`;
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">` +
-    `<circle cx="${c}" cy="${c}" r="84" fill="none" stroke="#000000" stroke-width="1.5"/><circle cx="${c}" cy="${c}" r="80" fill="none" stroke="#000000" stroke-width="0.6"/>` +
     `${points.join('')}${letter('B', 100, 18)}${letter('Đ', 187, 107)}${letter('N', 100, 196)}${letter('T', 13, 107)}</svg>`
   );
 }
@@ -174,7 +173,18 @@ export function buildLayouts(p: LayoutInput): string {
   rect(MARGIN_LEFT, MARGIN, W - MARGIN_LEFT - MARGIN, H - 2 * MARGIN, 0.7);
   rect(px, MARGIN, panel, H - 2 * MARGIN, 0.35);
 
-  // Legend ("chú giải") at the top of the column; its size follows its content.
+  // The top of the column: the wind rose (hoa gió), the scale bar centred under it, then the legend.
+  const rose = mm(46);
+  const roseY = MARGIN + mm(5);
+  const seg = scaleBarSegment(scale);
+  const segments = 4;
+  const segMm = (seg / scale) * 1000;
+  const sbH = mm(SCALE_BAR - 10);
+  const sbY = roseY + rose + mm(2);
+  const legendY = sbY + sbH + mm(6);
+  const colCx = px + panel / 2;
+
+  // Legend ("chú giải") below them; its size follows its content.
   const lg = (name: string, pts: number, bold: boolean, extra = '') =>
     `<style name="${name}" alignment="1" indent="0"${extra}>${textStyle(pts, bold)}</style>`;
   const legendStyles =
@@ -188,7 +198,7 @@ export function buildLayouts(p: LayoutInput): string {
     )
     .join('');
   items.push(
-    `${itemAttrs(65642, 'chu_giai', ++n, px + 3, MARGIN + 3, panel - 6, 10, z++, `map_uuid="${mapUuid}" title="CHÚ GIẢI" titleAlignment="1" resizeToContents="1" boxSpace="2" columnCount="1" columnSpace="2" symbolWidth="${mm(7)}" symbolHeight="${mm(4)}" symbolAlignment="1" splitLayer="0" equalColumnWidth="0" legendFilterByAtlas="0" maxSymbolSize="0" minSymbolSize="0" wmsLegendWidth="50" wmsLegendHeight="25" rasterBorder="0" wrapChar=""`)}${COLORS}${OBJ}` +
+    `${itemAttrs(65642, 'chu_giai', ++n, px + 3, legendY, panel - 6, 10, z++, `map_uuid="${mapUuid}" title="CHÚ GIẢI" titleAlignment="1" resizeToContents="1" boxSpace="2" columnCount="1" columnSpace="2" symbolWidth="${mm(7)}" symbolHeight="${mm(4)}" symbolAlignment="1" splitLayer="0" equalColumnWidth="0" legendFilterByAtlas="0" maxSymbolSize="0" minSymbolSize="0" wmsLegendWidth="50" wmsLegendHeight="25" rasterBorder="0" wrapChar=""`)}${COLORS}${OBJ}` +
       `${legendStyles}<layer-tree-group><customproperties><Option/></customproperties>${legendTree}<custom-order enabled="0">${p.legend.map((l) => `<item>${esc(l.id)}</item>`).join('')}</custom-order></layer-tree-group></LayoutItem>`,
   );
 
@@ -214,19 +224,15 @@ export function buildLayouts(p: LayoutInput): string {
   label('Đơn vị lập: ............................................', px + 2, ry + mm(3), panel - 4, mm(8), pt(9), { h: 'left' });
   label('Chủ trì: ...................................................', px + 2, ry + mm(11), panel - 4, mm(8), pt(9), { h: 'left' });
 
-  // Wind rose above the scale bar, centred in the column.
-  const rose = mm(46);
-  const roseY = ty - mm(SCALE_BAR - 10) - mm(4) - rose - mm(8);
+  // Wind rose at the top of the column, centred.
   items.push(
-    `${itemAttrs(65640, 'hoa_gio', ++n, px + (panel - rose) / 2, roseY, rose, rose, z++, `file="${esc(svgToBase64(windRoseSvg()))}" mode="0" resizeMode="0" anchorPoint="0" pictureWidth="${num(rose)}" pictureHeight="${num(rose)}" pictureRotation="0" northMode="0" northOffset="0" mapUuid="" svgFillColor="255,255,255,255,rgb:1,1,1,1" svgBorderColor="0,0,0,255,rgb:0,0,0,1" svgBorderWidth="0.2"`)}${COLORS}${OBJ}</LayoutItem>`,
+    `${itemAttrs(65640, 'hoa_gio', ++n, colCx - rose / 2, roseY, rose, rose, z++, `file="${esc(svgToBase64(windRoseSvg()))}" mode="0" resizeMode="0" anchorPoint="0" pictureWidth="${num(rose)}" pictureHeight="${num(rose)}" pictureRotation="0" northMode="0" northOffset="0" mapUuid="" svgFillColor="255,255,255,255,rgb:1,1,1,1" svgBorderColor="0,0,0,255,rgb:0,0,0,1" svgBorderWidth="0.2"`)}${COLORS}${OBJ}</LayoutItem>`,
   );
 
-  // Scale bar above the title block.
-  const seg = scaleBarSegment(scale);
-  const segments = 4;
-  const sbH = mm(SCALE_BAR - 10);
+  // Scale bar under the wind rose: the bar itself (not its labels) is centred on the rose.
+  const barW = segments * segMm;
   items.push(
-    `${itemAttrs(65646, 'thuoc_ty_le', ++n, px + 4, ty - sbH - mm(4), panel - 8, sbH, z++, `mapUuid="${mapUuid}" style="Single Box" unitType="meters" unitLabel="m" numSegments="${segments}" numSegmentsLeft="0" numUnitsPerSegment="${seg}" numMapUnitsPerScaleBarUnit="1" numSubdivisions="1" segmentSizeMode="0" segmentMillimeters="${num((seg / scale) * 1000)}" minBarWidth="20" maxBarWidth="${num(panel - 10)}" height="${mm(3)}" labelBarSpace="${mm(3)}" boxContentSpace="1" alignment="0" lineCapStyle="square" lineJoinStyle="miter" outlineWidth="0.3" subdivisionsHeight="1.5" method="HorizontalAverage"`)}${COLORS}${OBJ}${textStyle(pt(9))}</LayoutItem>`,
+    `${itemAttrs(65646, 'thuoc_ty_le', ++n, colCx - barW / 2 - mm(2.5), sbY, barW + mm(24), sbH, z++, `mapUuid="${mapUuid}" style="Single Box" unitType="meters" unitLabel="m" numSegments="${segments}" numSegmentsLeft="0" numUnitsPerSegment="${seg}" numMapUnitsPerScaleBarUnit="1" numSubdivisions="1" segmentSizeMode="0" segmentMillimeters="${num(segMm)}" minBarWidth="20" maxBarWidth="${num(panel - 10)}" height="${mm(3)}" labelBarSpace="${mm(3)}" boxContentSpace="1" alignment="0" lineCapStyle="square" lineJoinStyle="miter" outlineWidth="0.3" subdivisionsHeight="1.5" method="HorizontalAverage"`)}${COLORS}${OBJ}${textStyle(pt(9))}</LayoutItem>`,
   );
 
   const page =

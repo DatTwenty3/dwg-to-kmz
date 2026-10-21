@@ -505,6 +505,11 @@ export function buildDocument(src: SrcDocument, opts: BuildOptions = {}): CadDoc
     }
   }
 
+  if (src.xrefs?.length) {
+    const names = [...new Set(src.xrefs.map((x) => x.name))];
+    warnings.push(`Bản vẽ tham chiếu ngoài (xref): ${names.slice(0, 5).join(', ')}${names.length > 5 ? '…' : ''} — thả cùng các file này để hiển thị đủ đối tượng.`);
+  }
+
   return {
     units: src.units,
     crs: null,

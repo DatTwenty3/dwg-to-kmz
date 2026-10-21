@@ -9,7 +9,7 @@ import { colorRole, colorSuggestion, type ColorContext } from './colorClass';
 import { drawingTexts, findBoundary, insideFlags, layerRows, pickBoundary, type BoundaryCandidate, type LayerRow } from './inventory';
 import { guessRole, roleById, type RoleId } from './roles';
 import { pickSection } from './section';
-import { compactName, sameLandUse, suggest, type GeomKind } from './suggest';
+import { compactName, landUseOf, sameLandUse, suggest, type GeomKind } from './suggest';
 import { templateLookup, type MappingEntry, type MappingTemplate, type TemplateRule } from './template';
 import { placeXref, resolveXref, xrefNameRole, xrefOwners, type FolderFile, type MainDrawing } from './xrefs';
 
@@ -64,17 +64,31 @@ export async function loadFolder(
 ): Promise<LoadedFolder> {
   const cad = files.filter((f) => /\.(dwg|dxf)$/i.test(f.name));
   const isXrefName = (f: FolderFile) => guessRole(f.name, []).role === 'xref';
-  const mains = cad.filter((f) => !isXrefName(f));
-  const mainIds = new Set(mains.map((f) => f.id));
+  const named = cad.filter((f) => !isXrefName(f));
   const docs = new Map<string, CadDocument>();
   let done = 0;
-  let total = mains.length;
+  let total = named.length;
   const read = async (f: FolderInput) => {
     onProgress?.(done, total, f.name);
     docs.set(f.id, await parse(f, await f.read()));
     done++;
   };
-  for (const f of mains) await read(f);
+  for (const f of named) await read(f);
+
+  // A file that is not named like an xref but is loaded as one by another drawing, and has no map kind of its own
+  // ("NEN EXREF.dwg", "RANH AP XREF.dwg"), is an xref too — otherwise the drawing that loads it shows without its base.
+  const asXref = new Set<string>();
+  const namedIds = new Set(named.map((f) => f.id));
+  for (const f of named)
+    for (const x of docs.get(f.id)?.xrefs ?? []) {
+      const t = resolveXref(x.name, f.path, cad);
+      if (!t || t.id === f.id || !namedIds.has(t.id)) continue;
+      // Two drawings loading each other: neither is demoted.
+      if ((docs.get(t.id)?.xrefs ?? []).some((y) => resolveXref(y.name, t.path, cad)?.id === f.id)) continue;
+      if (!roleById(guessRole(t.name, drawingTexts(docs.get(t.id)!)).role).db) asXref.add(t.id);
+    }
+  const mains = named.filter((f) => !asXref.has(f.id));
+  const mainIds = new Set(mains.map((f) => f.id));
 
   // Xrefs, breadth first. reach = xref file → main drawings loading it; the first INSERT gives its placement.
   const reach = new Map<string, Set<string>>();
@@ -186,8 +200,30 @@ export function analyzeDrawings(parsed: ParsedDrawing[], section?: number | null
   const boundary = pickBoundary(parsed.map((p) => findBoundary(p.doc)));
   const drawings: DrawingInfo[] = [];
   const inside = new Map<string, Uint8Array>();
+  // A "định hướng phát triển không gian" map holding the land-use layers of the plan, in a dossier without a land-use map
+  // of its own (QH04 of a commune with only that map), is the land-use map: its hatches are read as land use, not dropped.
+  const guessed = new Map(parsed.filter((p) => !p.owner).map((p) => [p.id, guessRole(p.name, drawingTexts(p.doc))]));
+  const upgraded = new Set<string>();
+  if (![...guessed.values()].some((g) => g.role === 'qh-sdd')) {
+    for (const [id, g] of guessed) {
+      if (g.role !== 'qh-ktcq') continue;
+      let polygons = 0;
+      let landUse = 0;
+      // The hatches of the map itself (its xrefs are the survey base: buildings, parcels…).
+      for (const e of parsed.find((p) => p.id === id)!.doc.entities) {
+        if (e.kind !== 'polygon') continue;
+        polygons++;
+        if (landUseOf(compactName(e.layer))) landUse++;
+      }
+      if (polygons >= 20 && landUse / polygons >= 0.4) upgraded.add(id);
+    }
+  }
   for (const p of parsed) {
-    const g = p.owner ? { role: p.owner.role, title: null, year: null } : guessRole(p.name, drawingTexts(p.doc));
+    const g = p.owner
+      ? { role: upgraded.has(p.owner.id) ? ('qh-sdd' as RoleId) : p.owner.role, title: null, year: null }
+      : upgraded.has(p.id)
+        ? { ...guessed.get(p.id)!, role: 'qh-sdd' as RoleId }
+        : guessed.get(p.id)!;
     const flags = insideFlags(p.doc, boundary?.ring ?? null);
     inside.set(p.id, flags);
     let n = 0;

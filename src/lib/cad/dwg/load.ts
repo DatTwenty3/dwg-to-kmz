@@ -20,6 +20,15 @@ export function loadLibreDwg(wasmBaseUrl: string): Promise<LibreDwgEx> {
   return p;
 }
 
+/**
+ * Drops the cached WASM instances. A WebAssembly memory never shrinks while something references it, and reading
+ * big drawings grows LibreDWG's to hundreds of MB: once a folder is read the instance is only dead weight, and
+ * on weak machines that memory is what a later step (GDAL, 512 MB at start) cannot find.
+ */
+export function releaseLibreDwg(): void {
+  instances.clear();
+}
+
 export interface DwgReadResult {
   db: DwgDatabase;
   /** LibreDWG error bitmask (0 = clean). */

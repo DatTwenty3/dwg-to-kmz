@@ -17,8 +17,15 @@ export type Gdal = Awaited<ReturnType<typeof initGdalJs>>;
 let gdalPromise: Promise<Gdal> | null = null;
 export const gdalErrors: string[] = [];
 
-export const gdal = () =>
-  (gdalPromise ??= initGdalJs({
+/** The error is the browser running out of memory (a WASM memory that cannot be allocated or grown). */
+export const isOutOfMemory = (e: unknown) =>
+  e instanceof RangeError || /out of memory|cannot allocate|cannot enlarge memory|memory access out of bounds/i.test(e instanceof Error ? e.message : String(e));
+
+export const OUT_OF_MEMORY_MESSAGE =
+  'Máy không đủ bộ nhớ để ghi geodatabase (GDAL cần khoảng 0,5–1 GB trống). Hãy đóng các tab và ứng dụng khác, bỏ chọn bớt bản vẽ hoặc tắt "bản vẽ tổng hợp" ở bước Xuất rồi thử lại — hoặc dùng máy có RAM từ 8 GB.';
+
+const startGdal = () =>
+  initGdalJs({
     path: '/gdal',
     useWorker: false,
     logHandler: () => {},
@@ -26,7 +33,31 @@ export const gdal = () =>
       gdalErrors.push(m);
       if (gdalErrors.length > 50) gdalErrors.shift();
     },
-  }));
+  });
+
+/**
+ * GDAL, started once per worker. A failed start is not kept (the next try may succeed once memory is free), and an
+ * out-of-memory start is tried once more after a pause so the garbage collector can give memory back first.
+ */
+export function gdal(): Promise<Gdal> {
+  gdalPromise ??= (async () => {
+    try {
+      return await startGdal();
+    } catch (e) {
+      if (!isOutOfMemory(e)) throw e;
+      await new Promise((r) => setTimeout(r, 1500));
+      try {
+        return await startGdal();
+      } catch (e2) {
+        throw isOutOfMemory(e2) ? new Error(OUT_OF_MEMORY_MESSAGE) : e2;
+      }
+    }
+  })().catch((e) => {
+    gdalPromise = null;
+    throw e;
+  });
+  return gdalPromise;
+}
 
 let run = 0;
 /** A fresh output prefix ("run3_"). */
@@ -34,6 +65,7 @@ export const nextPrefix = (tag = '') => `run${++run}${tag}_`;
 
 /** The error of a failed step with the last GDAL messages. */
 export function gdalFailure(e: unknown): Error {
+  if (isOutOfMemory(e)) return new Error(OUT_OF_MEMORY_MESSAGE);
   const detail = gdalErrors.slice(-3).join(' | ');
   return new Error(`${e instanceof Error ? e.message : String(e)}${detail ? ` (GDAL: ${detail})` : ''}`);
 }

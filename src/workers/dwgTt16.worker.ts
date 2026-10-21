@@ -4,6 +4,7 @@
 // features → GeoJSON → GDAL stage 1 → "Chuẩn hóa TT16" → check. Nothing leaves the browser.
 import { tt16Wkt } from '@/lib/gdb/tt16Schema';
 import { parseDwg, parseDxf } from '@/lib/cad';
+import { releaseLibreDwg } from '@/lib/cad/dwg';
 import type { CadDocument, CadEntity, CrsOptions, Vec2 } from '@/lib/cad/types';
 import {
   analysisRows,
@@ -138,6 +139,8 @@ async function load(files: { path: string; file: File }[]) {
     (f, data) => (/\.dxf$/i.test(f.name) ? parseDxf(data, { wasmBaseUrl }) : parseDwg(data, { wasmBaseUrl })),
     (done, total, name) => post({ type: 'progress', stage: name ? `Đọc ${name}` : 'Đã đọc xong', done, total }),
   );
+  // The drawings are read: free the DWG reader's memory for the GDAL step (see releaseLibreDwg).
+  releaseLibreDwg();
   if (!folder.drawings.length) throw new Error('Không có bản vẽ DWG/DXF nào trong thư mục.');
   post({ type: 'progress', stage: 'Phân tích layer và ranh quy hoạch', done: 0, total: 1 });
   parsed = folder.drawings;
@@ -271,6 +274,8 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
     dxf = { blob: new Blob([text], { type: 'application/dxf' }), fileName: 'BanVeTongHop.dxf', layers: doc.layers.length, entities: doc.entities.length };
   }
 
+  // What the map's "Biên tập" view cached is not needed while writing: more room for GDAL.
+  outputCache = null;
   post({ type: 'progress', stage: 'Tải thư viện GDAL (lần đầu khoảng 40 MB)', done: 0, total: 1 });
   const Gdal = await gdal();
 

@@ -4,7 +4,7 @@ import { dwgToSource } from './convert';
 import { loadLibreDwg, readDwg } from './load';
 
 export { dwgToSource } from './convert';
-export { loadLibreDwg, readDwg, DWG_ERR_CRITICAL } from './load';
+export { loadLibreDwg, readDwg, releaseLibreDwg, DWG_ERR_CRITICAL } from './load';
 
 export interface DwgParseOptions extends BuildOptions {
   wasmBaseUrl: string;

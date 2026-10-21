@@ -9,6 +9,7 @@ import { foldVietnamese } from '@/lib/geo/provinces';
 import { TT16_DATABASES } from '@/lib/gdb/tt16';
 import type { ClassData, CategoryStyle } from './features';
 import { pascalName } from '@/lib/gdb/normalize';
+import { buildLayouts } from './qgisLayout';
 import { hatchSvgFor, pointSvgFor, ptToMm, svgToBase64, type PointSvg, type SvgLibrary } from './qgisSvg';
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
@@ -275,6 +276,25 @@ function srsXml(lon0: number, zone: 3 | 6): string {
 
 const GEOM = { A: ['Polygon', 'MultiPolygon'], L: ['Line', 'MultiLineString'], P: ['Point', 'Point'] } as const;
 
+/**
+ * The print layout "Bản đồ quy hoạch": frame, map, legend (the planning layers, headed by their Thông tư alias),
+ * scale bar and title block. The legend lists the QuyHoach classes (or all when there are none), without the labels-only
+ * class of administrative names.
+ */
+function layoutsXml(p: QgisProjectInput, layers: { c: ClassData; id: string; name: string; source: string }[], alias: Map<string, string>): string {
+  const plan = layers.filter((l) => l.c.db === 'QuyHoach');
+  const legend = (plan.length ? plan : layers)
+    .filter((l) => l.c.cls !== 'TenDonViHanhChinh_P')
+    .map((l) => ({
+      id: l.id,
+      name: l.name,
+      source: l.source,
+      // The alias without its parenthesis ("… dạng đường (tim đường)"): the headings must fit the column.
+      title: (alias.get(l.c.target) ?? l.c.cls).replace(/\s*\([^)]*\)\s*$/, ''),
+    }));
+  return buildLayouts({ name: 'Bản đồ quy hoạch', title: p.title, mapName: 'BẢN ĐỒ QUY HOẠCH SỬ DỤNG ĐẤT', extent: p.extent, legend });
+}
+
 /** The .qgs XML. */
 export function buildQgs(p: QgisProjectInput): string {
   const srs = srsXml(p.lon0, p.zone);
@@ -349,6 +369,7 @@ export function buildQgs(p: QgisProjectInput): string {
     `<properties><SpatialRefSys><ProjectionsEnabled type="int">1</ProjectionsEnabled></SpatialRefSys><Paths><Absolute type="bool">false</Absolute></Paths><Measurement><DistanceUnits type="QString">meters</DistanceUnits><AreaUnits type="QString">m2</AreaUnits></Measurement>` +
     `<PositionPrecision><Automatic type="bool">true</Automatic><DecimalPlaces type="int">2</DecimalPlaces></PositionPrecision></properties>` +
     `<visibility-presets/><transformContext/><projectMetadata><identifier></identifier><parentidentifier></parentidentifier><language>vi</language><type></type><title>${esc(p.title)}</title><abstract>Tệp tổng hợp HoSoGIS theo Thông tư 16/2025/TT-BXD — tạo bởi LEDAT-GIS</abstract><links/><author>LEDAT-GIS</author><creation></creation></projectMetadata>` +
+    layoutsXml(p, layers, alias) +
     `<ProjectViewSettings UseProjectScales="0" rotation="0"><Scales/><DefaultViewExtent xmin="${x0}" ymin="${y0}" xmax="${x1}" ymax="${y1}">${srs}</DefaultViewExtent></ProjectViewSettings>` +
     `</qgis>\n`
   );

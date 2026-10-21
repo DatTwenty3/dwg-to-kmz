@@ -31,11 +31,11 @@ export async function folderFiles(entry: FileSystemEntry): Promise<Picked[]> {
 }
 
 /** Packs picked files (relative paths kept) into one .zip File. */
-export async function zipFiles(name: string, files: Picked[]): Promise<File> {
+export async function zipFiles(name: string, files: Picked[], onProgress?: (percent: number) => void): Promise<File> {
   const { default: JSZip } = await import('jszip');
   const zip = new JSZip();
   for (const f of files) zip.file(f.path, f.file);
-  const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+  const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' }, onProgress ? (m) => onProgress(m.percent) : undefined);
   return new File([blob], name, { type: 'application/zip' });
 }
 

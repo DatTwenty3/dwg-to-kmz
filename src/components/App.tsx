@@ -221,16 +221,17 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   const [focusTab, setFocusTab] = useState<{ tab: PanelTab; seq: number }>();
   const [layerCache] = useState(() => createFileLayerCache());
   // ---- sketches (user drawings) ----
-  // Restored from this browser; sketches only render on the map page, so the server's empty list never mismatches.
+  // Restored from this browser after mount (effect below): the start page already shows them ("Tiếp tục …"), so
+  // reading storage while rendering would not match the server's HTML (hydration error).
   // A shared link starts empty and is filled by the decoder below (local sketches stay untouched in storage).
   // `sharedView`: the map on screen is someone else's (a shared link, or a .ldg session opened in place of the
   // map) — it is never written to this device's storage until "Lưu vào máy này". `sharedKind` says which.
   const [sharedView, setSharedView] = useState(fromShare);
   const [sharedKind, setSharedKind] = useState<'link' | 'session'>('link');
-  const [sketches, setSketches] = useState<SketchFeature[]>(() => (typeof window === 'undefined' || fromShare ? [] : loadSketches()));
-  const [mapMeta, setMapMeta] = useState(() =>
-    typeof window === 'undefined' || fromShare ? { title: DEFAULT_MAP_TITLE, description: '' } : loadMeta(),
-  );
+  const [sketches, setSketches] = useState<SketchFeature[]>([]);
+  const [mapMeta, setMapMeta] = useState({ title: DEFAULT_MAP_TITLE, description: '' });
+  /** This device's own map has been read from storage (nothing is written back before that). */
+  const [restored, setRestored] = useState(false);
   const [shareMap, setShareMap] = useState<SharedMap | null>(null);
   /** Decision dialog ("Tạo bản đồ mới" over an existing map, opening a .ldg session…). */
   const [choice, setChoice] = useState<{
@@ -327,14 +328,27 @@ export default function App({ sharedPayload }: { sharedPayload?: string | null }
   }, [selection]);
   const [nextColor, setNextColor] = useState(SKETCH_DEFAULT_COLOR);
   useEffect(() => {
-    if (sharedView) return; // viewing someone's link: never overwrite this device's own map
+    if (!fromShare) {
+      const own = loadSketches();
+      sketchesRef.current = own;
+      // Reading browser storage is only possible after mount (see above): the one place state is set from an effect.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSketches(own);
+      setMapMeta(loadMeta());
+    }
+    setRestored(true);
+    // Once, on mount: a shared link starts empty and is filled by the decoder below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (sharedView || !restored) return; // viewing someone's link: never overwrite this device's own map
     try {
       window.localStorage.setItem(SKETCH_STORAGE_KEY, JSON.stringify(sketches));
       window.localStorage.setItem(META_STORAGE_KEY, JSON.stringify(mapMeta));
     } catch {
       /* storage full / disabled: sketches still live for this session */
     }
-  }, [sketches, mapMeta, sharedView]);
+  }, [sketches, mapMeta, sharedView, restored]);
   // Per file: the document with the moved vertices, styled (`out`, index = position in doc.entities) and the same without the deleted objects
   // (`shown`, what is drawn and exported) — rebuilt only when the document, the styles or the deletions change.
   const [styledCache] = useState(

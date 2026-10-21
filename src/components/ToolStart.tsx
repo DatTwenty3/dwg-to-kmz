@@ -1,5 +1,5 @@
 'use client';
-// Start screen of every tool (Bản đồ CAD, Kiểm tra CSDL, Bóc tách DWG): the moving backdrop of the home page,
+// Start screen of every tool (Bản đồ, Kiểm tra CSDL, Bóc tách DWG): the moving backdrop of the home page,
 // the logo top-left (back to the home page — there is no top bar), a short title, the drop zone, and an animated
 // isometric illustration of what the tool does. Few words on purpose.
 import Link from 'next/link';

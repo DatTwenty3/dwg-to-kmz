@@ -91,7 +91,7 @@ export default function Landing({
         art="map"
         title={
           <>
-            Bản đồ <span className="ui-shimmer">CAD</span>
+            Bản đồ <span className="ui-shimmer">GIS</span>
           </>
         }
         subtitle={

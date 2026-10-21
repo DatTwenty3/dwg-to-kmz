@@ -11,7 +11,7 @@ type Props = { searchParams: Promise<Record<string, string | string[] | undefine
  */
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const title = cleanShareTitle((await searchParams)[SHARE_TITLE_PARAM]);
-  return title ? sharedMapMetadata(title) : { title: 'Bản đồ CAD · LEDAT-GIS' };
+  return title ? sharedMapMetadata(title) : { title: 'Bản đồ · LEDAT-GIS' };
 }
 
 export default function MapPage() {

@@ -21,7 +21,7 @@ const UNKNOWN =
   'Chưa nhận ra định dạng — thả file .dwg, .dxf, .kmz, .kml, thư mục .gdb / HoSoGIS, hoặc thư mục bản vẽ quy hoạch.';
 
 /** Geodatabase folders of a drop become one .zip each (as the checker expects); loose .zip files go as they are. */
-async function geodatabaseFiles(picked: Picked[]): Promise<File[]> {
+async function geodatabaseFiles(picked: Picked[], onProgress: (percent: number) => void): Promise<File[]> {
   const out: File[] = [];
   const roots = new Map<string, Picked[]>();
   for (const p of picked) {
@@ -34,8 +34,9 @@ async function geodatabaseFiles(picked: Picked[]): Promise<File[]> {
     const root = path.slice(0, slash);
     roots.set(root, [...(roots.get(root) ?? []), { path, file: p.file }]);
   }
-  for (const [root, files] of roots) {
-    if (files.some((f) => f.path.toLowerCase().endsWith('/' + GDB_MARKER))) out.push(await zipFiles(`${root}.zip`, files));
+  const dirs = [...roots].filter(([, files]) => files.some((f) => f.path.toLowerCase().endsWith('/' + GDB_MARKER)));
+  for (const [k, [root, files]] of dirs.entries()) {
+    out.push(await zipFiles(`${root}.zip`, files, (pct) => onProgress(((k + pct / 100) / dirs.length) * 100)));
   }
   return out;
 }
@@ -46,6 +47,8 @@ export default function HomeDrop() {
   const phone = useIsPhone();
   const [over, setOver] = useState(false);
   const [busy, setBusy] = useState<LaunchTool | null>(null);
+  /** Packing a geodatabase folder takes a while: its progress, in percent. */
+  const [packing, setPacking] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
@@ -106,10 +109,14 @@ export default function HomeDrop() {
       setBusy(tool);
       if (tool === 'map') handOffToMap(picked.filter((p) => MAP_EXT.test(p.path)).map((p) => p.file));
       else if (tool === 'extract') handOffToExtractor(picked);
-      else handOffToChecker(await geodatabaseFiles(picked));
+      else {
+        setPacking(0);
+        handOffToChecker(await geodatabaseFiles(picked, (pct) => setPacking(Math.round(pct))));
+      }
       router.push(TOOL_PATH[tool]);
     } catch (err) {
       setBusy(null);
+      setPacking(null);
       setError(`Không đọc được: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
@@ -138,7 +145,9 @@ export default function HomeDrop() {
         <p className="mt-4 text-lg font-bold tracking-[-0.01em] text-zinc-900 sm:text-xl">
           {busy ? `Đang mở ${TOOL_NAME[busy]}…` : 'Thả file hoặc thư mục vào đây'}
         </p>
-        <p className="mt-1 text-[13px] text-zinc-500">DWG · DXF · KMZ · KML · GDB · thư mục bản vẽ</p>
+        <p className="mt-1 text-[13px] tabular-nums text-zinc-500">
+          {busy && packing !== null ? `Đang gói thư mục · ${packing}%` : 'DWG · DXF · KMZ · KML · GDB · thư mục bản vẽ'}
+        </p>
         <div className="ui-pills mt-5 flex flex-wrap items-center justify-center gap-2">
           <button className="ui-btn-primary" disabled={!!busy} onClick={() => fileRef.current?.click()}>
             <IconUpload width={15} height={15} />

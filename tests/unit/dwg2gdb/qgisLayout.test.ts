@@ -65,7 +65,7 @@ describe('wind rose (hoa gió)', () => {
     for (const t of ['>B<', '>Đ<', '>N<', '>T<']) expect(svg).toContain(t);
     expect((svg.match(/<polygon/g) ?? []).length).toBe(16);
   });
-  it('has no outer ring, and sits at the top of the column with the scale bar centred under it, above the legend', () => {
+  it('has no outer ring; sits at the top of the title column with the scale bar centred under it; the legend is in the column to its left', () => {
     expect(windRoseSvg()).not.toContain('<circle');
     const l = buildLayouts({ name: 'n', title: 't', mapName: 'm', extent: [0, 0, 5000, 3500], srs: '<spatialrefsys/>', legend: [{ id: 'a', name: 'A', source: 's', title: 'x' }] });
     const at = (id: string) => {
@@ -76,10 +76,52 @@ describe('wind rose (hoa gió)', () => {
     const bar = at('thuoc_ty_le');
     const legend = at('chu_giai');
     expect(rose.y).toBeLessThan(bar.y);
-    expect(bar.y + bar.h).toBeLessThan(legend.y);
+    expect(legend.x + legend.w).toBeLessThanOrEqual(rose.x);
     // The bar (without its label overhang) is centred on the rose, within a few mm.
     const barW = 4 * ((250 / 10000) * 1000);
     expect(Math.abs(bar.x + 3 + barW / 2 - (rose.x + rose.w / 2))).toBeLessThan(1);
+  });
+});
+
+describe('title block (khung tên)', () => {
+  const l = buildLayouts({ name: 'n', title: 'QUY HOẠCH CHUNG XÃ A', mapName: 'BẢN ĐỒ B', extent: [0, 0, 5000, 3500], srs: '<spatialrefsys/>', legend: [] });
+  it('is the office printed sheet: four approving bodies with their "kèm theo" lines, project, drawing, no. / composition / scale / date, people, director', () => {
+    for (const t of [
+      'CƠ QUAN PHÊ DUYỆT:',
+      'KÈM THEO QUYẾT ĐỊNH SỐ:',
+      'CƠ QUAN THẨM ĐỊNH:',
+      'KÈM THEO VĂN BẢN SỐ:',
+      'CƠ QUAN TRÌNH DUYỆT:',
+      'CƠ QUAN TỔ CHỨC LẬP QUY HOẠCH:',
+      'CÔNG TRÌNH - ĐỊA ĐIỂM:',
+      'TÊN BẢN VẼ:',
+      'BẢN VẼ: QH',
+      'x A0',
+      'NGÀY:',
+      'THIẾT KẾ -&#10;THỂ HIỆN',
+      'CHỦ TRÌ',
+      'CHỦ NHIỆM',
+      'TRƯỞNG PHÒNG',
+      'QL. KỸ THUẬT',
+      'GIÁM ĐỐC',
+    ])
+      expect(l).toContain(t);
+    expect(l).toContain('labelText="QUY HOẠCH CHUNG XÃ A"');
+    expect(l).toContain('labelText="BẢN ĐỒ B"');
+  });
+  it('the people, dates and the design unit are left empty; the scale is filled by an expression; the strip names the project', () => {
+    expect(l).toContain('TỶ LỆ: 1/');
+    expect(l).not.toContain('format_date(now()');
+    expect(l).not.toContain('TÊN ĐƠN VỊ THIẾT KẾ');
+    expect(l).not.toContain('....');
+    expect(l).toContain('labelText="TÊN CÔNG TRÌNH: QUY HOẠCH CHUNG XÃ A"');
+    // Nothing under the sheet frame any more.
+    expect(l).not.toContain('TÊN ĐỒ ÁN:');
+  });
+  it('is 135 mm wide and its rows fit under the rose and the scale bar', () => {
+    const m = /id="ty_le"[^>]*?position="([0-9.]+),([0-9.]+),mm"/.exec(l)!;
+    expect(+m[2]).toBeGreaterThan(10 + 5 + 40 + 2 + 14); // below the scale bar
+    expect(+m[2]).toBeLessThan(841 - 10);
   });
 });
 

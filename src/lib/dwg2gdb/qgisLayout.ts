@@ -30,6 +30,11 @@ export interface Sheet {
 /** Left margin of the frame (to bind) and the others, as on a standard drawing sheet. */
 export const MARGIN_LEFT = 20;
 export const MARGIN = 10;
+/** Bottom margin. */
+export const MARGIN_BOTTOM = 10;
+/** Right panel: the legend column and the title column ("khung tên", 135 mm — the proportions of the office's template). */
+export const LEGEND_W = 150;
+export const TITLE_W = 135;
 const FILL = 0.96;
 /** Room between the sheet frame and the map for the coordinate labels of the grid (mm). */
 export const GUTTER = 18;
@@ -37,18 +42,14 @@ export const GUTTER = 18;
 /** Type size factor of a sheet: A1 is the reference, never below 70 %. */
 export const typeFactor = (width: number) => Math.max(0.7, Math.sqrt(width / 841));
 
-/** Height of the title block and the scale bar (mm at A1). */
-const TITLE_BLOCK = 86;
-const SCALE_BAR = 24;
-
 /**
  * The A0 sheet and the most detailed scale (1:1.000 … 1:250.000) at which the extent (metres) fits the map frame —
  * beyond the listed scales, the scale that fits rounded up to 1.000.
  */
 export function chooseSheet(extentW: number, extentH: number): Sheet {
   const p = SHEET;
-  const panel = Math.round(p.w * 0.22);
-  const make = (scale: number): Sheet => ({ paper: p.name, w: p.w, h: p.h, scale, panel, mapX: MARGIN_LEFT + GUTTER, mapY: MARGIN + GUTTER, mapW: p.w - MARGIN_LEFT - MARGIN - panel - 2 * GUTTER, mapH: p.h - 2 * MARGIN - 2 * GUTTER });
+  const panel = LEGEND_W + TITLE_W;
+  const make = (scale: number): Sheet => ({ paper: p.name, w: p.w, h: p.h, scale, panel, mapX: MARGIN_LEFT + GUTTER, mapY: MARGIN + GUTTER, mapW: p.w - MARGIN_LEFT - MARGIN - panel - 2 * GUTTER, mapH: p.h - MARGIN - MARGIN_BOTTOM - 2 * GUTTER });
   const base = make(1);
   for (const scale of SCALES) if ((extentW / scale) * 1000 <= base.mapW * FILL && (extentH / scale) * 1000 <= base.mapH * FILL) return make(scale);
   const need = Math.max((extentW * 1000) / (base.mapW * FILL), (extentH * 1000) / (base.mapH * FILL));
@@ -151,7 +152,7 @@ export interface LayoutInput {
 export function buildLayouts(p: LayoutInput): string {
   const [x0, y0, x1, y1] = p.extent;
   const sheet = chooseSheet(x1 - x0, y1 - y0);
-  const { w: W, h: H, scale, panel, mapX, mapY, mapW, mapH } = sheet;
+  const { w: W, h: H, scale, mapX, mapY, mapW, mapH } = sheet;
   const k = typeFactor(W);
   const pt = (v: number) => Math.round(v * k * 10) / 10;
   const mm = (v: number) => Math.round(v * k * 10) / 10;
@@ -165,7 +166,7 @@ export function buildLayouts(p: LayoutInput): string {
     items.push(`${itemAttrs(65643, '', ++n, x, y, w, h, z++, 'shapeType="1" cornerRadiusMeasure="0,mm"')}${COLORS}${OBJ}${rectSymbol(outline)}</LayoutItem>`);
   const label = (text: string, x: number, y: number, w: number, h: number, size: number, o: { bold?: boolean; italic?: boolean; h?: 'left' | 'center' | 'right'; id?: string } = {}) =>
     items.push(
-      `${itemAttrs(65641, o.id ?? '', ++n, x, y, w, h, z++, `labelText="${esc(text)}" halign="${o.h === 'left' ? 1 : o.h === 'right' ? 2 : 4}" valign="128" marginX="1" marginY="0" htmlState="0"`)}${COLORS}${OBJ}${textStyle(size, o.bold, o.italic)}</LayoutItem>`,
+      `${itemAttrs(65641, o.id ?? '', ++n, x, y, w, h, z++, `labelText="${esc(text).replace(/\n/g, '&#10;')}" halign="${o.h === 'left' ? 1 : o.h === 'right' ? 2 : 4}" valign="128" marginX="1" marginY="0" htmlState="0"`)}${COLORS}${OBJ}${textStyle(size, o.bold, o.italic)}</LayoutItem>`,
     );
 
   // Map: fills the left part of the frame, centred on the project extent at the sheet's scale.
@@ -197,22 +198,24 @@ export function buildLayouts(p: LayoutInput): string {
       `<atlasClippingSettings clippingType="1" enabled="0" forceLabelsInside="0" restrictLayers="0"><layersToClip/></atlasClippingSettings><itemClippingSettings clipSource="" clippingType="1" enabled="0" forceLabelsInside="0"/></LayoutItem>`,
   );
 
-  // Frame of the sheet and the line between the map and the right column.
-  rect(MARGIN_LEFT, MARGIN, W - MARGIN_LEFT - MARGIN, H - 2 * MARGIN, 0.7);
-  rect(px, MARGIN, panel, H - 2 * MARGIN, 0.35);
+  // Frame of the sheet; the right panel is two columns: the legend, and the title column.
+  const tx = px + LEGEND_W; // left edge of the title column
+  const frameBottom = H - MARGIN_BOTTOM;
+  const fh = frameBottom - MARGIN;
+  rect(MARGIN_LEFT, MARGIN, W - MARGIN_LEFT - MARGIN, fh, 0.7);
+  rect(px, MARGIN, LEGEND_W, fh, 0.35);
 
-  // The top of the column: the wind rose (hoa gió), the scale bar centred under it, then the legend.
-  const rose = mm(46);
-  const roseY = MARGIN + mm(5);
+  // The top of the title column: the wind rose (hoa gió) and, centred under it, the scale bar.
+  const colCx = tx + TITLE_W / 2;
+  const rose = 40;
+  const roseY = MARGIN + 5;
   const seg = scaleBarSegment(scale);
-  const segments = 4;
   const segMm = (seg / scale) * 1000;
-  const sbH = mm(SCALE_BAR - 10);
-  const sbY = roseY + rose + mm(2);
-  const legendY = sbY + sbH + mm(6);
-  const colCx = px + panel / 2;
+  const segments = Math.max(2, Math.min(4, Math.floor(100 / segMm)));
+  const sbH = 14;
+  const sbY = roseY + rose + 2;
 
-  // Legend ("chú giải") below them; its size follows its content.
+  // Legend ("chú giải"): the left column; its size follows its content.
   const lg = (name: string, pts: number, bold: boolean, extra = '') =>
     `<style name="${name}" alignment="1" indent="0"${extra}>${textStyle(pts, bold)}</style>`;
   const legendStyles =
@@ -226,33 +229,81 @@ export function buildLayouts(p: LayoutInput): string {
     )
     .join('');
   items.push(
-    `${itemAttrs(65642, 'chu_giai', ++n, px + 3, legendY, panel - 6, 10, z++, `map_uuid="${mapUuid}" title="CHÚ GIẢI" titleAlignment="1" resizeToContents="1" boxSpace="2" columnCount="1" columnSpace="2" symbolWidth="${mm(7)}" symbolHeight="${mm(4)}" symbolAlignment="1" splitLayer="0" equalColumnWidth="0" legendFilterByAtlas="0" maxSymbolSize="0" minSymbolSize="0" wmsLegendWidth="50" wmsLegendHeight="25" rasterBorder="0" wrapChar=""`)}${COLORS}${OBJ}` +
+    `${itemAttrs(65642, 'chu_giai', ++n, px + 3, MARGIN + 3, LEGEND_W - 6, 10, z++, `map_uuid="${mapUuid}" title="CHÚ GIẢI" titleAlignment="1" resizeToContents="1" boxSpace="2" columnCount="1" columnSpace="2" symbolWidth="${mm(7)}" symbolHeight="${mm(4)}" symbolAlignment="1" splitLayer="0" equalColumnWidth="0" legendFilterByAtlas="0" maxSymbolSize="0" minSymbolSize="0" wmsLegendWidth="50" wmsLegendHeight="25" rasterBorder="0" wrapChar=""`)}${COLORS}${OBJ}` +
       `${legendStyles}<layer-tree-group><customproperties><Option/></customproperties>${legendTree}<custom-order enabled="0">${p.legend.map((l) => `<item>${esc(l.id)}</item>`).join('')}</custom-order></layer-tree-group></LayoutItem>`,
   );
 
-  // Title block ("khung tên") at the bottom of the column: project, map, scale and date, who drew it.
-  const tbH = mm(TITLE_BLOCK);
-  const ty = H - MARGIN - tbH;
-  const rows = [mm(36), mm(16), mm(12), mm(22)];
-  rect(px, ty, panel, tbH, 0.5);
-  let ry = ty;
-  rows.forEach((rh, i) => {
-    if (i) rect(px, ry, panel, rh, 0.35);
-    ry += rh;
+  // Title block ("khung tên") at the bottom of the title column — the office's printed sheet, 135 mm wide, the people and
+  // dates left empty. Absolute sizes (mm, pt): it is a form, not scaled with the sheet.
+  const u = TITLE_W / 968; // mm per pixel of the sheet it copies
+  // approvals ×4 | project | drawing | no. / composition / scale / date | people ×5 | director | design unit | strip
+  const rowH = [198, 195, 190, 193, 130, 130, 64, 82, 64, 64, 64, 64, 175, 165, 55].map((v) => v * u);
+  const tbH = rowH.reduce((t, v) => t + v, 0);
+  const ty = frameBottom - tbH;
+  const sp = (count: number) => ' '.repeat(count);
+  const inner = TITLE_W - 3;
+  const ys: number[] = [];
+  rowH.reduce((y, h) => {
+    ys.push(y);
+    return y + h;
+  }, ty);
+  rect(tx, ty, TITLE_W, tbH, 0.5);
+  // The four approving bodies: the name of the body at the top, the "kèm theo … số … ngày … tháng … năm" line at the bottom.
+  const approvals: [string, string][] = [
+    ['CƠ QUAN PHÊ DUYỆT:', 'KÈM THEO QUYẾT ĐỊNH SỐ:'],
+    ['CƠ QUAN THẨM ĐỊNH:', 'KÈM THEO VĂN BẢN SỐ:'],
+    ['CƠ QUAN TRÌNH DUYỆT:', 'KÈM THEO TỜ TRÌNH SỐ:'],
+    ['CƠ QUAN TỔ CHỨC LẬP QUY HOẠCH:', 'KÈM THEO TỜ TRÌNH SỐ:'],
+  ];
+  approvals.forEach(([head, ref], i) => {
+    rect(tx, ys[i], TITLE_W, rowH[i], 0.35);
+    label(head, tx + 1, ys[i] + 0.5, inner, 6.5, 10, { h: 'left' });
+    label(`${ref}${sp(30)}NGÀY${sp(18)}THÁNG${sp(18)}NĂM`, tx + 1, ys[i] + rowH[i] - 7.5, inner, 6.5, 7, { bold: true, h: 'left' });
   });
-  ry = ty;
-  label('ĐỒ ÁN', px, ry + 1, panel, mm(5), pt(8), { italic: true });
-  label(p.title, px + 2, ry + mm(6), panel - 4, rows[0] - mm(8), pt(11), { bold: true });
-  ry += rows[0];
-  label(p.mapName, px + 2, ry, panel - 4, rows[1], pt(12), { bold: true });
-  ry += rows[1];
-  label("[% 'TỶ LỆ 1/' || replace(format_number(item_variables('map')['map_scale'], 0), ',', '.') %]", px, ry, panel / 2, rows[2], pt(10), { bold: true, id: 'ty_le' });
-  label("[% 'NGÀY ' || format_date(now(), 'dd/MM/yyyy') %]", px + panel / 2, ry, panel / 2, rows[2], pt(10), { bold: true });
-  ry += rows[2];
-  label('Đơn vị lập: ............................................', px + 2, ry + mm(3), panel - 4, mm(8), pt(9), { h: 'left' });
-  label('Chủ trì: ...................................................', px + 2, ry + mm(11), panel - 4, mm(8), pt(9), { h: 'left' });
+  // Project and drawing names: the heading, then the name centred.
+  rect(tx, ys[4], TITLE_W, rowH[4], 0.35);
+  label('CÔNG TRÌNH - ĐỊA ĐIỂM:', tx + 1, ys[4] + 1, inner, 6.5, 10, { h: 'left' });
+  label(p.title, tx + 2, ys[4] + rowH[4] * 0.42, inner - 2, rowH[4] * 0.5, 9.5, { bold: true });
+  rect(tx, ys[5], TITLE_W, rowH[5], 0.35);
+  label('TÊN BẢN VẼ:', tx + 1, ys[5] + 1, inner, 6.5, 10, { h: 'left' });
+  label(p.mapName, tx + 2, ys[5] + rowH[5] * 0.42, inner - 2, rowH[5] * 0.5, 13, {});
+  // Drawing no., sheet composition, scale, date.
+  const cw = [227, 257, 258, 226].map((v) => v * u);
+  const cellTexts = [
+    'BẢN VẼ: QH',
+    `GHÉP:${sp(6)}x A0`,
+    "[% 'TỶ LỆ: 1/' || replace(format_number(item_variables('map')['map_scale'], 0), ',', '.') %]",
+    'NGÀY:',
+  ];
+  let cx0 = tx;
+  cw.forEach((w, i) => {
+    rect(cx0, ys[6], w, rowH[6], 0.35);
+    label(cellTexts[i], cx0, ys[6], w, rowH[6], 10, { id: i === 2 ? 'ty_le' : undefined });
+    cx0 += w;
+  });
+  // The people: role | name | signature.
+  const roles = ['THIẾT KẾ -\nTHỂ HIỆN', 'CHỦ TRÌ', 'CHỦ NHIỆM', 'TRƯỞNG PHÒNG', 'QL. KỸ THUẬT'];
+  const pw = [227, 515, 226].map((v) => v * u);
+  roles.forEach((role, i) => {
+    const y = ys[7 + i];
+    let x = tx;
+    pw.forEach((w, c) => {
+      rect(x, y, w, rowH[7 + i], 0.35);
+      if (c === 0) label(role, x, y, w, rowH[7 + i], 10, {});
+      x += w;
+    });
+  });
+  // The director (stamp and signature go here), the design unit (logo, name, address, phone: left empty).
+  rect(tx, ys[12], TITLE_W, rowH[12], 0.35);
+  label('GIÁM ĐỐC', tx + 3, ys[12] + 1.5, 40, 6.5, 10, { h: 'left' });
+  rect(tx, ys[13], TITLE_W, rowH[13], 0.35);
+  // The last strip: the name of the project, and the 2 × 2 box.
+  rect(tx, ys[14], TITLE_W, rowH[14], 0.35);
+  label(`TÊN CÔNG TRÌNH: ${p.title}`, tx + 1, ys[14], inner - 12, rowH[14], 5, { bold: true, h: 'left' });
+  const cell = rowH[14] / 2;
+  ([[0, 0], [1, 0], [0, 1], [1, 1]] as const).forEach(([col, row]) => rect(tx + TITLE_W - 2 * cell + col * cell, ys[14] + row * cell, cell, cell, 0.3));
 
-  // Wind rose at the top of the column, centred.
+  // Wind rose at the top of the title column, centred.
   items.push(
     `${itemAttrs(65640, 'hoa_gio', ++n, colCx - rose / 2, roseY, rose, rose, z++, `file="${esc(svgToBase64(windRoseSvg()))}" mode="0" resizeMode="0" anchorPoint="0" pictureWidth="${num(rose)}" pictureHeight="${num(rose)}" pictureRotation="0" northMode="0" northOffset="0" mapUuid="" svgFillColor="255,255,255,255,rgb:1,1,1,1" svgBorderColor="0,0,0,255,rgb:0,0,0,1" svgBorderWidth="0.2"`)}${COLORS}${OBJ}</LayoutItem>`,
   );
@@ -260,7 +311,7 @@ export function buildLayouts(p: LayoutInput): string {
   // Scale bar under the wind rose: the bar itself (not its labels) is centred on the rose.
   const barW = segments * segMm;
   items.push(
-    `${itemAttrs(65646, 'thuoc_ty_le', ++n, colCx - barW / 2 - mm(2.5), sbY, barW + mm(24), sbH, z++, `mapUuid="${mapUuid}" style="Single Box" unitType="meters" unitLabel="m" numSegments="${segments}" numSegmentsLeft="0" numUnitsPerSegment="${seg}" numMapUnitsPerScaleBarUnit="1" numSubdivisions="1" segmentSizeMode="0" segmentMillimeters="${num(segMm)}" minBarWidth="20" maxBarWidth="${num(panel - 10)}" height="${mm(3)}" labelBarSpace="${mm(3)}" boxContentSpace="1" alignment="0" lineCapStyle="square" lineJoinStyle="miter" outlineWidth="0.3" subdivisionsHeight="1.5" method="HorizontalAverage"`)}${COLORS}${OBJ}${textStyle(pt(9))}</LayoutItem>`,
+    `${itemAttrs(65646, 'thuoc_ty_le', ++n, colCx - barW / 2 - 3, sbY, barW + 26, sbH, z++, `mapUuid="${mapUuid}" style="Single Box" unitType="meters" unitLabel="m" numSegments="${segments}" numSegmentsLeft="0" numUnitsPerSegment="${seg}" numMapUnitsPerScaleBarUnit="1" numSubdivisions="1" segmentSizeMode="0" segmentMillimeters="${num(segMm)}" minBarWidth="20" maxBarWidth="${num(TITLE_W - 10)}" height="3" labelBarSpace="3" boxContentSpace="1" alignment="0" lineCapStyle="square" lineJoinStyle="miter" outlineWidth="0.3" subdivisionsHeight="1.5" method="HorizontalAverage"`)}${COLORS}${OBJ}${textStyle(9)}</LayoutItem>`,
   );
 
   const page =

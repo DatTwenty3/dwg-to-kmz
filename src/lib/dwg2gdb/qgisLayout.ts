@@ -31,6 +31,8 @@ export interface Sheet {
 export const MARGIN_LEFT = 20;
 export const MARGIN = 10;
 const FILL = 0.96;
+/** Room between the sheet frame and the map for the coordinate labels of the grid (mm). */
+export const GUTTER = 18;
 
 /** Type size factor of a sheet: A1 is the reference, never below 70 %. */
 export const typeFactor = (width: number) => Math.max(0.7, Math.sqrt(width / 841));
@@ -46,7 +48,7 @@ const SCALE_BAR = 24;
 export function chooseSheet(extentW: number, extentH: number): Sheet {
   const p = SHEET;
   const panel = Math.round(p.w * 0.22);
-  const make = (scale: number): Sheet => ({ paper: p.name, w: p.w, h: p.h, scale, panel, mapX: MARGIN_LEFT, mapY: MARGIN, mapW: p.w - MARGIN_LEFT - MARGIN - panel, mapH: p.h - 2 * MARGIN });
+  const make = (scale: number): Sheet => ({ paper: p.name, w: p.w, h: p.h, scale, panel, mapX: MARGIN_LEFT + GUTTER, mapY: MARGIN + GUTTER, mapW: p.w - MARGIN_LEFT - MARGIN - panel - 2 * GUTTER, mapH: p.h - 2 * MARGIN - 2 * GUTTER });
   const base = make(1);
   for (const scale of SCALES) if ((extentW / scale) * 1000 <= base.mapW * FILL && (extentH / scale) * 1000 <= base.mapH * FILL) return make(scale);
   const need = Math.max((extentW * 1000) / (base.mapW * FILL), (extentH * 1000) / (base.mapH * FILL));
@@ -87,6 +89,13 @@ export function windRoseSvg(): string {
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">` +
     `${points.join('')}${letter('B', 100, 18)}${letter('Đ', 187, 107)}${letter('N', 100, 196)}${letter('T', 13, 107)}</svg>`
   );
+}
+
+/** Grid interval (m): a round value giving lines about 6 cm apart on the sheet. */
+export function gridInterval(scale: number): number {
+  const target = scale * 0.06;
+  const steps = [50, 100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000, 20000, 25000];
+  return steps.reduce((best, v) => (Math.abs(v - target) < Math.abs(best - target) ? v : best), steps[0]);
 }
 
 const uuid = (n: number) => `{00000000-0000-4000-8000-${String(n).padStart(12, '0')}}`;
@@ -133,6 +142,8 @@ export interface LayoutInput {
   mapName: string;
   /** Project extent [xmin, ymin, xmax, ymax] in VN-2000 metres. */
   extent: [number, number, number, number];
+  /** <spatialrefsys> of the project (the grid is in its coordinates). */
+  srs: string;
   legend: LegendLayer[];
 }
 
@@ -145,7 +156,7 @@ export function buildLayouts(p: LayoutInput): string {
   const pt = (v: number) => Math.round(v * k * 10) / 10;
   const mm = (v: number) => Math.round(v * k * 10) / 10;
 
-  const px = mapX + mapW; // left edge of the right column
+  const px = mapX + mapW + GUTTER; // left edge of the right column
   const items: string[] = [];
   let n = 1;
   let z = 1;
@@ -163,9 +174,26 @@ export function buildLayouts(p: LayoutInput): string {
   const hw = ((mapW / 1000) * scale) / 2;
   const hh = ((mapH / 1000) * scale) / 2;
   const mapUuid = uuid(1);
+  // Coordinate grid ("lưới tọa độ VN-2000"): thin lines every `interval` m, a zebra frame with the values (1.074.000)
+  // on the four sides, Northing on the left / right and Easting on top / bottom.
+  const interval = gridInterval(scale);
+  const gridXml =
+    `<ComposerMapGrid name="Lưới tọa độ VN-2000" uuid="${uuid(900)}" show="1" showAnnotation="1" gridStyle="0" unit="0" intervalX="${interval}" intervalY="${interval}" offsetX="0" offsetY="0" ` +
+    `crossLength="3" blendMode="0" annotationFormat="8" annotationPrecision="0" annotationExpression="${esc("replace(format_number(@grid_number, 0), ',', '.')")}" ` +
+    `frameAnnotationDistance="${mm(1.5)}" gridFrameStyle="1" gridFrameWidth="${mm(2)}" gridFramePenThickness="0.25" gridFramePenColor="0,0,0,255" gridFrameSideFlags="15" gridFrameMargin="0" ` +
+    `frameFillColor1="255,255,255,255" frameFillColor2="0,0,0,255" ` +
+    `leftAnnotationPosition="1" rightAnnotationPosition="1" topAnnotationPosition="1" bottomAnnotationPosition="1" ` +
+    `leftAnnotationDisplay="0" rightAnnotationDisplay="0" topAnnotationDisplay="0" bottomAnnotationDisplay="0" ` +
+    `leftAnnotationDirection="1" rightAnnotationDirection="2" topAnnotationDirection="0" bottomAnnotationDirection="0" ` +
+    `leftFrameDivisions="0" rightFrameDivisions="0" topFrameDivisions="0" bottomFrameDivisions="0" rotatedAnnotationsEnabled="0" rotatedTicksEnabled="0">` +
+    `<lineStyle><symbol alpha="1" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0" name="" type="line">${SYMBOL_DDP}` +
+    `<layer class="SimpleLine" enabled="1" id="{4580dc12-9907-4296-b904-1bfae8f5dba1}" locked="0" pass="0"><Option type="Map"><Option name="capstyle" type="QString" value="flat"/>` +
+    `<Option name="line_color" type="QString" value="90,90,90,255"/><Option name="line_style" type="QString" value="solid"/><Option name="line_width" type="QString" value="0.15"/>` +
+    `<Option name="line_width_unit" type="QString" value="MM"/></Option>${SYMBOL_DDP}</layer></symbol></lineStyle>` +
+    `${p.srs}${textStyle(pt(8))}${OBJ}</ComposerMapGrid>`;
   items.push(
     `${itemAttrs(65639, 'map', 1, mapX, mapY, mapW, mapH, z++, 'keepLayerSet="false" followPreset="false" followPresetName="" drawCanvasItems="true" mapRotation="0" mapFlags="0" isTemporal="0" enableZRange="0" labelMargin="0,mm"', true)}${COLORS}${OBJ}` +
-      `<Extent xmin="${num(cx - hw)}" ymin="${num(cy - hh)}" xmax="${num(cx + hw)}" ymax="${num(cy + hh)}"/><LayerSet/><AtlasMap atlasDriven="0" margin="0.1" scalingMode="2"/><labelBlockingItems/>` +
+      `<Extent xmin="${num(cx - hw)}" ymin="${num(cy - hh)}" xmax="${num(cx + hw)}" ymax="${num(cy + hh)}"/><LayerSet/>${gridXml}<AtlasMap atlasDriven="0" margin="0.1" scalingMode="2"/><labelBlockingItems/>` +
       `<atlasClippingSettings clippingType="1" enabled="0" forceLabelsInside="0" restrictLayers="0"><layersToClip/></atlasClippingSettings><itemClippingSettings clipSource="" clippingType="1" enabled="0" forceLabelsInside="0"/></LayoutItem>`,
   );
 

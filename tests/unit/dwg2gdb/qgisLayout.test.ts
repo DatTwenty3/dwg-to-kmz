@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 import { buildQgs } from '@/lib/dwg2gdb';
 import type { ClassData } from '@/lib/dwg2gdb/features';
-import { buildLayouts, chooseSheet, scaleBarSegment, windRoseSvg } from '@/lib/dwg2gdb/qgisLayout';
+import { buildLayouts, chooseSheet, gridInterval, GUTTER, scaleBarSegment, windRoseSvg } from '@/lib/dwg2gdb/qgisLayout';
 
 describe('sheet of the print layout', () => {
   it('always A0; a commune of 14 × 9 km gets 1:20.000 and its map fits the frame', () => {
@@ -45,7 +45,7 @@ describe('the layout in the project', () => {
     expect(qgs).toContain('item_variables(&apos;map&apos;)[&apos;map_scale&apos;]');
   });
   it('the legend lists the planning layers by their alias, without the names layer', () => {
-    const l = buildLayouts({ name: 'n', title: 't', mapName: 'm', extent: [0, 0, 1000, 1000], legend: [{ id: 'a', name: 'A', source: 's', title: 'Chức năng sử dụng đất' }] });
+    const l = buildLayouts({ name: 'n', title: 't', mapName: 'm', extent: [0, 0, 1000, 1000], srs: '<spatialrefsys/>', legend: [{ id: 'a', name: 'A', source: 's', title: 'Chức năng sử dụng đất' }] });
     expect(l).toContain('legend/title-label');
     expect(l).toContain('Chức năng sử dụng đất');
     expect(qgs).toContain('value="Chức năng sử dụng đất"');
@@ -67,7 +67,7 @@ describe('wind rose (hoa gió)', () => {
   });
   it('has no outer ring, and sits at the top of the column with the scale bar centred under it, above the legend', () => {
     expect(windRoseSvg()).not.toContain('<circle');
-    const l = buildLayouts({ name: 'n', title: 't', mapName: 'm', extent: [0, 0, 5000, 3500], legend: [{ id: 'a', name: 'A', source: 's', title: 'x' }] });
+    const l = buildLayouts({ name: 'n', title: 't', mapName: 'm', extent: [0, 0, 5000, 3500], srs: '<spatialrefsys/>', legend: [{ id: 'a', name: 'A', source: 's', title: 'x' }] });
     const at = (id: string) => {
       const m = new RegExp(`id="${id}"[^>]*?position="([0-9.]+),([0-9.]+),mm"[^>]*?size="([0-9.]+),([0-9.]+),mm"`).exec(l)!;
       return { x: +m[1], y: +m[2], w: +m[3], h: +m[4] };
@@ -80,5 +80,24 @@ describe('wind rose (hoa gió)', () => {
     // The bar (without its label overhang) is centred on the rose, within a few mm.
     const barW = 4 * ((250 / 10000) * 1000);
     expect(Math.abs(bar.x + 3 + barW / 2 - (rose.x + rose.w / 2))).toBeLessThan(1);
+  });
+});
+
+describe('coordinate grid (lưới tọa độ)', () => {
+  it('interval is a round number giving lines about 6 cm apart', () => {
+    expect(gridInterval(20000)).toBe(1000);
+    expect(gridInterval(10000)).toBe(500);
+    expect(gridInterval(5000)).toBe(250);
+    expect(gridInterval(2000)).toBe(100);
+  });
+  it('is on the map with labels on the four sides, and the map leaves room for them inside the sheet frame', () => {
+    const l = buildLayouts({ name: 'n', title: 't', mapName: 'm', extent: [590000, 1070000, 600000, 1078000], srs: '<spatialrefsys/>', legend: [] });
+    expect(l).toContain('<ComposerMapGrid name="Lưới tọa độ VN-2000"');
+    expect(l).toContain('intervalX="1000"');
+    expect(l).toContain('annotationFormat="8"');
+    expect(l).toContain('gridFrameSideFlags="15"');
+    const s = chooseSheet(10_000, 8_000);
+    expect(s.mapX).toBe(20 + GUTTER);
+    expect(s.mapX + s.mapW + GUTTER).toBe(s.w - 10 - s.panel); // the gutter on the right of the map ends at the column
   });
 });

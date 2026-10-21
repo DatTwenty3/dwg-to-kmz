@@ -292,7 +292,7 @@ function layoutsXml(p: QgisProjectInput, layers: { c: ClassData; id: string; nam
       // The alias without its parenthesis ("… dạng đường (tim đường)"): the headings must fit the column.
       title: (alias.get(l.c.target) ?? l.c.cls).replace(/\s*\([^)]*\)\s*$/, ''),
     }));
-  return buildLayouts({ name: 'Bản đồ quy hoạch', title: p.title, mapName: 'BẢN ĐỒ QUY HOẠCH SỬ DỤNG ĐẤT', extent: p.extent, legend });
+  return buildLayouts({ name: 'Bản đồ quy hoạch', title: p.title, mapName: 'BẢN ĐỒ QUY HOẠCH SỬ DỤNG ĐẤT', extent: p.extent, srs: srsXml(p.lon0, p.zone), legend });
 }
 
 /** The .qgs XML. */

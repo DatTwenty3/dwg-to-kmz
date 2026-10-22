@@ -14,7 +14,7 @@ import type {
   DwgTableEntity,
   DwgTextBase,
 } from '@mlightcad/libredwg-web';
-import type { Vec2 } from '../types';
+import type { LineTypeDef, Vec2 } from '../types';
 import type { Vec3 } from '../normalize/matrix';
 import {
   type SrcBlock,
@@ -27,6 +27,7 @@ import {
   type SrcTableCell,
   type SrcText,
   insunitsToName,
+  vertexWidth,
   mtextAlign,
   textAnchor,
 } from '../normalize/source';
@@ -116,7 +117,22 @@ export function makeByteStringEncoder(encoding: string): ((s: string) => string)
   };
 }
 
+/** Line types that are no pattern. */
+const PLAIN_LINETYPE = /^(continuous|bylayer|byblock|)$/i;
+
 class DwgConverter {
+  /** Line type of each layer (name → line type), and $LTSCALE: ByLayer is resolved here. */
+  layerLineTypes = new Map<string, string>();
+  ltScale = 1;
+
+  /** The line type of an entity (ByLayer resolved) and the scale of its pattern; nothing for a continuous line. */
+  private lineTypeOf(e: { lineType?: string; lineTypeScale?: number; layer?: string }): { lineType?: string; lineScale?: number } {
+    let name = (e.lineType ?? '').trim();
+    if (/^bylayer$/i.test(name) || name === '') name = this.layerLineTypes.get(e.layer || '0') ?? '';
+    if (PLAIN_LINETYPE.test(name)) return {};
+    return { lineType: name, lineScale: (Number(e.lineTypeScale) > 0 ? Number(e.lineTypeScale) : 1) * this.ltScale };
+  }
+
   constructor(private readonly encodeRaw: (s: string) => string = (s) => s) {}
 
 
@@ -262,7 +278,7 @@ class DwgConverter {
   entity(raw: DwgEntity, out: SrcEntity[], blockByHandle: Map<string, string>, inBlock: boolean): void {
     const e = raw as AnyEnt;
     if (e.isVisible === false) return;
-    const common = { layer: e.layer || '0', color: colorOf(e), handle: e.handle };
+    const common = { layer: e.layer || '0', color: colorOf(e), handle: e.handle, ...this.lineTypeOf(e) };
     switch (e.type) {
       case 'LINE': {
         const l = e as AnyEnt & { startPoint: P2; endPoint: P2 };
@@ -270,7 +286,7 @@ class DwgConverter {
         return;
       }
       case 'LWPOLYLINE': {
-        const l = e as AnyEnt & { flag: number; constantWidth?: number; vertices: { x: number; y: number; bulge: number }[]; extrusionDirection?: Vec3 };
+        const l = e as AnyEnt & { flag: number; constantWidth?: number; vertices: { x: number; y: number; bulge: number; startWidth?: number; endWidth?: number }[]; extrusionDirection?: Vec3 };
         out.push({
           ...common,
           type: 'polyline',
@@ -278,7 +294,8 @@ class DwgConverter {
           vertices: (l.vertices ?? []).map((v) => ({ x: num(v.x), y: num(v.y), bulge: num(v.bulge) })),
           // DWG LWPOLYLINE flag: 512 = closed (DXF uses bit 1).
           closed: (num(l.flag) & 512) !== 0,
-          width: num(l.constantWidth) || undefined,
+          // A constant width, else the widths set on the vertices (HTKT_GT_Duongkhuvuc: 20 m).
+          width: num(l.constantWidth) || vertexWidth((l.vertices ?? []).map((v) => ({ startWidth: num(v.startWidth), endWidth: num(v.endWidth) })), (num(l.flag) & 512) !== 0),
         });
         return;
       }
@@ -526,6 +543,12 @@ export function dwgToSource(db: DwgDatabase, meta: DwgConvertMeta): SrcDocument 
   const legacyEnc = version && version < 'AC1021' && codepage ? LEGACY_SINGLE_BYTE[codepage.toUpperCase()] : undefined;
   const encoder = legacyEnc ? makeByteStringEncoder(legacyEnc) : null;
   const conv = new DwgConverter(encoder ?? undefined);
+  for (const l of db.tables?.LAYER?.entries ?? []) {
+    const lt = (l as { lineType?: string }).lineType;
+    if (l.name && lt && !PLAIN_LINETYPE.test(lt)) conv.layerLineTypes.set(l.name, lt);
+  }
+  const lts = Number((header as { LTSCALE?: number }).LTSCALE);
+  if (lts > 0) conv.ltScale = lts;
   const records = db.tables?.BLOCK_RECORD?.entries ?? [];
   const blockByHandle = new Map<string, string>();
   for (const br of records) if (br.handle) blockByHandle.set(br.handle, br.name);
@@ -576,8 +599,25 @@ export function dwgToSource(db: DwgDatabase, meta: DwgConvertMeta): SrcDocument 
     e.type === 'insert' && xrefNames.has(e.block) ? [{ name: e.block, position: e.position, scale: e.scale, rotation: e.rotation }] : [],
   );
 
+  // LTYPE table: the patterns (dashes, gaps and the texts embedded in them).
+  const lineTypes: Record<string, LineTypeDef> = {};
+  for (const lt of (db.tables as { LTYPE?: { entries?: { name?: string; pattern?: { elementLength?: number; elementTypeFlag?: number; scale?: number; rotation?: number; offsetX?: number; offsetY?: number; text?: string }[] }[] } }).LTYPE?.entries ?? []) {
+    if (!lt.name || PLAIN_LINETYPE.test(lt.name) || !lt.pattern?.length) continue;
+    lineTypes[lt.name] = {
+      elements: lt.pattern.map((p) => {
+        const flag = num(p.elementTypeFlag);
+        const text = flag & 2 && p.text ? p.text : undefined;
+        return {
+          length: num(p.elementLength),
+          ...(text ? { text, textScale: num(p.scale) || 1, offset: [num(p.offsetX), num(p.offsetY)] as Vec2, rotation: (num(p.rotation) * 180) / Math.PI, absolute: !!(flag & 1) } : {}),
+        };
+      }),
+    };
+  }
+
   return {
     xrefs,
+    lineTypes,
     units: insunitsToName(header.INSUNITS),
     codepage,
     legacyBytes: encoder !== null,

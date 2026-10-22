@@ -4,6 +4,7 @@
 // `e<k>` (previewHandle) when it can be removed (it comes from CAD objects, refs[k]), `x<k>` when the app added it
 // (the detected planning boundary, the plan's own administrative unit).
 import type { CadDocument, CadEntity, CadLayer, Vec2 } from '@/lib/cad/types';
+import { cadSource, thinLines, MAX_LINE_VERTICES, type CadSource } from './cadLayers';
 import type { ClassData, SourceRef } from './features';
 import { previewHandle } from './inventory';
 
@@ -70,6 +71,40 @@ export function outputView(classes: ClassData[], db: string): OutputView {
       ];
   return { doc: { units: 'm', crs: null, layers, entities, bbox, warnings: [] }, refs };
 }
+
+/** Id of the CAD drawing in the list of geodatabases of the edit view. */
+export const CAD_VIEW = 'cad';
+
+/**
+ * The CAD drawing of the QGIS project as an edit view: one layer per CAD layer, one handle `e<k>` per object (k = index in
+ * `source.doc.entities`, refs[k] = the copies of it in the drawings). What the export drops for its size (the smallest
+ * lines of the heaviest layers) is not shown, it would not be written either.
+ */
+export function cadOutputView(source: CadSource): OutputView {
+  const drop = thinLines(source.doc.entities, MAX_LINE_VERTICES).drop;
+  const layers = new Map<string, CadLayer>();
+  const entities: CadEntity[] = [];
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  source.doc.entities.forEach((e, k) => {
+    if (drop.has(e)) return;
+    if (!layers.has(e.layer)) layers.set(e.layer, { name: e.layer, color: e.color, visible: true });
+    const pts: Vec2[] = e.kind === 'polyline' ? e.points : e.kind === 'polygon' ? e.rings.flat() : e.kind === 'table' ? [e.origin] : [e.position];
+    for (const p of pts) {
+      minX = Math.min(minX, p[0]);
+      minY = Math.min(minY, p[1]);
+      maxX = Math.max(maxX, p[0]);
+      maxY = Math.max(maxY, p[1]);
+    }
+    entities.push({ ...e, handle: source.refs[k].length ? previewHandle(k) : `x${k}` });
+  });
+  const bbox: [Vec2, Vec2] = Number.isFinite(minX) ? [[minX, minY], [maxX, maxY]] : [[0, 0], [0, 0]];
+  return { doc: { units: 'm', crs: null, layers: [...layers.values()], entities, bbox, warnings: [] }, refs: source.refs };
+}
+
+export { cadSource };
 
 /** A feature is written when one of its alternatives keeps all its objects (nothing left out). */
 export function featureKept(alternatives: SourceRef[][], excluded: Map<string, Set<number>>): boolean {

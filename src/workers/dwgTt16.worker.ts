@@ -22,6 +22,11 @@ import {
   loadFolder,
   buildQgs,
   cadLayerData,
+  cadOutputView,
+  cadSource,
+  cadSourceDocument,
+  CAD_EDIT_PREFIX,
+  CAD_VIEW,
   cleanProjectName,
   planCadGpkg,
   planStage1,
@@ -55,7 +60,7 @@ export type DwgTt16Request =
   /** Read the hatch colours against another Mục of Phụ lục I (null: colours off): the rows are made again. */
   | { type: 'section'; section: number | null }
   /** What one geodatabase will get with this mapping ("Biên tập"), in WGS84. */
-  | { type: 'output'; db: string; drawings: string[]; mapping: [string, MappingEntry][]; crs: CrsOptions; projectTitle: string | null }
+  | { type: 'output'; db: string; drawings: string[]; mapping: [string, MappingEntry][]; crs: CrsOptions; projectTitle: string | null; roles: Record<string, RoleId> }
   | {
       type: 'export';
       drawings: string[];
@@ -238,9 +243,27 @@ function output(req: Extract<DwgTt16Request, { type: 'output' }>) {
     );
     outputCache = { key, classes: built.classes };
   }
+  // The CAD drawing of the QGIS project is one more "geodatabase" of the edit view; its count is known once it was built.
+  const dbs = (cadCount: number) => [...outputDatabases(outputCache!.classes), { db: CAD_VIEW, count: cadCount }];
+  if (req.db === CAD_VIEW) {
+    const ids = new Set(req.drawings);
+    const colors = colorContexts(analysis);
+    const src = cadSource(
+      parsed.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: analysis!.inside.get(p.id)!, color: colors.get(p.id), role: req.roles[p.id] ?? 'other' })),
+      new Map(req.mapping),
+      analysis.boundary?.ring ?? null,
+    );
+    const { doc, refs } = cadOutputView(src);
+    cadCount = doc.entities.length;
+    post({ type: 'output', db: req.db, doc: transformDocument(doc, req.crs), refs, dbs: dbs(cadCount) });
+    return;
+  }
   const { doc, refs } = outputView(outputCache.classes, req.db);
-  post({ type: 'output', db: req.db, doc: transformDocument(doc, req.crs), refs, dbs: outputDatabases(outputCache.classes) });
+  post({ type: 'output', db: req.db, doc: transformDocument(doc, req.crs), refs, dbs: dbs(cadCount) });
 }
+
+/** Number of objects of the CAD view the last time it was built (-1: not yet). */
+let cadCount = -1;
 
 async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
   const t0 = performance.now();
@@ -267,17 +290,12 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
   // Summary drawing: the same objects as drawn in CAD (hatch patterns, colours, widths) + the texts.
   let dxf: Extract<DwgTt16Response, { type: 'done' }>['dxf'] = null;
   const wantCad = req.qgz && req.cad;
-  const doc =
-    req.dxf || wantCad
-      ? summaryDocument(
-          parsed
-            .filter((p) => ids.has(p.id))
-            .map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: insideOf(p.id), color: colors.get(p.id), role: req.roles[p.id] ?? 'other' })),
-          new Map(req.mapping),
-          { boundary: analysis.boundary?.ring ?? null, texts: true },
-        )
-      : null;
-  if (req.dxf && doc) {
+  const used = () =>
+    parsed
+      .filter((p) => ids.has(p.id))
+      .map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: insideOf(p.id), color: colors.get(p.id), role: req.roles[p.id] ?? 'other', removed: new Set(req.excluded[p.id] ?? []) }));
+  const doc = req.dxf ? summaryDocument(used(), new Map(req.mapping), { boundary: analysis.boundary?.ring ?? null, texts: true }) : null;
+  if (doc) {
     post({ type: 'progress', stage: 'Ghi bản vẽ tổng hợp (.dxf)', done: 0, total: 1 });
     const text = toDxf(doc, { units: 'm', layers: doc.layers.map((l) => l.name) });
     dxf = { blob: new Blob([text], { type: 'application/dxf' }), fileName: 'BanVeTongHop.dxf', layers: doc.layers.length, entities: doc.entities.length };
@@ -334,9 +352,12 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
   // so a failure only leaves it out.
   let cad: { counts: Record<'lines' | 'areas' | 'texts' | 'points', number>; patternColors: string[] } | undefined;
   let cadNote = '';
-  if (wantCad && doc) {
+  let cadThinned = '';
+  if (wantCad) {
     post({ type: 'progress', stage: 'Ghi bản vẽ CAD (BanVeCAD.gpkg)', done: 0, total: 1 });
-    const data = cadLayerData(doc);
+    // The CAD drawing has its own list of removed objects (Biên tập → "Bản vẽ CAD"), apart from the geodatabases'.
+    const rawInside = used().map((u) => ({ ...u, inside: analysis!.inside.get(u.id)!, removed: new Set(req.excluded[`${CAD_EDIT_PREFIX}${u.id}`] ?? []) }));
+    const data = cadLayerData(cadSourceDocument(rawInside, new Map(req.mapping), analysis.boundary?.ring ?? null));
     const plan = planCadGpkg(data, tt16Wkt(req.lon0, req.zone));
     if (plan.steps.length) {
       const pc = nextPrefix('c');
@@ -356,7 +377,8 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
         if (gp.length) {
           out.push(...gp);
           cad = { counts: data.counts, patternColors: data.patternColors };
-          cadNote = `Bản vẽ CAD trong .qgz: ${data.counts.lines.toLocaleString('vi-VN')} đường, ${data.counts.areas.toLocaleString('vi-VN')} vùng, ${data.counts.texts.toLocaleString('vi-VN')} chữ (tệp BanVeCAD.gpkg cạnh các geodatabase)`;
+          cadThinned = data.thinned.map((t) => `${t.layer} (${t.dropped.toLocaleString('vi-VN')})`).join(', ');
+          cadNote = `Bản vẽ CAD trong .qgz: ${data.counts.lines.toLocaleString('vi-VN')} đường, ${data.counts.areas.toLocaleString('vi-VN')} vùng, ${data.counts.texts.toLocaleString('vi-VN')} chữ (tệp BanVeCAD.gpkg cạnh các geodatabase)${cadThinned ? `; bỏ bớt các nét ký hiệu nhỏ nhất của: ${cadThinned}` : ''}`;
         }
       } catch (e) {
         cadNote = `Không ghi được BanVeCAD.gpkg (${gdalFailure(e).message}) — tệp .qgz không có nhóm Bản vẽ CAD`;

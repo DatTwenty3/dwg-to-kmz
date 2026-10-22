@@ -111,6 +111,12 @@ describe.skipIf(!existsSync(DON_CHAU))('Đôn Châu dossier (real files)', () =>
     expect(byName.get('NEN EXREF.dwg')?.owner?.name).toBe('QH04 DINHHUONGPHATTRIENDONCHAU.dwg');
     expect(byName.get('RANH AP XREF.dwg')?.owner?.name).toBe('QH04 DINHHUONGPHATTRIENDONCHAU.dwg');
     expect(byName.get('QH04 DINHHUONGPHATTRIENDONCHAU.dwg')?.owner).toBeUndefined();
+    // Look of the drawing kept for the QGIS project: the 20 m width set on the vertices of a road, and the line types
+    // (the 110 kV one writes its letters in the gaps).
+    const qh04 = byName.get('QH04 DINHHUONGPHATTRIENDONCHAU.dwg')!.doc;
+    expect(qh04.entities.some((e) => e.kind === 'polyline' && e.layer === 'HTKT_GT_Duongkhuvuc' && e.width === 20)).toBe(true);
+    expect(qh04.lineTypes?.['HT_Điện_110kV']?.elements.some((el) => el.text)).toBe(true);
+    expect(qh04.entities.some((e) => e.kind === 'polyline' && e.lineType === 'HT_Điện_110kV')).toBe(true);
     const a = analyzeDrawings(folder.drawings);
     expect(a.drawings.filter((d) => d.included)).toHaveLength(3);
     // The only map of the dossier holds the land use of the plan: its hatches are land use, and the xrefs follow.

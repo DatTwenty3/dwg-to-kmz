@@ -33,6 +33,8 @@ import {
   type DrawingInfo,
   type GeomKind,
   featureKept,
+  CAD_EDIT_PREFIX,
+  CAD_VIEW,
   type LayerRow,
   type SourceRef,
   type MappingEntry,
@@ -201,6 +203,10 @@ export default function DwgToGdb() {
     setExcludedHistory((h) => h.slice(0, -1));
   };
   const excludedCount = [...excluded].reduce((t, [id, set]) => t + (drawings.find((d) => d.id === id)?.included ? set.size : 0), 0);
+  /** Objects taken out of the CAD drawing of the QGIS project (their ids carry the `cad:` prefix). */
+  const cadExcludedCount = [...excluded].reduce((t, [id, set]) => t + (id.startsWith(CAD_EDIT_PREFIX) && drawings.find((d) => d.id === id.slice(CAD_EDIT_PREFIX.length))?.included ? set.size : 0), 0);
+  // The drawings' map kinds decide the HT / QH prefix of the CAD layers: the edit view is made again when one changes.
+  const rolesKey = drawings.map((d) => `${d.id}:${d.role}`).join('|');
   const [exportState, setExportState] = useState<{ progress: Progress | null; result: Done | null; error: string | null }>({ progress: null, result: null, error: null });
   const workerRef = useRef<Worker | null>(null);
   const folderRef = useRef<HTMLInputElement>(null);
@@ -359,10 +365,11 @@ export default function DwgToGdb() {
     if (!editMode || !crs || !data || !workerRef.current) return;
     const t = setTimeout(() => {
       setOutputLoading(true);
-      workerRef.current?.postMessage({ type: 'output', db: editDb, drawings: includedIds, mapping: exportMapping, crs, projectTitle: data.projectTitle ?? null } satisfies DwgTt16Request);
+      const roles = Object.fromEntries(live.current.drawings.map((d) => [d.id, d.role]));
+      workerRef.current?.postMessage({ type: 'output', db: editDb, drawings: includedIds, mapping: exportMapping, crs, projectTitle: data.projectTitle ?? null, roles } satisfies DwgTt16Request);
     }, 300);
     return () => clearTimeout(t);
-  }, [editMode, editDb, crs, data, includedIds, exportMapping]);
+  }, [editMode, editDb, crs, data, includedIds, exportMapping, rolesKey]);
   const editView = editMode && output && output.db === editDb ? output : null;
   /** Features of the edit view that will not be written (all their sources left out). */
   const removedFeatures = useMemo(() => {
@@ -1113,7 +1120,7 @@ ${cm.reason}` : ''}`}>
             undo={{ can: excludedHistory.length > 0, run: undoExcluded }}
             editMode={editMode}
             onEditMode={setEditMode}
-            views={editMode ? (output?.dbs ?? []).map((d) => ({ id: d.db, label: `${d.db}.gdb`, count: d.db === editView?.db ? d.count - removedFeatures.size : d.count })) : []}
+            views={editMode ? (output?.dbs ?? []).map((d) => ({ id: d.db, label: d.db === CAD_VIEW ? 'Bản vẽ CAD' : `${d.db}.gdb`, count: d.db === editView?.db ? d.count - removedFeatures.size : d.count })) : []}
             view={editDb}
             onView={setEditDb}
             insetLeft={insetLeft}
@@ -1220,6 +1227,7 @@ ${cm.reason}` : ''}`}>
           ktt={unit ? `${unit.name} — KTT ${formatDegMin(unit.lon0)}, múi ${zone}°` : ''}
           review={totalReview}
           excludedCount={excludedCount}
+          cadExcludedCount={cadExcludedCount}
           leftOut={drawings.filter((d) => roleById(d.role).db && !d.included && d.inside > 0).map((d) => d.name.replace(/\.(dwg|dxf)$/i, ''))}
           defaultName={data.projectName ?? 'DoAnQuyHoach'}
           summary={exportSummary(rows, mapping, new Set(included.map((d) => d.id)))}
@@ -1273,6 +1281,7 @@ function ExportDialog({
   review,
   leftOut,
   excludedCount,
+  cadExcludedCount,
   summary,
   defaultName,
   onStart,
@@ -1287,6 +1296,7 @@ function ExportDialog({
   leftOut: string[];
   /** Objects removed on the map ("Biên tập"). */
   excludedCount: number;
+  cadExcludedCount: number;
   summary: [string, number][];
   defaultName: string;
   onStart: (o: ExportOptions) => void;
@@ -1370,7 +1380,7 @@ function ExportDialog({
                     <input type="checkbox" className="ui-check mt-0.5" checked={withCad} onChange={(e) => setWithCad(e.target.checked)} disabled={running} />
                     <span className="text-zinc-700">
                       Thêm <b className="font-medium">bản vẽ CAD</b> vào .qgz{' '}
-                      <span className="text-zinc-400">(đường có độ rộng, ký hiệu, chữ như AutoCAD — thêm tệp BanVeCAD.gpkg, khoảng 10–30 MB)</span>
+                      <span className="text-zinc-400">(đường có độ rộng, ký hiệu, chữ như AutoCAD — thêm tệp BanVeCAD.gpkg, vài chục MB)</span>
                     </span>
                   </label>
                 )}
@@ -1413,6 +1423,12 @@ function ExportDialog({
                 <p className="flex items-start gap-2 rounded-lg bg-zinc-50 px-3 py-2 text-[12.5px] text-zinc-600">
                   <IconTrash width={14} height={14} className="mt-0.5 shrink-0 text-red-500" />
                   <span>{excludedCount.toLocaleString('vi-VN')} đối tượng đã loại trên bản đồ (Biên tập) sẽ không có trong HoSoGIS và bản vẽ tổng hợp.</span>
+                </p>
+              )}
+              {cadExcludedCount > 0 && withQgz && withCad && (
+                <p className="flex items-start gap-2 rounded-lg bg-zinc-50 px-3 py-2 text-[12.5px] text-zinc-600">
+                  <IconTrash width={14} height={14} className="mt-0.5 shrink-0 text-red-500" />
+                  <span>{cadExcludedCount.toLocaleString('vi-VN')} đối tượng đã loại khỏi Bản vẽ CAD (Biên tập) sẽ không có trong BanVeCAD.gpkg.</span>
                 </p>
               )}
               {leftOut.length > 0 && (

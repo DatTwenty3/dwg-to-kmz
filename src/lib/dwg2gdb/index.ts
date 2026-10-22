@@ -9,7 +9,8 @@ import { colorRole, colorSuggestion, type ColorContext } from './colorClass';
 import { drawingTexts, findBoundary, insideFlags, layerRows, pickBoundary, type BoundaryCandidate, type LayerRow } from './inventory';
 import { guessRole, roleById, type RoleId } from './roles';
 import { pickSection } from './section';
-import { compactName, layerLandUse, sameLandUse, suggest, type GeomKind } from './suggest';
+import { domainCode } from '@/lib/gdb/tt16Schema';
+import { compactName, LAND_USE_M1, layerLandUse, sameLandUse, suggest, type GeomKind } from './suggest';
 import { templateLookup, type MappingEntry, type MappingTemplate, type TemplateRule } from './template';
 import { placeXref, resolveXref, xrefNameRole, xrefOwners, type FolderFile, type MainDrawing } from './xrefs';
 
@@ -318,6 +319,15 @@ function factsOf(row: LayerRow, rows: readonly LayerRow[]) {
 const LAND_USE_CLASS = /\/ChucNangSuDungDat_A$/;
 
 /**
+ * A rule saved in the template whose land use is no value of Phụ lục (an older version put the layer name there when
+ * it did not know the layer): the suggestion of today replaces it, or the mistake would stay for ever.
+ */
+function staleRule(t: MappingEntry): boolean {
+  if (!t.target || !LAND_USE_CLASS.test(t.target)) return false;
+  return domainCode('QuyHoach', 'ChucNangSuDungDatM1', LAND_USE_M1[t.phanLoai] ?? t.phanLoai) === null;
+}
+
+/**
  * Suggestion of a row: the layer name, and for a hatch colour group the colour of Phụ lục I (exact / near colours
  * are adopted, shared or in-between colours need a choice). Colour and name disagreeing is flagged for review —
  * unless both land uses end in the same ChucNangSuDungDatM1 value (giáo dục / công cộng): then the layer's more
@@ -353,11 +363,11 @@ export function resolveRow(row: LayerRow, role: RoleId, lookup: ReturnType<typeo
   const fromTemplate = (t: MappingEntry): MappingState => ({ ...t, source: 'template', reason: 'Theo mẫu ghép đã lưu' });
   if (!roleById(role).db) return suggestRow(row, role, rows);
   const exact = lookup(role, row.layer, row.kind as GeomKind, row.colorKey ? row.color : undefined);
-  if (exact) return fromTemplate(exact);
+  if (exact && !staleRule(exact)) return fromTemplate(exact);
   const s = suggestRow(row, role, rows);
   if (row.colorKey && s.unknown) {
     const legacy = lookup(role, row.layer, row.kind as GeomKind);
-    if (legacy) return fromTemplate(legacy);
+    if (legacy && !staleRule(legacy)) return fromTemplate(legacy);
   }
   return s;
 }

@@ -20,7 +20,7 @@ export interface SummaryOptions {
 }
 
 /** One key per drawn object, so the same object drawn in two maps / two copies of an xref is written once. */
-function objectKey(layer: string, e: CadEntity): string {
+export function objectKey(layer: string, e: CadEntity): string {
   const r = (v: number) => Math.round(v * 100);
   const pts: Vec2[] =
     e.kind === 'polyline' ? e.points : e.kind === 'polygon' ? (e.rings[0] ?? []) : e.kind === 'table' ? [e.origin] : [e.position];

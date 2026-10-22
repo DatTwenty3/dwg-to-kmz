@@ -1,7 +1,7 @@
 // Format-neutral "source" model produced by the DWG and DXF adapters and consumed by `buildDocument`.
 // Angles are radians (CCW). Coordinates are those of the owning container (model space or block),
 // in the entity's OCS when `extrusion` is set (the builder applies the OCS→WCS matrix).
-import type { HAlign, HatchDef, VAlign, Vec2, XrefInsert } from '../types';
+import type { HAlign, HatchDef, LineTypeDef, VAlign, Vec2, XrefInsert } from '../types';
 import type { Vec3 } from './matrix';
 
 /** aci: 0 = ByBlock, 256 = ByLayer, 1..255 = index. rgb (true colour) wins when present. */
@@ -14,6 +14,28 @@ export interface SrcVertex {
   x: number;
   y: number;
   bulge?: number;
+  /** Width at this vertex / at the next one (LWPOLYLINE, DXF groups 40 / 41). */
+  startWidth?: number;
+  endWidth?: number;
+}
+
+/**
+ * The width of a polyline whose widths are set per vertex (a road drawn as one 8 m or 20 m wide polyline, not as a
+ * constant width): the mean of the widths of its segments. A taper (arrow) gets its mean width; none → undefined.
+ */
+export function vertexWidth(vertices: readonly { startWidth?: number; endWidth?: number }[], closed = false): number | undefined {
+  const n = closed ? vertices.length : vertices.length - 1;
+  let sum = 0;
+  let count = 0;
+  for (let i = 0; i < n; i++) {
+    const v = vertices[i];
+    const w = ((v.startWidth ?? 0) + (v.endWidth ?? 0)) / 2;
+    if (w > 0) {
+      sum += w;
+      count++;
+    }
+  }
+  return count ? sum / count : undefined;
 }
 
 export interface SrcCommon {
@@ -22,6 +44,9 @@ export interface SrcCommon {
   color: SrcColor;
   /** Present only for OCS-based entities with a non-default extrusion. */
   extrusion?: Vec3;
+  /** Line type by name (ByLayer already resolved; continuous = absent) and the scale of its pattern. */
+  lineType?: string;
+  lineScale?: number;
 }
 
 export interface SrcLine extends SrcCommon {
@@ -181,6 +206,8 @@ export interface SrcDocument {
    */
   legacyBytes?: boolean;
   layers: SrcLayer[];
+  /** LTYPE table (DWG), by name. */
+  lineTypes?: Record<string, LineTypeDef>;
   /** STYLE table: name → font file (may be empty). */
   styles: Map<string, string>;
   blocks: Map<string, SrcBlock>;

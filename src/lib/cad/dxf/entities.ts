@@ -13,6 +13,7 @@ import {
   type SrcVertex,
   mtextAlign,
   textAnchor,
+  vertexWidth,
 } from '../normalize/source';
 import { Cursor, type Group, type GroupValue, type RawEntity, firstValues, toNum } from './groups';
 
@@ -71,6 +72,8 @@ function lwVertices(groups: Group[]): SrcVertex[] {
       out.push(cur);
     } else if (cur && g.code === 20) cur.y = toNum(g.value);
     else if (cur && g.code === 42) cur.bulge = toNum(g.value);
+    else if (cur && g.code === 40) cur.startWidth = toNum(g.value);
+    else if (cur && g.code === 41) cur.endWidth = toNum(g.value);
   }
   return out;
 }
@@ -362,7 +365,7 @@ export function convertRawList(list: RawEntity[], ctx: ConvertContext, isModelSp
           extrusion: extrusion(f),
           vertices: lwVertices(raw.groups),
           closed: (n(f, 70) & 1) !== 0,
-          width: n(f, 43) || undefined,
+          width: n(f, 43) || vertexWidth(lwVertices(raw.groups), (n(f, 70) & 1) !== 0),
         });
         break;
       case 'POLYLINE': {

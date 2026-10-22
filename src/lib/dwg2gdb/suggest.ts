@@ -299,7 +299,10 @@ export function suggest(roleId: RoleId, layer: string, kind: GeomKind, facts: La
   }
 
   if (SDD_ROLES.has(roleId)) {
-    if (kind === 'A' || (kind === 'L' && !facts.layerHasPolygons && (facts.closedShare ?? 0) >= 0.8)) {
+    // Outlines of a land-use layer named as in Phụ lục I (QHDD_DAT_KXD_Dancunongthon…) with no hatch on it are the only
+    // trace of those parcels: their pieces are chained into areas (the existing-state copies "HT_…" stay out).
+    const outlineOnly = kind === 'L' && !facts.layerHasPolygons && !!tt16LandUse(c) && !/^ht/.test(c);
+    if (kind === 'A' || outlineOnly || (kind === 'L' && !facts.layerHasPolygons && (facts.closedShare ?? 0) >= 0.8)) {
       if (/nha|bkc|kientruc|congtrinh|nhaxay/.test(c) && !/nhavanhoa|nhatho|nhatang/.test(c))
         return at({ theme: 'ktcq', cls: 'CongTrinh_A', phanLoai: /bkc/.test(c) ? 'Nhà bán kiên cố' : /kc|kiencuo/.test(c) ? 'Nhà kiên cố' : 'Nhà, công trình' }, 'Nhà / công trình');
       if (/phankhu/.test(c) && !hien) return at({ theme: 'sdd', cls: 'PhanKhuQuyHoach_A', phanLoai: p }, 'Phân khu');

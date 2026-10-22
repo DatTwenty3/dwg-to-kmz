@@ -25,9 +25,11 @@ export function cadLayerList(counts: Record<CadTable, number>): CadLayerInfo[] {
 const hexRgba = (hex: string) => `${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) || 0).join(',')},255`;
 const colorOf: Record<string, DataDefined> = { outlineColor: { field: 'mau' } };
 
-function lineSymbol(name: string, o: { width: string; unit: 'MapUnit' | 'MM'; cap: string; dd: Record<string, DataDefined>; color?: string }): string {
+function lineSymbol(name: string, o: { width: string; unit: 'MapUnit' | 'MM'; cap: string; dd: Record<string, DataDefined>; color?: string; dashed?: boolean }): string {
   return (
-    symbolOpen('line', name) +
+    // A dashed line is not clipped to the view: QGIS would restart the pattern at the edge of the map, and the letters
+    // placed along the line (lineTypeTexts) would no longer sit in the gaps.
+    symbolOpen('line', name, !o.dashed) +
     layerXml(
       'SimpleLine',
       {
@@ -40,13 +42,14 @@ function lineSymbol(name: string, o: { width: string; unit: 'MapUnit' | 'MM'; ca
         joinstyle: 'miter',
         offset: '0',
         offset_unit: 'MM',
-        use_custom_dash: '0',
+        use_custom_dash: o.dashed ? '1' : '0',
         customdash: '5;2',
-        customdash_unit: 'MM',
+        customdash_unit: o.dashed ? 'MapUnit' : 'MM',
+        customdash_map_unit_scale: MAP_UNIT_SCALE,
         draw_inside_polygon: '0',
       },
       '',
-      o.dd,
+      o.dashed ? { ...o.dd, customDash: { field: 'net' } } : o.dd,
     ) +
     '</symbol>'
   );
@@ -62,12 +65,17 @@ const ruleRenderer = (rulesXml: string, symbols: string) =>
 function linesRenderer(): string {
   return ruleRenderer(
     rules([
-      { filter: '"rong" > 0', symbol: 0, label: 'Nét có độ rộng (theo mét)' },
-      { filter: 'ELSE', symbol: 1, label: 'Nét mảnh' },
+      { filter: "\"rong\" > 0 AND \"net\" = ''", symbol: 0, label: 'Nét có độ rộng (theo mét)' },
+      { filter: "\"rong\" > 0 AND \"net\" <> ''", symbol: 2, label: 'Nét có độ rộng, kiểu đường CAD' },
+      { filter: "\"net\" = ''", symbol: 1, label: 'Nét mảnh' },
+      { filter: 'ELSE', symbol: 3, label: 'Nét mảnh, kiểu đường CAD' },
     ]),
     // The width of a CAD polyline is in drawing units (metres): it grows with the map scale like in CAD; flat ends.
+    // The dashed ones follow the line type of the drawing (dash / gap lengths in metres, field `net`).
     lineSymbol('0', { width: '1', unit: 'MapUnit', cap: 'flat', dd: { ...colorOf, outlineWidth: { field: 'rong' } } }) +
-      lineSymbol('1', { width: '0.15', unit: 'MM', cap: 'flat', dd: colorOf }),
+      lineSymbol('1', { width: '0.15', unit: 'MM', cap: 'flat', dd: colorOf }) +
+      lineSymbol('2', { width: '1', unit: 'MapUnit', cap: 'flat', dd: { ...colorOf, outlineWidth: { field: 'rong' } }, dashed: true }) +
+      lineSymbol('3', { width: '0.15', unit: 'MM', cap: 'flat', dd: colorOf, dashed: true }),
   );
 }
 
@@ -141,7 +149,41 @@ function pointsRenderer(visible: boolean): string {
       visible ? { fillColor: { field: 'mau' } } : {},
     ) +
     '</symbol>';
-  return `<renderer-v2 type="singleSymbol" symbollevels="0" enableorderby="0" forceraster="0" referencescale="-1"><symbols>${marker}</symbols><rotation/><sizescale/></renderer-v2>`;
+  if (!visible) return `<renderer-v2 type="singleSymbol" symbollevels="0" enableorderby="0" forceraster="0" referencescale="-1"><symbols>${marker}</symbols><rotation/><sizescale/></renderer-v2>`;
+  // The dots of a line type (planning boundary) have their size in metres (field `kt`); a point of the drawing is a 1.6 mm dot.
+  const dot =
+    symbolOpen('marker', '1') +
+    layerXml(
+      'SimpleMarker',
+      {
+        name: 'circle',
+        color: '0,0,0,255',
+        outline_style: 'no',
+        outline_color: '0,0,0,0',
+        outline_width: '0',
+        outline_width_unit: 'MM',
+        size: '10',
+        size_unit: 'MapUnit',
+        size_map_unit_scale: MAP_UNIT_SCALE,
+        angle: '0',
+        offset: '0,0',
+        offset_unit: 'MM',
+        scale_method: 'diameter',
+        horizontal_anchor_point: '1',
+        vertical_anchor_point: '1',
+        joinstyle: 'bevel',
+      },
+      '',
+      { fillColor: { field: 'mau' }, size: { field: 'kt' } },
+    ) +
+    '</symbol>';
+  return ruleRenderer(
+    rules([
+      { filter: '"kt" = 0', symbol: 0, label: 'Điểm' },
+      { filter: 'ELSE', symbol: 1, label: 'Chấm của kiểu đường (theo mét)' },
+    ]),
+    marker + dot,
+  );
 }
 
 /**
@@ -154,7 +196,8 @@ function textLabeling(): string {
     {
       Size: { expr: '"cao" * 1.4' },
       Color: { field: 'mau' },
-      LabelRotation: { field: 'goc' },
+      // QGIS turns a label clockwise, a CAD text counter-clockwise.
+      LabelRotation: { expr: '-"goc"' },
       OffsetQuad: { field: 'canh' },
     },
     'dd_properties',

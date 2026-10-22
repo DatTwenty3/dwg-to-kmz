@@ -19,6 +19,7 @@ import {
   roleById,
   summaryDocument,
   cadLayerData,
+  cadSourceDocument,
   planCadGpkg,
 
   type Analysis,
@@ -143,12 +144,12 @@ describe.skipIf(!existsSync(ROOT))('Bóc tách DWG → TT16 — xã Long Hiệp'
     const svg = await loadSvgLibrary(built.classes, 'http://local', fromDisk);
     expect(svg?.files.size).toBeGreaterThan(0);
     // "Bản vẽ CAD": the objects of the summary drawing written to BanVeCAD.gpkg (GDAL), drawn by the project.
-    const sumDoc = summaryDocument(
+    const sumDoc = cadSourceDocument(
       folder.drawings
         .filter((p) => included.has(p.id))
         .map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: a.inside.get(p.id)!, color: colorContexts(a).get(p.id), role: a.drawings.find((d) => d.id === p.id)!.role })),
       mapping,
-      { boundary: a.boundary?.ring ?? null, texts: true },
+      a.boundary?.ring ?? null,
     );
     const cad = cadLayerData(sumDoc);
     const cadPlan = planCadGpkg(cad, tt16Wkt(105.5, 3));
@@ -160,7 +161,7 @@ describe.skipIf(!existsSync(ROOT))('Bóc tách DWG → TT16 — xã Long Hiệp'
     writeFileSync(`${WORK}/BanVeCAD.gpkg`, readFileSync(cadFile));
     // It sits in HoSoGIS next to the geodatabases: the check must not mind it.
     out.push({ path: 'HoSoGIS/BanVeCAD.gpkg', read: async () => readFileSync(cadFile) });
-    summary += `  CAD: ${JSON.stringify(cad.counts)} · gpkg ${Math.round(statSync(cadFile).size / 1e6)} MB
+    summary += `  CAD: ${JSON.stringify(cad.counts)} · bỏ bớt ${JSON.stringify(cad.thinned)} · gpkg ${Math.round(statSync(cadFile).size / 1e6)} MB
 `;
     qgs = buildQgs({
       cad: { counts: cad.counts, patternColors: cad.patternColors },

@@ -45,6 +45,29 @@ export interface PolylineEntity extends EntityBase {
   closed: boolean;
   /** Constant width in drawing units, metres after transform (0/undefined = hairline). */
   width?: number;
+  /** Name of the line type (an entry of `CadDocument.lineTypes`); undefined = continuous. DWG only. */
+  lineType?: string;
+  /** Scale of its pattern (LTSCALE × the object's own scale). */
+  lineScale?: number;
+}
+
+/** One element of a line type pattern, at scale 1 (drawing units). */
+export interface LineTypeElement {
+  /** > 0 dash, < 0 gap, 0 dot — and the distance the pen then moves when the element is a text. */
+  length: number;
+  /** Text drawn at this place of the pattern ("1", "k"… of the 110 kV line type). */
+  text?: string;
+  /** Height of the text. */
+  textScale?: number;
+  /** Shift of the text along / across the line. */
+  offset?: Vec2;
+  /** Degrees, relative to the line (absolute when `absolute`). */
+  rotation?: number;
+  absolute?: boolean;
+}
+
+export interface LineTypeDef {
+  elements: LineTypeElement[];
 }
 
 /** HATCH / SOLID / filled regions. First ring is outer, the rest are holes. */
@@ -139,6 +162,8 @@ export interface CadDocument {
   warnings: string[];
   /** External references (xref) attached in model space; their content is in other files (DWG only). */
   xrefs?: XrefInsert[];
+  /** The line types the polylines use (DWG only), by name. */
+  lineTypes?: Record<string, LineTypeDef>;
 }
 
 /** An xref INSERT: the block name is the xref name (usually the referenced file name without .dwg). */

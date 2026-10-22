@@ -35,8 +35,9 @@ export function dataDefined(props: Record<string, DataDefined> = {}, tag = 'data
 
 export const DDP = dataDefined();
 
-export const symbolOpen = (type: 'fill' | 'line' | 'marker', name: string) =>
-  `<symbol type="${type}" name="${esc(name)}" alpha="1" clip_to_extent="1" force_rhr="0" frame_rate="10" is_animated="0">${DDP}`;
+/** `clip` false: the geometry is not cut to the view, so a dash pattern keeps its phase from the true start of the line. */
+export const symbolOpen = (type: 'fill' | 'line' | 'marker', name: string, clip = true) =>
+  `<symbol type="${type}" name="${esc(name)}" alpha="1" clip_to_extent="${clip ? 1 : 0}" force_rhr="0" frame_rate="10" is_animated="0">${DDP}`;
 
 export const layerXml = (cls: string, o: Record<string, string>, inner = '', dd: Record<string, DataDefined> = {}) =>
   `<layer class="${cls}" enabled="1" locked="0" pass="0">${opts(o)}${dataDefined(dd)}${inner}</layer>`;

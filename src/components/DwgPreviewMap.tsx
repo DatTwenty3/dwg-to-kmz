@@ -156,6 +156,23 @@ export default function DwgPreviewMap({
       }
       return next;
     });
+  // Layers of the edit view with their objects still kept: a whole layer is taken out (or put back) in one click.
+  const [layersOpen, setLayersOpen] = useState(false);
+  const layerCounts = useMemo(() => {
+    if (!doc || !editMode) return [];
+    const by = new Map<string, { all: number[]; kept: number }>();
+    const seenHandle = new Set<string>();
+    for (const e of doc.entities) {
+      const i = previewIndex(e.handle);
+      if (i === null || (e.handle && seenHandle.has(e.handle))) continue;
+      if (e.handle) seenHandle.add(e.handle);
+      const row = by.get(e.layer) ?? { all: [], kept: 0 };
+      row.all.push(i);
+      if (!excluded.has(i)) row.kept++;
+      by.set(e.layer, row);
+    }
+    return [...by].map(([name, r]) => ({ name, all: r.all, kept: r.kept })).sort((a, b) => b.all.length - a.all.length);
+  }, [doc, editMode, excluded]);
   const selList = [...selected];
   const toRemove = selList.filter((i) => !excluded.has(i));
   const remove = () => {
@@ -247,7 +264,7 @@ export default function DwgPreviewMap({
                   v.id === view ? 'bg-blue-600 text-white ring-blue-600' : 'bg-white text-zinc-700 ring-zinc-200 hover:bg-zinc-50'
                 }`}
               >
-                {v.label} <span className={v.id === view ? 'text-blue-100' : 'text-zinc-400'}>{fmt(v.count)}</span>
+                {v.label} {v.count >= 0 && <span className={v.id === view ? 'text-blue-100' : 'text-zinc-400'}>{fmt(v.count)}</span>}
               </button>
             ))}
             {!views.length && <span className="text-[11.5px] text-zinc-400">Chưa có lớp nào được ghép.</span>}
@@ -275,6 +292,34 @@ export default function DwgPreviewMap({
               Xong
             </button>
           </div>
+          {layerCounts.length > 1 && (
+            <div className="px-1">
+              <button className="text-[11.5px] font-medium text-blue-600 hover:underline" onClick={() => setLayersOpen((o) => !o)} aria-expanded={layersOpen}>
+                {layersOpen ? 'Ẩn danh sách layer' : `Xóa cả layer (${fmt(layerCounts.length)})`}
+              </button>
+              {layersOpen && (
+                <ul className="ui-scroll mt-1 max-h-52 overflow-y-auto rounded-lg bg-zinc-50 py-1">
+                  {layerCounts.map((l) => (
+                    <li key={l.name} className="flex items-center gap-2 px-2 py-0.5 text-[11.5px]">
+                      <span className={`min-w-0 flex-1 truncate font-mono ${l.kept ? 'text-zinc-700' : 'text-zinc-400 line-through'}`} title={l.name}>
+                        {l.name}
+                      </span>
+                      <span className="shrink-0 tabular-nums text-zinc-400">{fmt(l.kept)}</span>
+                      {l.kept > 0 ? (
+                        <button className="ui-icon-btn !h-6 !w-6 text-red-600" onClick={() => onExclude(l.all.filter((i) => !excluded.has(i)))} aria-label={`Xóa layer ${l.name}`} title="Xóa cả layer khỏi bản xuất">
+                          <IconTrash width={12} height={12} />
+                        </button>
+                      ) : (
+                        <button className="ui-icon-btn !h-6 !w-6" onClick={() => onRestore(l.all)} aria-label={`Khôi phục layer ${l.name}`} title="Khôi phục layer">
+                          <IconUndo width={12} height={12} />
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           {excluded.size > 0 && (
             <p className="flex items-center gap-2 px-1 text-[11.5px] text-zinc-500">
               <span className="flex-1">{fmt(excluded.size)} đối tượng đã xóa khỏi {views.find((v) => v.id === view)?.label ?? 'gdb này'}</span>

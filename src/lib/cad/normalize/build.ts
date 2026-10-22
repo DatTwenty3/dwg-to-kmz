@@ -1,6 +1,6 @@
 // SrcDocument → CadDocument: explode blocks (recursive affine), tessellate curves, resolve
 // ByLayer/ByBlock colours, decode text through '@/lib/text', compute a robust bbox.
-import type { CadDocument, CadEntity, CadLayer, HAlign, HatchDef, TableCell, TextEntity, VAlign, Vec2 } from '../types';
+import type { CadDocument, CadEntity, CadLayer, HAlign, HatchDef, LineTypeDef, TableCell, TextEntity, VAlign, Vec2 } from '../types';
 import { ACI_BYBLOCK, ACI_BYLAYER, DEFAULT_COLOR, aciToHex, rgbToHex } from './aci';
 import { robustBBox } from './bbox';
 import { loopToRing, nestRings } from './hatch';
@@ -35,6 +35,8 @@ type ColorSpec = { k: 'layer' } | { k: 'block' } | { k: 'hex'; hex: string };
 interface PBase {
   layer: string;
   color: ColorSpec;
+  lineType?: string;
+  lineScale?: number;
 }
 
 /** Prototype entity in container-local coordinates; colour/layer resolution deferred. */
@@ -126,7 +128,7 @@ function transformProto(p: PEntity, m: Mat2D, insLayer?: string, insColor?: Colo
   switch (p.kind) {
     case 'polyline': {
       const det = Math.sqrt(Math.abs(determinant(m)));
-      return { ...p, layer, color, points: applyAll(m, p.points), width: p.width ? p.width * det : p.width };
+      return { ...p, layer, color, points: applyAll(m, p.points), width: p.width ? p.width * det : p.width, ...(p.lineScale ? { lineScale: p.lineScale * det } : {}) };
     }
     case 'polygon':
       return { ...p, layer, color, rings: p.rings.map((r) => applyAll(m, r)), ...(p.hatch ? { hatch: transformHatch(p.hatch, m) } : {}) };
@@ -215,7 +217,7 @@ class Builder {
     const layer = e.layer || '0';
     const color = colorSpec(e.color);
     const ocs = ocsMatrix(e.extrusion);
-    const base = { layer, color };
+    const base: PBase = { layer, color, ...(e.lineType ? { lineType: e.lineType, lineScale: e.lineScale } : {}) };
     const emit = (p: PEntity) => out.push(isIdentity(ocs) ? p : transformProto(p, ocs));
     switch (e.type) {
       case 'line':
@@ -344,6 +346,14 @@ function textProto(e: SrcText, base: PBase): PEntity {
   };
 }
 
+/** The line types the polylines use (name → pattern), when the source has any. */
+function usedLineTypes(src: SrcDocument, entities: CadEntity[]): { lineTypes?: Record<string, LineTypeDef> } {
+  if (!src.lineTypes) return {};
+  const out: Record<string, LineTypeDef> = {};
+  for (const e of entities) if (e.kind === 'polyline' && e.lineType && src.lineTypes[e.lineType]) out[e.lineType] = src.lineTypes[e.lineType];
+  return Object.keys(out).length ? { lineTypes: out } : {};
+}
+
 function tableProto(e: SrcTable, base: PBase): PEntity | null {
   const rows = e.rowHeights.length;
   const cols = e.colWidths.length;
@@ -426,7 +436,14 @@ export function buildDocument(src: SrcDocument, opts: BuildOptions = {}): CadDoc
       switch (p.kind) {
         case 'polyline':
           if (p.points.length < 2) break;
-          entities.push(p.width ? { ...common, kind: 'polyline', points: p.points, closed: p.closed, width: p.width } : { ...common, kind: 'polyline', points: p.points, closed: p.closed });
+          entities.push({
+            ...common,
+            kind: 'polyline',
+            points: p.points,
+            closed: p.closed,
+            ...(p.width ? { width: p.width } : {}),
+            ...(p.lineType ? { lineType: p.lineType, lineScale: p.lineScale } : {}),
+          });
           break;
         case 'polygon':
           entities.push(
@@ -518,5 +535,6 @@ export function buildDocument(src: SrcDocument, opts: BuildOptions = {}): CadDoc
     bbox: robustBBox(finalEntities),
     warnings,
     ...(src.xrefs?.length ? { xrefs: src.xrefs } : {}),
+    ...usedLineTypes(src, finalEntities),
   };
 }

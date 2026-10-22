@@ -9,6 +9,12 @@ import { compactName, landUseOf, sameLandUse, type GeomKind } from './suggest';
 /** Layer names of the planning boundary ("BV_Rg_Lapquyhoach", "Ranh giới lập quy hoạch", "RANH QH"…). */
 export const PLAN_BOUNDARY_LAYER = /rglap|ranh\w*lap|lapquyhoach|ranhquyhoach|ranhqh\b|rgqh|ranhnghiencuu|phamvinghiencuu|ranhgioilapqh/;
 
+/**
+ * When no layer is named as a planning boundary: the outline of the commune drawn as an administrative boundary
+ * (Đôn Châu: the area of the plan is the closed "Ranh giới huyện" line; its "Lập quy hoạch" layer is only a legend sample).
+ */
+const ADMIN_BOUNDARY_LAYER = /ranhgioi(huyen|xa|phuong|thitran|hanhchinh)/;
+
 /** Layer of the planning boundary in previews. */
 export const BOUNDARY_LAYER = 'Ranh giới quy hoạch';
 
@@ -40,6 +46,23 @@ export function findBoundary(doc: CadDocument): BoundaryCandidate | null {
   }
   // A boundary drawn in several pieces.
   for (const [layer, lines] of pieces) for (const ring of chainRings(lines).rings) consider(ring, layer);
+  // A boundary left open by a small gap (Đôn Châu: BV_Rg_Lapquyhoach is one polyline that stops short of its start).
+  for (const [layer, lines] of pieces)
+    for (const pts of lines) {
+      if (pts.length < 4) continue;
+      let length = 0;
+      for (let i = 1; i < pts.length; i++) length += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+      const gap = Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]);
+      if (gap <= length * 0.02) consider(pts, layer);
+    }
+  if (!best) {
+    // No boundary layer at all: take the commune outline (≥ 100 ha).
+    for (const e of doc.entities)
+      if (e.kind === 'polyline' && ADMIN_BOUNDARY_LAYER.test(compactName(e.layer)) && isClosedLine(e.points, e.closed)) {
+        const area = ringArea(e.points);
+        if (area >= 1e6 && (!best || area > (best as BoundaryCandidate).area)) best = { ring: e.points, area, layer: e.layer };
+      }
+  }
   return best;
 }
 

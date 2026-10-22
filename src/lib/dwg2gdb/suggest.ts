@@ -38,7 +38,7 @@ export interface LayerFacts {
   numericShare?: number;
 }
 
-type Theme = 'sdd' | 'ktcq' | 'tkdt' | 'gt' | 'cg' | 'cbkt' | 'tnt' | 'nuoc' | 'dien' | 'ttll' | 'mt' | 'ranh';
+type Theme = 'sdd' | 'ktcq' | 'tkdt' | 'gt' | 'cg' | 'cbkt' | 'tnt' | 'nuoc' | 'dien' | 'ttll' | 'mt' | 'ranh' | 'dh' | 'moc';
 
 const DATASET: Record<Theme, [string, string]> = {
   sdd: ['HienTrangSuDungDat', 'QuyHoachSuDungDat'],
@@ -53,7 +53,18 @@ const DATASET: Record<Theme, [string, string]> = {
   ttll: ['HienTrangThongTinLienLac', 'QuyHoachThongTinLienLac'],
   mt: ['DanhGiaHienTrangMoiTruong', 'GiaiPhapBaoVeMoiTruong'],
   ranh: ['ViTriRanhGioi', 'ViTriRanhGioi'],
+  // One database each: the dataset is the same whichever side is asked.
+  dh: ['NenDiaHinh', 'NenDiaHinh'],
+  moc: ['MocGioiQuyHoach', 'MocGioiQuyHoach'],
 };
+
+/** Datasets that pair with `dataset` in the other database (HienTrangGiaoThong ↔ QuyHoachGiaoThong), best first. */
+export function counterpartDatasets(dataset: string, db: string): string[] {
+  const out: string[] = [];
+  if (db !== 'HienTrang' && db !== 'QuyHoach') return out;
+  for (const pair of Object.values(DATASET)) if (pair.includes(dataset)) out.push(pair[db === 'HienTrang' ? 0 : 1]);
+  return [...new Set(out)];
+}
 
 /** Folded layer name without separators: "HTKT_CD_Tuyen 22 kV" → "htktcdtuyen22kv". */
 export const compactName = (s: string) => foldVietnamese(s).replace(/ /g, '');
@@ -191,6 +202,17 @@ const LAND_USE_BACKGROUND = /^(qhdd|qhdh|ht|hkqh|ntm|hkqhntm)?dat|^ntm|^qhdd|^qh
 /** Classes per kind for a theme, by keyword. Returns [class, phanLoai] or null. */
 type Pick = { theme: Theme; cls: string; phanLoai: string } | null;
 
+/** Contour lines, spot heights (NenDiaHinh) and boundary markers (MocGioi). */
+function terrainOrMarker(c: string, kind: GeomKind, facts: LayerFacts, role: RoleId): Pick {
+  if (/mocgioi|cammoc|mocranh/.test(c) || role === 'moc') {
+    if (kind === 'T') return null;
+    return { theme: 'moc', cls: kind === 'A' ? 'MocGioiQuyHoach_A' : kind === 'L' ? 'MocGioiQuyHoach_L' : 'MocGioiQuyHoach_P', phanLoai: 'Mốc giới quy hoạch' };
+  }
+  if (/dongmuc|contour|^dmuc|duongmuc/.test(c)) return kind === 'L' ? { theme: 'dh', cls: 'DuongDongMuc_L', phanLoai: 'Đường đồng mức' } : null;
+  if (/diemdocao|diemcaodo|ddcao|^spot|spotheight/.test(c)) return kind === 'P' || kind === 'T' ? { theme: 'dh', cls: 'DiemDoCao_P', phanLoai: 'Điểm độ cao' } : null;
+  return null;
+}
+
 function roads(c: string, kind: GeomKind, p: string): Pick {
   // "Đường điện / đường ống / đường dây …" are utility lines, not roads (they only share the word "đường").
   if (/duong(day)?dien|duongong|duongnuoc|duongcap|duongthoat|duongtruyen/.test(c)) return null;
@@ -286,7 +308,7 @@ export function suggest(roleId: RoleId, layer: string, kind: GeomKind, facts: La
   const hien = role.db === 'HienTrang';
   const at = (x: NonNullable<Pick>, why: string): Suggestion => {
     // Ranh giới is written to QuyHoach (and copied to HienTrang when it has none — see features.ts).
-    const db = x.theme === 'ranh' ? 'QuyHoach' : role.db!;
+    const db = x.theme === 'ranh' ? 'QuyHoach' : x.theme === 'dh' ? 'NenDiaHinh' : x.theme === 'moc' ? 'MocGioi' : role.db!;
     return { target: targetPath(db, DATASET[x.theme][db === 'HienTrang' ? 0 : 1], x.cls), phanLoai: x.phanLoai, reason: why };
   };
 
@@ -294,8 +316,13 @@ export function suggest(roleId: RoleId, layer: string, kind: GeomKind, facts: La
   // (one feature, de-duplicated when exporting).
   const b = boundary(c, kind, facts);
   if (b) return at(b, 'Tên layer là ranh giới');
+  // On a terrain map the numbers are the spot heights, whatever their layer is called ("TEXT", "GHI CHU").
+  if (role.id === 'nen' && kind === 'T' && (facts.numericShare ?? 0) >= 0.7) return at({ theme: 'dh', cls: 'DiemDoCao_P', phanLoai: 'Điểm độ cao' }, 'Số cao độ trên bản đồ địa hình');
   if (NEVER.test(c) || c === '') return none('Chữ, ký hiệu, khung, kích thước — không phải dữ liệu GIS');
   if (/tuongrao|hangrao/.test(c)) return none('Tường rào — không có lớp tương ứng');
+  // Terrain and boundary markers have their own databases, whatever the map they are drawn on.
+  const dm = terrainOrMarker(c, kind, facts, roleId);
+  if (dm) return at(dm, dm.cls.startsWith('Moc') ? 'Mốc giới quy hoạch' : 'Nền địa hình');
   // The outline of a symbol that also has its point / hatch (a manhole, a transformer station): the point is the data.
   if (kind === 'L' && /hoga|giengthu|gietthu|dientram|tramdien|^tba|bienap/.test(c)) return none('Nét viền ký hiệu (hố ga, trạm điện…) — đối tượng lấy từ điểm / hatch');
   if (/^(nen)?giaithua$/.test(c)) return none('Nền giải thửa (địa chính) — không thuộc đồ án');

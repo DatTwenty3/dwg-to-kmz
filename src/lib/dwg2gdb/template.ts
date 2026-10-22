@@ -2,9 +2,10 @@
 // project of the same office (offices keep their layer habits). A template is a small JSON file that can be
 // shared between colleagues, so reading one treats it as untrusted input.
 import { TT16_DATABASES } from '@/lib/gdb/tt16';
-import { ROLES, type RoleId } from './roles';
+import { ROLES, type DbName, type RoleId } from './roles';
+import { TT16_SCHEMA } from '@/lib/gdb/tt16Schema';
 import type { LayerRow } from './inventory';
-import { compactName, targetPath, type GeomKind, type TargetPath } from './suggest';
+import { compactName, counterpartDatasets, parseTarget, targetPath, type GeomKind, type TargetPath } from './suggest';
 
 export interface TargetOption {
   path: TargetPath;
@@ -16,22 +17,57 @@ export interface TargetOption {
   geom: 'A' | 'L' | 'P';
 }
 
-/** Every feature class data can be written to (HienTrang, QuyHoach, MocGioi). */
-export const TARGETS: TargetOption[] = TT16_DATABASES.filter((d) => d.datasets.length).flatMap((db) =>
-  db.datasets.flatMap((ds) =>
+/**
+ * Every feature class data can be written to (HienTrang, QuyHoach, MocGioi, and NenDiaHinh, whose classes come from the
+ * template of the Bộ Xây dựng: the rules of Thông tư 16 give it no groups).
+ */
+export const TARGETS: TargetOption[] = [
+  ...TT16_DATABASES.filter((d) => d.datasets.length).flatMap((db) =>
+    db.datasets.flatMap((ds) =>
+      ds.classes.map((c) => ({
+        path: targetPath(db.name, ds.name, c.name),
+        db: db.name,
+        dataset: ds.name,
+        datasetTitle: ds.title,
+        cls: c.name,
+        alias: c.alias,
+        geom: c.name.slice(-1) as 'A' | 'L' | 'P',
+      })),
+    ),
+  ),
+  ...(TT16_SCHEMA.databases.NenDiaHinh ?? []).flatMap((ds) =>
     ds.classes.map((c) => ({
-      path: targetPath(db.name, ds.name, c.name),
-      db: db.name,
+      path: targetPath('NenDiaHinh', ds.name, c.name),
+      db: 'NenDiaHinh',
       dataset: ds.name,
-      datasetTitle: ds.title,
+      datasetTitle: 'Nền địa hình',
       cls: c.name,
       alias: c.alias,
       geom: c.name.slice(-1) as 'A' | 'L' | 'P',
     })),
   ),
-);
+];
 const TARGET_SET = new Map(TARGETS.map((t) => [t.path, t]));
 export const targetOption = (p: TargetPath | null | undefined) => (p ? TARGET_SET.get(p) : undefined);
+
+export type TargetDb = DbName;
+
+/**
+ * The class of another database that corresponds to `target`: the same class in the paired dataset
+ * (QuyHoachGiaoThong/MangLuoiGiaoThongDuongBo_L → HienTrangGiaoThong/MangLuoiGiaoThongDuongBo_L), else the same class
+ * anywhere in that database. Boundaries (ViTriRanhGioi) belong to both and stay. undefined: the other database has no
+ * such class (ChiGioiDuongDo_L has its own in each, PhanKhuQuyHoach_A only in QuyHoach).
+ */
+export function retarget(target: TargetPath, db: TargetDb): TargetPath | undefined {
+  const t = parseTarget(target);
+  if (!t) return undefined;
+  if (t.db === db || t.dataset === 'ViTriRanhGioi') return target;
+  for (const ds of counterpartDatasets(t.dataset, db)) {
+    const path = targetPath(db, ds, t.cls);
+    if (TARGET_SET.has(path)) return path;
+  }
+  return TARGETS.find((x) => x.db === db && x.cls === t.cls)?.path;
+}
 
 /** Which source geometry kinds can feed a class of this geometry (vùng → điểm = điểm trong vùng, …). */
 export function kindFits(kind: GeomKind, geom: 'A' | 'L' | 'P'): boolean {

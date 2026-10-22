@@ -11,7 +11,7 @@ import { guessRole, roleById, type RoleId } from './roles';
 import { pickSection } from './section';
 import { domainCode } from '@/lib/gdb/tt16Schema';
 import { compactName, LAND_USE_M1, layerLandUse, sameLandUse, suggest, type GeomKind } from './suggest';
-import { templateLookup, type MappingEntry, type MappingTemplate, type TemplateRule } from './template';
+import { retarget, templateLookup, type MappingEntry, type MappingTemplate, type TargetDb, type TemplateRule } from './template';
 import { placeXref, resolveXref, xrefNameRole, xrefOwners, type FolderFile, type MainDrawing } from './xrefs';
 
 export * from './cadLayers';
@@ -165,6 +165,8 @@ export interface DrawingInfo {
   year: number | null;
   /** Set for an xref: the main drawing that loads it. */
   owner: { id: string; name: string } | null;
+  /** The user's choice of geodatabase for this drawing's data, instead of the one its map kind feeds (null: automatic). */
+  dbOverride?: TargetDb | null;
   /** Used to build the geodatabases (default: drawings with a role, the latest year of a map kind). */
   included: boolean;
   /** Why it is left out by default. */
@@ -361,7 +363,22 @@ export function suggestRow(row: LayerRow, role: RoleId, rows: readonly LayerRow[
  * Mapping of one row: a saved template rule first (for a colour group only a rule saved for that colour, or a
  * colourless layer rule when the colour decides nothing), else the suggestion.
  */
-export function resolveRow(row: LayerRow, role: RoleId, lookup: ReturnType<typeof templateLookup>, rows: readonly LayerRow[]): MappingState {
+export function resolveRow(row: LayerRow, role: RoleId, lookup: ReturnType<typeof templateLookup>, rows: readonly LayerRow[], db?: TargetDb | null): MappingState {
+  const s = resolveByRole(row, role, lookup, rows);
+  return db && db !== roleById(role).db ? retargetState(s, db) : s;
+}
+
+/** The same decision written to the other geodatabase: its class there, or a request to choose one. */
+export function retargetState(s: MappingState, db: TargetDb): MappingState {
+  if (!s.target) return s;
+  const target = retarget(s.target, db);
+  if (target === s.target) return s;
+  if (target) return { ...s, target, reason: `${s.reason} — ghi vào ${db}.gdb theo lựa chọn` };
+  const cls = s.target.split('/').pop();
+  return { ...s, target: null, unknown: true, review: false, reason: `Lớp ${cls} chưa có trong ${db}.gdb — hãy chọn lớp khác` };
+}
+
+function resolveByRole(row: LayerRow, role: RoleId, lookup: ReturnType<typeof templateLookup>, rows: readonly LayerRow[]): MappingState {
   const fromTemplate = (t: MappingEntry): MappingState => ({ ...t, source: 'template', reason: 'Theo mẫu ghép đã lưu' });
   if (!roleById(role).db) return suggestRow(row, role, rows);
   const exact = lookup(role, row.layer, row.kind as GeomKind, row.colorKey ? row.color : undefined);
@@ -378,8 +395,9 @@ export function resolveRow(row: LayerRow, role: RoleId, lookup: ReturnType<typeo
 export function initialMapping(a: Pick<Analysis, 'drawings' | 'rows'>, template: MappingTemplate | null): Map<string, MappingState> {
   const lookup = templateLookup(template);
   const roleOf = new Map(a.drawings.map((d) => [d.id, d.role]));
+  const dbOf = new Map(a.drawings.map((d) => [d.id, d.dbOverride ?? null]));
   const out = new Map<string, MappingState>();
-  for (const r of a.rows) out.set(r.key, resolveRow(r, roleOf.get(r.drawing) ?? 'other', lookup, a.rows));
+  for (const r of a.rows) out.set(r.key, resolveRow(r, roleOf.get(r.drawing) ?? 'other', lookup, a.rows, dbOf.get(r.drawing)));
   return out;
 }
 
@@ -392,8 +410,9 @@ export function unmappedRows(rows: LayerRow[], mapping: Map<string, MappingEntry
  * Decisions worth keeping in the template: every row sent to a class, and the rows the user (or the template)
  * chose to leave out. Built-in "leave out" suggestions are not stored — the rules give them again.
  */
-export function templateDecisions(drawings: Pick<DrawingInfo, 'id' | 'role'>[], rows: LayerRow[], mapping: Map<string, MappingState>): TemplateRule[] {
-  const roleOf = new Map(drawings.map((d) => [d.id, d.role]));
+export function templateDecisions(drawings: Pick<DrawingInfo, 'id' | 'role' | 'dbOverride'>[], rows: LayerRow[], mapping: Map<string, MappingState>): TemplateRule[] {
+  // A drawing written to another geodatabase than its map kind feeds is a one-off: its decisions are not learnt.
+  const roleOf = new Map(drawings.filter((d) => !d.dbOverride || d.dbOverride === roleById(d.role).db).map((d) => [d.id, d.role]));
   const out: TemplateRule[] = [];
   for (const r of rows) {
     const role = roleOf.get(r.drawing);

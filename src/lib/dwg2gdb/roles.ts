@@ -16,15 +16,20 @@ export type RoleId =
   | 'qh-tn'
   | 'qh-cbkt'
   | 'qh-mt'
+  | 'nen'
+  | 'moc'
   | 'vitri'
   | 'xref'
   | 'other';
+
+/** The four databases of Thông tư 16. */
+export type DbName = 'HienTrang' | 'QuyHoach' | 'NenDiaHinh' | 'MocGioi';
 
 export interface DrawingRole {
   id: RoleId;
   label: string;
   /** TT16 database the drawing feeds (null = nothing by default). */
-  db: 'HienTrang' | 'QuyHoach' | null;
+  db: DbName | null;
   /** Feature dataset suggested for layers that only say "a line on this map". */
   dataset: string | null;
 }
@@ -42,6 +47,8 @@ export const ROLES: DrawingRole[] = [
   { id: 'qh-tn', label: 'Quy hoạch thoát nước', db: 'QuyHoach', dataset: 'QuyHoachChuanBiKyThuat' },
   { id: 'qh-cbkt', label: 'Quy hoạch chuẩn bị kỹ thuật', db: 'QuyHoach', dataset: 'QuyHoachChuanBiKyThuat' },
   { id: 'qh-mt', label: 'Môi trường', db: 'QuyHoach', dataset: 'GiaiPhapBaoVeMoiTruong' },
+  { id: 'nen', label: 'Nền địa hình (đường đồng mức, điểm độ cao)', db: 'NenDiaHinh', dataset: 'NenDiaHinh' },
+  { id: 'moc', label: 'Mốc giới quy hoạch', db: 'MocGioi', dataset: 'MocGioiQuyHoach' },
   { id: 'vitri', label: 'Sơ đồ vị trí (không dùng)', db: null, dataset: null },
   { id: 'xref', label: 'Xref / nền tham chiếu (không dùng)', db: null, dataset: null },
   { id: 'other', label: 'Khác (không dùng)', db: null, dataset: null },
@@ -60,6 +67,8 @@ export interface RoleGuess {
 /** Ordered: the first rule matching the folded title (or file name) wins. */
 const RULES: [RegExp, RoleId][] = [
   [/so do vi tri|lien he vung|vi tri .* trong/, 'vitri'],
+  [/nen dia hinh|khao sat dia hinh|do dac dia hinh|ban do dia hinh|duong dong muc/, 'nen'],
+  [/moc gioi|cam moc/, 'moc'],
   [/hien trang.*su dung dat|su dung dat.*hien trang|danh gia hien trang/, 'ht-sdd'],
   [/hien trang .*(ha tang|ky thuat|giao thong|cap dien|cap nuoc|thoat nuoc)|ha tang ky thuat hien trang/, 'ht-htkt'],
   [/hien trang|danh gia hien trang/, 'ht-sdd'],

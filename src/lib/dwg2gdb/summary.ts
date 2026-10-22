@@ -7,11 +7,11 @@ import type { CadDocument, CadEntity, CadLayer, Vec2 } from '@/lib/cad/types';
 import { normalizeHex } from '@/lib/export/color';
 import type { DrawingInput } from './features';
 import { entityRowKey } from './inventory';
-import { roleById, type RoleId } from './roles';
+import { roleById, type DbName, type RoleId } from './roles';
 import { parseTarget, prettyLayer } from './suggest';
 import type { MappingEntry } from './template';
 
-const SHORT: Record<string, string> = { HienTrang: 'HT', QuyHoach: 'QH', MocGioi: 'MG' };
+const SHORT: Record<string, string> = { HienTrang: 'HT', QuyHoach: 'QH', MocGioi: 'MG', NenDiaHinh: 'DH' };
 
 export interface SummaryOptions {
   boundary: Vec2[] | null;
@@ -29,7 +29,7 @@ export function objectKey(layer: string, e: CadEntity): string {
   return `${layer}|${e.kind}|${pts.length}|${r(a[0])},${r(a[1])}|${r(b[0])},${r(b[1])}${e.kind === 'text' ? `|${e.text}` : ''}`;
 }
 
-export function summaryDocument(drawings: (DrawingInput & { role: RoleId })[], mapping: Map<string, MappingEntry>, o: SummaryOptions): CadDocument {
+export function summaryDocument(drawings: (DrawingInput & { role: RoleId; db?: DbName | null })[], mapping: Map<string, MappingEntry>, o: SummaryOptions): CadDocument {
   const layers = new Map<string, CadLayer>();
   const entities: CadEntity[] = [];
   const seen = new Set<string>();
@@ -43,7 +43,7 @@ export function summaryDocument(drawings: (DrawingInput & { role: RoleId })[], m
 
   let hasBoundary = false;
   for (const d of drawings) {
-    const db = roleById(d.role).db;
+    const db = roleById(d.role).db && (d.db ?? roleById(d.role).db);
     if (!db) continue;
     d.doc.entities.forEach((e, i) => {
       if (!d.inside[i]) return;

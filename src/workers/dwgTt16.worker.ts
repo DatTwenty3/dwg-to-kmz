@@ -37,6 +37,7 @@ import {
   summaryDocument,
 
   type CoverageReport,
+  type DbName,
   type DrawingInfo,
   type FolderFile,
   type LayerRow,
@@ -62,9 +63,9 @@ export type DwgTt16Request =
   /** Read the hatch colours against another Mục of Phụ lục I (null: colours off): the rows are made again. */
   | { type: 'section'; section: number | null }
   /** What one geodatabase will get with this mapping ("Biên tập"), in WGS84. */
-  | { type: 'output'; db: string; drawings: string[]; mapping: [string, MappingEntry][]; crs: CrsOptions; projectTitle: string | null; roles: Record<string, RoleId> }
+  | { type: 'output'; db: string; drawings: string[]; mapping: [string, MappingEntry][]; crs: CrsOptions; projectTitle: string | null; roles: Record<string, RoleId>; dbs: Record<string, DbName> }
   /** Which CAD objects inside the planning area do not reach the geodatabases with this mapping. */
-  | { type: 'coverage'; drawings: string[]; mapping: [string, MappingEntry][]; roles: Record<string, RoleId>; projectTitle: string | null; excluded: Record<string, number[]> }
+  | { type: 'coverage'; drawings: string[]; mapping: [string, MappingEntry][]; roles: Record<string, RoleId>; dbs: Record<string, DbName>; projectTitle: string | null; excluded: Record<string, number[]> }
   | {
       type: 'export';
       drawings: string[];
@@ -83,6 +84,8 @@ export type DwgTt16Request =
       dxf: boolean;
       /** Map kind of each drawing as set by the user (prefix HT / QH of the texts' layers). */
       roles: Record<string, RoleId>;
+      /** Geodatabase the user chose for a drawing instead of the one its map kind feeds (prefix HT / QH of the CAD layers). */
+      dbs: Record<string, DbName>;
       /** Add the QGIS project <projectName>.qgz (tệp tổng hợp) to HoSoGIS. */
       qgz: boolean;
       /** With the .qgz: the CAD drawing (lines with their widths, symbols, texts) as <projectName>.gpkg + a group "Bản vẽ CAD". */
@@ -254,7 +257,7 @@ function output(req: Extract<DwgTt16Request, { type: 'output' }>) {
     const ids = new Set(req.drawings);
     const colors = colorContexts(analysis);
     const src = cadSource(
-      parsed.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: analysis!.inside.get(p.id)!, color: colors.get(p.id), role: req.roles[p.id] ?? 'other' })),
+      parsed.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: analysis!.inside.get(p.id)!, color: colors.get(p.id), role: req.roles[p.id] ?? 'other', db: req.dbs[p.id] })),
       new Map(req.mapping),
       analysis.boundary?.ring ?? null,
     );
@@ -314,7 +317,7 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
   const used = () =>
     parsed
       .filter((p) => ids.has(p.id))
-      .map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: insideOf(p.id), color: colors.get(p.id), role: req.roles[p.id] ?? 'other', removed: new Set(req.excluded[p.id] ?? []) }));
+      .map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: insideOf(p.id), color: colors.get(p.id), role: req.roles[p.id] ?? 'other', db: req.dbs[p.id], removed: new Set(req.excluded[p.id] ?? []) }));
   const doc = req.dxf ? summaryDocument(used(), new Map(req.mapping), { boundary: analysis.boundary?.ring ?? null, texts: true }) : null;
   if (doc) {
     post({ type: 'progress', stage: 'Ghi bản vẽ tổng hợp (.dxf)', done: 0, total: 1 });

@@ -193,6 +193,43 @@ export function adminName(raw: string): { name: string; kind: string } | null {
 export { labelIn, labelIndex };
 
 
+/** "+2.35", "1,8", "-0.5": a height written on the drawing (metres). */
+const HEIGHT = /^[+\-±]?\d{1,4}([.,]\d{1,3})?$/;
+function heightOf(text: string): number | null {
+  const t = text.replace(/\s+/g, '').trim();
+  if (!HEIGHT.test(t)) return null;
+  const v = Number(t.replace(/^[+±]/, '').replace(',', '.'));
+  return Number.isFinite(v) ? v : null;
+}
+const heightAttrs = (text: string): Record<string, number> | undefined => {
+  const v = heightOf(text);
+  return v === null ? undefined : { caoDo: v };
+};
+
+/** caoDo of the contour lines: the number written along each one (any drawing). */
+function heightContours(classes: Iterable<{ cls: string; features: GisFeature[] }>, drawings: DrawingInput[]): number {
+  const texts: (RoadText & { value: number })[] = [];
+  for (const d of drawings)
+    d.doc.entities.forEach((e, i) => {
+      if (e.kind !== 'text' || !d.inside[i]) return;
+      const v = heightOf(e.text);
+      if (v !== null) texts.push({ text: e.text, at: e.position, height: e.height, rotation: e.rotation, value: v });
+    });
+  let n = 0;
+  if (!texts.length) return n;
+  for (const c of classes) {
+    if (c.cls !== 'DuongDongMuc_L') continue;
+    for (const f of c.features) {
+      if (f.geometry.type !== 'MultiLineString') continue;
+      const t = texts[textAlong(f.geometry.coordinates, texts, 45)];
+      if (!t) continue;
+      f.attrs = { ...f.attrs, caoDo: t.value };
+      n++;
+    }
+  }
+  return n;
+}
+
 const ROAD_LINE = 'MangLuoiGiaoThongDuongBo_L';
 const BRIDGE_LINE = 'CongTrinhGiaoThong_L';
 
@@ -370,7 +407,7 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
           if (ring) name = label([ring]);
         }
         if (!p) return;
-        add(c, { ...base, refs, tenDoiTuong: name, geometry: { type: 'Point', coordinates: pt(p) } });
+        add(c, { ...base, refs, tenDoiTuong: name, attrs: c.cls === 'DiemDoCao_P' && e.kind === 'text' ? heightAttrs(e.text) : undefined, geometry: { type: 'Point', coordinates: pt(p) } });
       }
     });
     for (const { c, base, lines, index } of pieces.values()) {
@@ -388,6 +425,8 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
     }
   }
 
+  const heights = heightContours(byTarget.values(), drawings);
+  if (heights) notes.push(`Ghi cao độ cho ${heights} đường đồng mức theo số viết dọc đường`);
   const named = nameRoads(byTarget.values(), drawings);
   if (named.roads) notes.push(`Đặt tên cho ${named.roads} đoạn đường theo chữ viết dọc tuyến`);
   if (named.bridges) notes.push(`Đặt tên cho ${named.bridges} cầu theo chữ trên bản vẽ`);

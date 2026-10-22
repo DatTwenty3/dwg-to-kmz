@@ -6,7 +6,7 @@
 import { formatDegMin } from '@/lib/geo/crs';
 import { tt16Wkt } from '@/lib/gdb/tt16Schema';
 import { foldVietnamese } from '@/lib/geo/provinces';
-import { TT16_DATABASES } from '@/lib/gdb/tt16';
+import { TARGETS } from './template';
 import type { ClassData, CategoryStyle } from './features';
 import { pascalName } from '@/lib/gdb/normalize';
 import { buildLayouts } from './qgisLayout';
@@ -289,11 +289,11 @@ export function buildQgs(p: QgisProjectInput): string {
   const srs = srsXml(p.lon0, p.zone);
   const [x0, y0, x1, y1] = p.extent;
   const ext = `<xmin>${x0}</xmin><ymin>${y0}</ymin><xmax>${x1}</xmax><ymax>${y1}</ymax>`;
-  const alias = new Map<string, string>(TT16_DATABASES.flatMap((db) => db.datasets.flatMap((d) => d.classes.map((c) => [`${db.name}/${d.name}/${c.name}`, c.alias] as const))));
-  const dsTitle = new Map(TT16_DATABASES.flatMap((db) => db.datasets.map((d) => [`${db.name}/${d.name}`, d.title] as const)));
+  const alias = new Map<string, string>(TARGETS.map((t) => [t.path, t.alias] as const));
+  const dsTitle = new Map(TARGETS.map((t) => [`${t.db}/${t.dataset}`, t.datasetTitle] as const));
   // Draw order inside a group: points, lines, then areas (the boundary on top of everything).
   const rank = (c: ClassData) => (c.cls === 'RanhGioiQuyHoach_A' ? -1 : c.geom === 'P' ? 0 : c.geom === 'L' ? 1 : 2);
-  const dbOrder = ['QuyHoach', 'HienTrang', 'MocGioi'];
+  const dbOrder = ['QuyHoach', 'HienTrang', 'MocGioi', 'NenDiaHinh'];
   const cadLayers = p.cad ? cadLayerList(p.cad.counts, p.name) : [];
   /** With the CAD drawing on, the geodatabase layers it already draws stay unchecked (land use and symbol points stay). */
   const shown = (c: ClassData) =>

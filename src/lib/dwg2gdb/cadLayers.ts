@@ -9,7 +9,7 @@ import { inkForPaper } from '@/lib/map/cadGrid';
 import { ringsToPolygons } from './geometry';
 import type { DrawingInput, SourceRef } from './features';
 import { entityRowKey, PLAN_BOUNDARY_LAYER } from './inventory';
-import { roleById, type RoleId } from './roles';
+import { roleById, type DbName, type RoleId } from './roles';
 import { compactName, layerLandUse, parseTarget } from './suggest';
 import { objectKey } from './summary';
 import type { MappingEntry } from './template';
@@ -17,7 +17,7 @@ import type { MappingEntry } from './template';
 /** Default file name (without .gpkg); the export names it like the project (.qgz). */
 export const CAD_GPKG = 'BanVeCAD';
 
-const SHORT: Record<string, string> = { HienTrang: 'HT', QuyHoach: 'QH', MocGioi: 'MG' };
+const SHORT: Record<string, string> = { HienTrang: 'HT', QuyHoach: 'QH', MocGioi: 'MG', NenDiaHinh: 'DH' };
 const SDD_ROLES = new Set<RoleId>(['ht-sdd', 'qh-sdd']);
 
 /**
@@ -59,11 +59,11 @@ export interface CadSource {
 /** Drawing id prefix of the CAD drawing's own list of removed objects (Biên tập → "Bản vẽ CAD"). */
 export const CAD_EDIT_PREFIX = 'cad:';
 
-export function cadSourceDocument(drawings: (DrawingInput & { role: RoleId; removed?: ReadonlySet<number> })[], mapping: Map<string, MappingEntry>, boundary: Vec2[] | null): CadDocument {
+export function cadSourceDocument(drawings: (DrawingInput & { role: RoleId; db?: DbName | null; removed?: ReadonlySet<number> })[], mapping: Map<string, MappingEntry>, boundary: Vec2[] | null): CadDocument {
   return cadSource(drawings, mapping, boundary).doc;
 }
 
-export function cadSource(drawings: (DrawingInput & { role: RoleId; removed?: ReadonlySet<number> })[], mapping: Map<string, MappingEntry>, boundary: Vec2[] | null): CadSource {
+export function cadSource(drawings: (DrawingInput & { role: RoleId; db?: DbName | null; removed?: ReadonlySet<number> })[], mapping: Map<string, MappingEntry>, boundary: Vec2[] | null): CadSource {
   // The signs at the ends of the roads (route number in a diamond, arrow) stand just outside the boundary: a margin of
   // 10 % of its size takes them — from the layers of the map, not of the sheet.
   let around: [number, number, number, number] | null = null;
@@ -77,7 +77,7 @@ export function cadSource(drawings: (DrawingInput & { role: RoleId; removed?: Re
   const seen = new Map<string, number>();
   const lineTypes: Record<string, LineTypeDef> = {};
   for (const d of drawings) {
-    const db = roleById(d.role).db;
+    const db = roleById(d.role).db && (d.db ?? roleById(d.role).db);
     if (!db) continue;
     for (const [name, def] of Object.entries(d.doc.lineTypes ?? {})) lineTypes[name] ??= def;
     const background = !SDD_ROLES.has(d.role);

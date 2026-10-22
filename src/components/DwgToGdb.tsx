@@ -42,6 +42,8 @@ import {
   type MappingTemplate,
   type CoverageGroup,
   type CoverageReport,
+  retargetState,
+  type DbName,
   type RoleId,
 } from '@/lib/dwg2gdb';
 import { codeForProvince } from '@/lib/gdb/crs';
@@ -211,6 +213,8 @@ export default function DwgToGdb() {
   const cadExcludedCount = [...excluded].reduce((t, [id, set]) => t + (id.startsWith(CAD_EDIT_PREFIX) && drawings.find((d) => d.id === id.slice(CAD_EDIT_PREFIX.length))?.included ? set.size : 0), 0);
   // The drawings' map kinds decide the HT / QH prefix of the CAD layers: the edit view is made again when one changes.
   const rolesKey = drawings.map((d) => `${d.id}:${d.role}`).join('|');
+  /** Geodatabase the user chose per drawing (only the overridden ones). */
+  const dbsOf = (ds: DrawingInfo[]) => Object.fromEntries(ds.filter((d) => d.dbOverride).map((d) => [d.id, d.dbOverride as DbName]));
   const [exportState, setExportState] = useState<{ progress: Progress | null; result: Done | null; error: string | null }>({ progress: null, result: null, error: null });
   const workerRef = useRef<Worker | null>(null);
   const folderRef = useRef<HTMLInputElement>(null);
@@ -269,11 +273,12 @@ export default function DwgToGdb() {
       // New rows (another Mục): the mapping follows — the user's own choices stay where their row still exists.
       const lookup = templateLookup(live.current.template);
       const roleOf = new Map(live.current.drawings.map((d) => [d.id, d.role]));
+      const dbOf = new Map(live.current.drawings.map((d) => [d.id, d.dbOverride ?? null]));
       setMapping((old) => {
         const n = new Map<string, MappingState>();
         for (const r of m.rows) {
           const prev = old.get(r.key);
-          n.set(r.key, prev?.source === 'manual' ? prev : resolveRow(r, roleOf.get(r.drawing) ?? 'other', lookup, m.rows));
+          n.set(r.key, prev?.source === 'manual' ? prev : resolveRow(r, roleOf.get(r.drawing) ?? 'other', lookup, m.rows, dbOf.get(r.drawing)));
         }
         return n;
       });
@@ -372,7 +377,7 @@ export default function DwgToGdb() {
     const t = setTimeout(() => {
       setOutputLoading(true);
       const roles = Object.fromEntries(live.current.drawings.map((d) => [d.id, d.role]));
-      workerRef.current?.postMessage({ type: 'output', db: editDb, drawings: includedIds, mapping: exportMapping, crs, projectTitle: data.projectTitle ?? null, roles } satisfies DwgTt16Request);
+      workerRef.current?.postMessage({ type: 'output', db: editDb, drawings: includedIds, mapping: exportMapping, crs, projectTitle: data.projectTitle ?? null, roles, dbs: dbsOf(live.current.drawings) } satisfies DwgTt16Request);
     }, 300);
     return () => clearTimeout(t);
   }, [editMode, editDb, crs, data, includedIds, exportMapping, rolesKey]);
@@ -381,7 +386,7 @@ export default function DwgToGdb() {
     setCoverage({ report: null, loading: true });
     const roles = Object.fromEntries(live.current.drawings.map((d) => [d.id, d.role]));
     const gone = Object.fromEntries([...excluded].filter(([, set]) => set.size).map(([id, set]) => [id, [...set]]));
-    workerRef.current.postMessage({ type: 'coverage', drawings: includedIds, mapping: exportMapping, roles, projectTitle: data.projectTitle ?? null, excluded: gone } satisfies DwgTt16Request);
+    workerRef.current.postMessage({ type: 'coverage', drawings: includedIds, mapping: exportMapping, roles, dbs: dbsOf(live.current.drawings), projectTitle: data.projectTitle ?? null, excluded: gone } satisfies DwgTt16Request);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- asked once per opening of the dialog
   }, [exportOpen]);
   const editView = editMode && output && output.db === editDb ? output : null;
@@ -398,13 +403,35 @@ export default function DwgToGdb() {
 
   // ----- Mapping edits -----
   const setRole = (id: string, role: RoleId) => {
-    setDrawings((ds) => ds.map((d) => (d.id === id ? { ...d, role, included: !!roleById(role).db && d.inside > 0 } : d)));
+    setDrawings((ds) => ds.map((d) => (d.id === id ? { ...d, role, dbOverride: null, included: !!roleById(role).db && d.inside > 0 } : d)));
     const lookup = templateLookup(template);
     setMapping((m) => {
       const n = new Map(m);
       for (const r of rows) {
         if (r.drawing !== id || n.get(r.key)?.source === 'manual') continue;
         n.set(r.key, resolveRow(r, role, lookup, rows));
+      }
+      return n;
+    });
+  };
+  /** Write this drawing's data to another geodatabase than the one its map kind feeds (null: back to automatic). */
+  const setDbOverride = (id: string, db: DbName | null) => {
+    const d = drawings.find((x) => x.id === id);
+    if (!d) return;
+    const own = roleById(d.role).db;
+    // Its xrefs (the same map kind) go with it.
+    const ids = new Set([id, ...drawings.filter((x) => x.owner?.id === id && roleById(x.role).db === own).map((x) => x.id)]);
+    const choice = db && db !== own ? db : null;
+    setDrawings((ds) => ds.map((x) => (ids.has(x.id) ? { ...x, dbOverride: choice } : x)));
+    const lookup = templateLookup(template);
+    const roleOf = new Map(drawings.map((x) => [x.id, x.role]));
+    setMapping((m) => {
+      const n = new Map(m);
+      for (const r of rows) {
+        if (!ids.has(r.drawing)) continue;
+        const prev = n.get(r.key);
+        // The user's own choices follow to the same class of the other geodatabase; the rest is suggested again.
+        n.set(r.key, prev?.source === 'manual' ? retargetState(prev, choice ?? own ?? 'QuyHoach') : resolveRow(r, roleOf.get(r.drawing) ?? 'other', lookup, rows, choice));
       }
       return n;
     });
@@ -451,12 +478,13 @@ export default function DwgToGdb() {
   const applyTemplate = (t: MappingTemplate | null) => {
     const lookup = templateLookup(t);
     const roleOf = new Map(drawings.map((d) => [d.id, d.role]));
+    const dbOf = new Map(drawings.map((d) => [d.id, d.dbOverride ?? null]));
     setMapping((m) => {
       const n = new Map(m);
       for (const r of rows) {
         const role = roleOf.get(r.drawing) ?? 'other';
         if (n.get(r.key)?.source === 'manual' || !roleById(role).db) continue;
-        n.set(r.key, resolveRow(r, role, lookup, rows));
+        n.set(r.key, resolveRow(r, role, lookup, rows, dbOf.get(r.drawing)));
       }
       return n;
     });
@@ -493,6 +521,7 @@ export default function DwgToGdb() {
       place: unit.name,
       ...opts,
       roles: Object.fromEntries(drawings.map((d) => [d.id, d.role])),
+      dbs: dbsOf(drawings),
       projectTitle: data?.projectTitle ?? null,
       provinceCode,
       excluded: Object.fromEntries([...excluded].filter(([, set]) => set.size).map(([id, set]) => [id, [...set]])),
@@ -731,7 +760,8 @@ export default function DwgToGdb() {
               onClick={(e) => e.stopPropagation()}
               onChange={(e) => setRole(d.id, e.target.value as RoleId)}
               aria-label={`Loại bản đồ của ${d.name}`}
-              title="Loại bản đồ — quyết định CSDL và nhóm dữ liệu của các layer"
+              title={`Loại bản đồ — quyết định CSDL và nhóm dữ liệu của các layer${d.dbOverride ? `
+Đang ghi vào ${d.dbOverride}.gdb theo lựa chọn` : ''}`}
             >
               {ROLES.map((r) => (
                 <option key={r.id} value={r.id}>
@@ -892,10 +922,23 @@ export default function DwgToGdb() {
                 <h2 className="min-w-0 flex-1 truncate text-[13px] font-semibold text-zinc-900" title={selDrawing?.title ?? undefined}>
                   {selDrawing ? selDrawing.name.replace(/\.(dwg|dxf)$/i, '') : 'Chọn một bản vẽ'}
                 </h2>
-                {role && (
-                  <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-medium ${role.db ? 'bg-blue-50 text-blue-700' : 'bg-zinc-100 text-zinc-500'}`}>
-                    {role.db ? `→ ${role.db}.gdb` : 'không dùng'}
-                  </span>
+                {role && !role.db && <span className="shrink-0 rounded-md bg-zinc-100 px-1.5 py-0.5 text-[11px] font-medium text-zinc-500">không dùng</span>}
+                {role?.db && selDrawing && (
+                  <label className="shrink-0 rounded-md bg-blue-50 px-1.5 py-0.5 text-[11px] font-medium text-blue-700 hover:bg-blue-100" title="Ghi dữ liệu của bản vẽ này vào geodatabase nào (mặc định theo loại bản đồ)">
+                    →{' '}
+                    <select
+                      className="cursor-pointer bg-transparent font-medium text-blue-700 outline-none"
+                      value={selDrawing.dbOverride ?? role.db}
+                      onChange={(e) => setDbOverride(selDrawing.id, e.target.value as DbName)}
+                      aria-label="Geodatabase đích của bản vẽ"
+                    >
+                      {(['HienTrang', 'QuyHoach', 'NenDiaHinh', 'MocGioi'] as const).map((d) => (
+                        <option key={d} value={d}>
+                          {d}.gdb{d === role.db ? ' (tự động)' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 )}
               </div>
               {selDrawing && role?.db && (
@@ -1029,7 +1072,7 @@ ${cm.reason}` : ''}`}>
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <option value="">— Bỏ qua layer này —</option>
-                                {targetGroups(r.kind, role?.db ?? null).map((g) => (
+                                {targetGroups(r.kind, selDrawing?.dbOverride ?? role?.db ?? null).map((g) => (
                                   <optgroup key={g.label} label={g.label}>
                                     {g.options.map((o) => (
                                       <option key={o.path} value={o.path}>

@@ -45,7 +45,8 @@ export interface DecodeResult {
 
 const ASCII_RE = /^[\x00-\x7f]*$/;
 export const VNI_LEFTOVER_RE = /[ÑÖÛÏñöûï]|[AEIOUYĂÂÊÔƠƯaeiouyăâêôơư][ÙÕØùõø]/u;
-const SINGLE_BYTE_LABELS = new Set(['windows-1252', 'windows-1258']);
+const DIAMETER_AS_TCVN3_RE = /(?<![\p{L}\p{M}])ị(?=\d)/gu;
+const SINGLE_BYTE_LABELS =new Set(['windows-1252', 'windows-1258']);
 
 function convert(text: string, enc: ConcreteEncoding, upper: boolean): string {
   if (enc === 'vni') return vniToUnicode(text);
@@ -126,6 +127,10 @@ export function decodeCadText(input: DecodeInput): DecodeResult {
       result = decodeString(decodeCodepage(input.raw, input.codepage), input, warnings);
     }
   }
+
+  // Pipe notes ("Ø140 L=1400m") are typed with byte 0xDE of the Vietnamese fonts, which TCVN3
+  // reads as "ị"; a lone "ị" glued to a number is never a word, so it is the diameter sign.
+  result = { ...result, text: result.text.replace(DIAMETER_AS_TCVN3_RE, 'Ø') };
 
   if (result.text.includes('�') && !warnings.some((w) => w.includes('�'))) {
     warnings.push('Chuỗi chứa ký tự không giải mã được (�) — kiểm tra bảng mã của bản vẽ.');

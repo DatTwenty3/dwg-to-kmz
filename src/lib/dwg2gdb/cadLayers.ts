@@ -213,11 +213,11 @@ export function lineTypeTexts(points: Vec2[], closed: boolean, def: LineTypeDef,
         let angle = el.absolute ? (el.rotation ?? 0) : lineAngle + (el.rotation ?? 0);
         if (el.text === DOT_TEXT) {
           // The planning boundary writes its dots as the letter "l" of a symbol font (Wingdings: a black circle). The circle
-          // is about 0.7 of the text height across, its centre 0.4 across and 0.35 above the text origin.
+          // is about 0.7 of the text height across, its centre 0.4 across and 0.45 above the text origin (the pattern lowers the letter by 0.45 of its height so the circle sits on the line).
           const r = (angle * Math.PI) / 180;
           const d = height * 0.7;
           out.push({
-            at: [at[0] + Math.cos(r) * height * 0.4 - Math.sin(r) * height * 0.35, at[1] + Math.sin(r) * height * 0.4 + Math.cos(r) * height * 0.35],
+            at: [at[0] + Math.cos(r) * height * 0.4 - Math.sin(r) * height * 0.45, at[1] + Math.sin(r) * height * 0.4 + Math.cos(r) * height * 0.45],
             angle: 0,
             text: el.text,
             height,

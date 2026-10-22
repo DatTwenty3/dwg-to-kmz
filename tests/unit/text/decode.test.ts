@@ -231,3 +231,12 @@ describe('VIETNAMESE_CHARSET', () => {
     for (const ch of VIETNAMESE_CHARSET) expect(ch).toBe(ch.normalize('NFC'));
   });
 });
+
+describe('pipe notes (Ø140 L=1400m)', () => {
+  it('byte 0xDE glued to a diameter is the diameter sign, not the TCVN3 letter ị', () => {
+    expect(text('Þ140L=1400m')).toBe('Ø140L=1400m');
+    expect(text('Þ90 L=605m', { styleFont: '.VnArial' })).toBe('Ø90 L=605m');
+    // a real "ị" inside a word stays
+    expect(text(toTcvn3('Thị xã'))).toBe('Thị xã');
+  });
+});

@@ -180,7 +180,7 @@ describe('dots of the boundary line type and the signs just outside the area', (
     const t = lineTypeTexts([[0, 0], [400, 0]], false, l, 50);
     expect(t[0].dot).toBeCloseTo(52.5);
     expect(t[0].at[0]).toBeCloseTo(0 + 75 * 0.4);
-    expect(t[0].at[1]).toBeCloseTo(-34 + 75 * 0.35);
+    expect(t[0].at[1]).toBeCloseTo(-34 + 75 * 0.45);
     const e: CadEntity = { kind: 'polyline', layer: 'QH_Ranh', color: '#ff0000', points: [[0, 0], [400, 0]], closed: false, lineType: 'R', lineScale: 50 };
     const d = cadLayerData(doc([e], { lineTypes: { R: l } }));
     expect(d.counts.texts).toBe(0);

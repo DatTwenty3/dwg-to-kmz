@@ -1,4 +1,4 @@
-// The "Bản vẽ CAD" group of the QGIS project: the layers of BanVeCAD.gpkg (cadLayers.ts) drawn as AutoCAD draws
+// The "Bản vẽ CAD" group of the QGIS project: the layers of <project name>.gpkg (cadLayers.ts) drawn as AutoCAD draws
 // them — widths in map units (metres), the colour of each object, solid fills, hatch line families, texts of the
 // drawing height / rotation / alignment — all data-defined from the fields of the layers.
 import { CAD_GPKG, CAD_TABLES, type CadTable } from './cadLayers';
@@ -15,11 +15,11 @@ export interface CadLayerInfo {
 }
 
 /** The CAD layers that have objects, top of the drawing order first (texts, points, lines, areas). */
-export function cadLayerList(counts: Record<CadTable, number>): CadLayerInfo[] {
+export function cadLayerList(counts: Record<CadTable, number>, file = CAD_GPKG): CadLayerInfo[] {
   const names: Record<CadTable, string> = { texts: 'Chữ', points: 'Điểm', lines: 'Đường và ký hiệu', areas: 'Vùng đặc và mẫu tô' };
   return (['texts', 'points', 'lines', 'areas'] as CadTable[])
     .filter((t) => counts[t] > 0)
-    .map((table) => ({ table, id: `cad_${CAD_TABLES[table]}`, name: `CAD — ${names[table]}`, source: `./${CAD_GPKG}.gpkg|layername=${CAD_TABLES[table]}` }));
+    .map((table) => ({ table, id: `cad_${CAD_TABLES[table]}`, name: `CAD — ${names[table]}`, source: `./${file}.gpkg|layername=${CAD_TABLES[table]}` }));
 }
 
 const hexRgba = (hex: string) => `${[1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) || 0).join(',')},255`;

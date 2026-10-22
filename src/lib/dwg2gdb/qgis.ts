@@ -243,7 +243,7 @@ export interface QgisProjectInput {
   /** SVG symbols of Phụ lục I to embed (qgisSvg.ts): hatches of the land-use classes, points of the infrastructure classes. */
   svg?: SvgLibrary;
   /**
-   * The CAD drawing layers of BanVeCAD.gpkg (cadLayers.ts): a group "Bản vẽ CAD" drawn as in AutoCAD, on top. The
+   * The CAD drawing layers of <name>.gpkg (cadLayers.ts, named like the project): a group "Bản vẽ CAD" drawn as in AutoCAD, on top. The
    * geodatabase layers it repeats (lines, areas other than land use, labelled points) start hidden.
    */
   cad?: { counts: Record<CadTable, number>; patternColors?: string[] };
@@ -294,7 +294,7 @@ export function buildQgs(p: QgisProjectInput): string {
   // Draw order inside a group: points, lines, then areas (the boundary on top of everything).
   const rank = (c: ClassData) => (c.cls === 'RanhGioiQuyHoach_A' ? -1 : c.geom === 'P' ? 0 : c.geom === 'L' ? 1 : 2);
   const dbOrder = ['QuyHoach', 'HienTrang', 'MocGioi'];
-  const cadLayers = p.cad ? cadLayerList(p.cad.counts) : [];
+  const cadLayers = p.cad ? cadLayerList(p.cad.counts, p.name) : [];
   /** With the CAD drawing on, the geodatabase layers it already draws stay unchecked (land use and symbol points stay). */
   const shown = (c: ClassData) =>
     !cadLayers.length || c.cls === 'ChucNangSuDungDat_A' || (c.geom === 'P' && !!p.svg && c.styles.some((s) => pointSvgFor(s.phanLoai, 'P', c.db, p.svg!.index)));

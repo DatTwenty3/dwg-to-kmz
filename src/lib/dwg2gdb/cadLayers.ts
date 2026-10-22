@@ -1,7 +1,7 @@
 // "Bản vẽ CAD" of the QGIS project: the CAD objects of the summary drawing (summary.ts) with the look they have in
 // AutoCAD — line widths in metres (the white dashes of a road axis, the 15 m ditch), solid fills (arrows, manholes,
 // stations), hatch line families, texts with their height / rotation / alignment — written as GeoPackage layers
-// (BanVeCAD.gpkg, next to the geodatabases) that qgis.ts draws with data-defined symbology. The land-use hatches
+// (<project name>.gpkg, next to the geodatabases and the .qgz of the same name) that qgis.ts draws with data-defined symbology. The land-use hatches
 // stay with the geodatabase layers (Phụ lục I symbols), so they are left out here.
 import type { CadDocument, CadEntity, HAlign, LineTypeDef, VAlign, Vec2 } from '@/lib/cad/types';
 import type { NormalizePlan, NormalizeStep } from '@/lib/gdb/normalize';
@@ -14,6 +14,7 @@ import { compactName, layerLandUse, parseTarget } from './suggest';
 import { objectKey } from './summary';
 import type { MappingEntry } from './template';
 
+/** Default file name (without .gpkg); the export names it like the project (.qgz). */
 export const CAD_GPKG = 'BanVeCAD';
 
 const SHORT: Record<string, string> = { HienTrang: 'HT', QuyHoach: 'QH', MocGioi: 'MG' };
@@ -380,8 +381,8 @@ export interface CadGpkgPlan extends NormalizePlan {
   inputs: { key: string; fileName: string; json: string }[];
 }
 
-/** ogr2ogr steps writing BanVeCAD.gpkg from the GeoJSON layers (one dataset per table). */
-export function planCadGpkg(data: CadData, wkt: string): CadGpkgPlan {
+/** ogr2ogr steps writing <file>.gpkg from the GeoJSON layers (one dataset per table). */
+export function planCadGpkg(data: CadData, wkt: string, file = CAD_GPKG): CadGpkgPlan {
   const inputs: CadGpkgPlan['inputs'] = [];
   const steps: NormalizeStep[] = [];
   (Object.keys(CAD_TABLES) as CadTable[]).forEach((k, i) => {
@@ -390,12 +391,12 @@ export function planCadGpkg(data: CadData, wkt: string): CadGpkgPlan {
     const key = `cad${i}`;
     inputs.push({ key, fileName: `${key}.geojson`, json });
     steps.push({
-      out: CAD_GPKG,
+      out: file,
       source: key,
       args: ['-f', 'GPKG', ...(steps.length ? ['-update'] : []), '-a_srs', wkt, '-nln', CAD_TABLES[k], '-nlt', NLT[k], '-lco', 'SPATIAL_INDEX=YES', '-lco', 'GEOMETRY_NAME=geom'],
       label: `Bản vẽ CAD / ${CAD_TABLES[k]}`,
       features: data.counts[k],
     });
   });
-  return { steps, inputs, outputs: steps.length ? [CAD_GPKG] : [], notes: [], schemas: [] };
+  return { steps, inputs, outputs: steps.length ? [file] : [], notes: [], schemas: [] };
 }

@@ -89,8 +89,8 @@ describe('the project with the CAD drawing', () => {
     const qgs = buildQgs({ ...base, cad });
     createRequire(import.meta.url)('sax').parser(true).write(qgs).close();
     expect(qgs).toContain('layer-tree-group name="Bản vẽ CAD"');
-    expect(qgs).toContain('./BanVeCAD.gpkg|layername=cad_duong');
-    expect(qgs).toContain('./BanVeCAD.gpkg|layername=cad_chu');
+    expect(qgs).toContain('./T.gpkg|layername=cad_duong');
+    expect(qgs).toContain('./T.gpkg|layername=cad_chu');
     expect(qgs).not.toContain('layername=cad_diem'); // no points: no layer
     // Width in map units from the field, colour from the field.
     expect(qgs).toMatch(/name="outlineWidth" type="Map"><Option name="active" value="true" type="bool"\/><Option name="field" value="rong"/);
@@ -109,7 +109,16 @@ describe('the project with the CAD drawing', () => {
 
   it('without the CAD drawing the project is as before', () => {
     const qgs = buildQgs(base);
-    expect(qgs).not.toContain('BanVeCAD');
+    expect(qgs).not.toContain('.gpkg');
     expect(qgs).toMatch(/id="QuyHoach_MangLuoiGiaoThongDuongBo_L_d"[^>]*checked="Qt::Checked"/);
+  });
+});
+
+describe('the CAD GeoPackage is named like the project', () => {
+  it('the plan writes <name>.gpkg and the project reads layers from it', () => {
+    const d = cadLayerData({ units: 'm', crs: null, layers: [], entities: [{ kind: 'polyline', layer: 'a', color: '#ff0000', points: [[0, 0], [1, 1]], closed: false }], bbox: [[0, 0], [1, 1]], warnings: [] });
+    expect(planCadGpkg(d, 'WKT', 'QHC_XaLongHiep').steps.every((s) => s.out === 'QHC_XaLongHiep')).toBe(true);
+    const qgs = buildQgs({ name: 'QHC_XaLongHiep', title: 'T', classes: [], lon0: 105.5, zone: 3, extent: [0, 0, 1, 1], cad: { counts: { lines: 1, areas: 0, texts: 0, points: 0 }, patternColors: [] } });
+    expect(qgs).toContain('./QHC_XaLongHiep.gpkg|layername=cad_duong');
   });
 });

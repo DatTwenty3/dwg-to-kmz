@@ -1380,7 +1380,7 @@ function ExportDialog({
                     <input type="checkbox" className="ui-check mt-0.5" checked={withCad} onChange={(e) => setWithCad(e.target.checked)} disabled={running} />
                     <span className="text-zinc-700">
                       Thêm <b className="font-medium">bản vẽ CAD</b> vào .qgz{' '}
-                      <span className="text-zinc-400">(đường có độ rộng, ký hiệu, chữ như AutoCAD — thêm tệp BanVeCAD.gpkg, vài chục MB)</span>
+                      <span className="text-zinc-400">(đường có độ rộng, ký hiệu, chữ như AutoCAD — thêm tệp .gpkg cùng tên, vài chục MB)</span>
                     </span>
                   </label>
                 )}
@@ -1428,7 +1428,7 @@ function ExportDialog({
               {cadExcludedCount > 0 && withQgz && withCad && (
                 <p className="flex items-start gap-2 rounded-lg bg-zinc-50 px-3 py-2 text-[12.5px] text-zinc-600">
                   <IconTrash width={14} height={14} className="mt-0.5 shrink-0 text-red-500" />
-                  <span>{cadExcludedCount.toLocaleString('vi-VN')} đối tượng đã loại khỏi Bản vẽ CAD (Biên tập) sẽ không có trong BanVeCAD.gpkg.</span>
+                  <span>{cadExcludedCount.toLocaleString('vi-VN')} đối tượng đã loại khỏi Bản vẽ CAD (Biên tập) sẽ không có trong tệp .gpkg của bản vẽ CAD.</span>
                 </p>
               )}
               {leftOut.length > 0 && (

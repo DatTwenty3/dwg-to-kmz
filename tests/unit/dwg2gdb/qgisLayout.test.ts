@@ -5,9 +5,9 @@ import type { ClassData } from '@/lib/dwg2gdb/features';
 import { buildLayouts, chooseSheet, gridInterval, GUTTER, scaleBarSegment, windRoseSvg } from '@/lib/dwg2gdb/qgisLayout';
 
 describe('sheet of the print layout', () => {
-  it('always A0; a commune of 14 × 9 km gets 1:20.000 and its map fits the frame', () => {
+  it('always A0; a commune of 14 × 9 km gets 1:15.000 (the map has the whole width but the column) and fits the frame', () => {
     const s = chooseSheet(14_000, 9_000);
-    expect(s).toMatchObject({ paper: 'A0', w: 1189, h: 841, scale: 20000 });
+    expect(s).toMatchObject({ paper: 'A0', w: 1189, h: 841, scale: 15000 });
     expect((14_000 / s.scale) * 1000).toBeLessThanOrEqual(s.mapW);
     expect((9_000 / s.scale) * 1000).toBeLessThanOrEqual(s.mapH);
   });
@@ -65,7 +65,7 @@ describe('wind rose (hoa gió)', () => {
     for (const t of ['>B<', '>Đ<', '>N<', '>T<']) expect(svg).toContain(t);
     expect((svg.match(/<polygon/g) ?? []).length).toBe(16);
   });
-  it('has no outer ring; sits at the top of the title column with the scale bar centred under it; the legend is in the column to its left', () => {
+  it('has no outer ring; sits at the top of the column with the scale bar centred under it, and the legend under the scale bar in the same column', () => {
     expect(windRoseSvg()).not.toContain('<circle');
     const l = buildLayouts({ name: 'n', title: 't', mapName: 'm', extent: [0, 0, 5000, 3500], srs: '<spatialrefsys/>', legend: [{ id: 'a', name: 'A', source: 's', title: 'x' }] });
     const at = (id: string) => {
@@ -76,7 +76,11 @@ describe('wind rose (hoa gió)', () => {
     const bar = at('thuoc_ty_le');
     const legend = at('chu_giai');
     expect(rose.y).toBeLessThan(bar.y);
-    expect(legend.x + legend.w).toBeLessThanOrEqual(rose.x);
+    // One column: the legend starts under the scale bar, inside the column of the rose (not beside it)
+    expect(legend.y).toBeGreaterThanOrEqual(bar.y + bar.h);
+    expect(legend.x).toBeLessThan(rose.x);
+    expect(legend.x + legend.w).toBeGreaterThan(rose.x + rose.w);
+    expect(legend.x + legend.w).toBeLessThanOrEqual(1189 - 10);
     // The bar (without its label overhang) is centred on the rose, within a few mm.
     const barW = 4 * ((250 / 10000) * 1000);
     expect(Math.abs(bar.x + 3 + barW / 2 - (rose.x + rose.w / 2))).toBeLessThan(1);
@@ -118,7 +122,7 @@ describe('title block (khung tên)', () => {
     // Nothing under the sheet frame any more.
     expect(l).not.toContain('TÊN ĐỒ ÁN:');
   });
-  it('is 135 mm wide and its rows fit under the rose and the scale bar', () => {
+  it('fills the column and its rows fit under the rose and the scale bar', () => {
     const m = /id="ty_le"[^>]*?position="([0-9.]+),([0-9.]+),mm"/.exec(l)!;
     expect(+m[2]).toBeGreaterThan(10 + 5 + 40 + 2 + 14); // below the scale bar
     expect(+m[2]).toBeLessThan(841 - 10);

@@ -143,7 +143,7 @@ describe.skipIf(!existsSync(ROOT))('Bóc tách DWG → TT16 — xã Long Hiệp'
     }) as unknown as typeof fetch;
     const svg = await loadSvgLibrary(built.classes, 'http://local', fromDisk);
     expect(svg?.files.size).toBeGreaterThan(0);
-    // "Bản vẽ CAD": the objects of the summary drawing written to BanVeCAD.gpkg (GDAL), drawn by the project.
+    // "Bản vẽ CAD": the objects of the summary drawing written to <project>.gpkg (GDAL), drawn by the project.
     const sumDoc = cadSourceDocument(
       folder.drawings
         .filter((p) => included.has(p.id))
@@ -152,15 +152,15 @@ describe.skipIf(!existsSync(ROOT))('Bóc tách DWG → TT16 — xã Long Hiệp'
       a.boundary?.ring ?? null,
     );
     const cad = cadLayerData(sumDoc);
-    const cadPlan = planCadGpkg(cad, tt16Wkt(105.5, 3));
+    const cadPlan = planCadGpkg(cad, tt16Wkt(105.5, 3), 'QHC_XaLongHiep');
     for (const i of cadPlan.inputs) writeFileSync(`${WORK}/in/${i.fileName}`, i.json);
     const oc = await Gdal.open(cadPlan.inputs.map((i) => `${WORK}/in/${i.fileName}`), [], []);
     await executePlan(Gdal, new Map<string, unknown>(oc.datasets.map((d: { path: string }) => [d.path.replace(/^.*[\/]/, '').replace(/\.geojson$/, ''), d])), cadPlan, 'cad_');
-    const cadFile = `${WORK}/out/cad_BanVeCAD.gpkg`;
+    const cadFile = `${WORK}/out/cad_QHC_XaLongHiep.gpkg`;
     expect(existsSync(cadFile)).toBe(true);
-    writeFileSync(`${WORK}/BanVeCAD.gpkg`, readFileSync(cadFile));
+    writeFileSync(`${WORK}/QHC_XaLongHiep.gpkg`, readFileSync(cadFile));
     // It sits in HoSoGIS next to the geodatabases: the check must not mind it.
-    out.push({ path: 'HoSoGIS/BanVeCAD.gpkg', read: async () => readFileSync(cadFile) });
+    out.push({ path: 'HoSoGIS/QHC_XaLongHiep.gpkg', read: async () => readFileSync(cadFile) });
     summary += `  CAD: ${JSON.stringify(cad.counts)} · bỏ bớt ${JSON.stringify(cad.thinned)} · gpkg ${Math.round(statSync(cadFile).size / 1e6)} MB
 `;
     qgs = buildQgs({

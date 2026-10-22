@@ -81,7 +81,7 @@ export type DwgTt16Request =
       roles: Record<string, RoleId>;
       /** Add the QGIS project <projectName>.qgz (tệp tổng hợp) to HoSoGIS. */
       qgz: boolean;
-      /** With the .qgz: the CAD drawing (lines with their widths, symbols, texts) as BanVeCAD.gpkg + a group "Bản vẽ CAD". */
+      /** With the .qgz: the CAD drawing (lines with their widths, symbols, texts) as <projectName>.gpkg + a group "Bản vẽ CAD". */
       cad: boolean;
       projectName: string;
       /** Objects the user removed on the map (drawing id → entity indexes): left out of every output. */
@@ -348,17 +348,18 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
 
   post({ type: 'progress', stage: 'Đóng gói và kiểm tra HoSoGIS', done: 0, total: 1 });
   const out: { path: string; bytes: Uint8Array; read: () => Promise<Uint8Array> }[] = fixGdalOutput(await outputEntries(Gdal, p2, (rel) => `HoSoGIS/${rel}`));
-  // "Bản vẽ CAD": the summary drawing as BanVeCAD.gpkg (the project draws it like AutoCAD). Not needed for the geodatabases,
+  // "Bản vẽ CAD": the summary drawing as <projectName>.gpkg (the project draws it like AutoCAD). Not needed for the geodatabases,
   // so a failure only leaves it out.
   let cad: { counts: Record<'lines' | 'areas' | 'texts' | 'points', number>; patternColors: string[] } | undefined;
   let cadNote = '';
   let cadThinned = '';
+  const cadFile = cleanProjectName(req.projectName);
   if (wantCad) {
-    post({ type: 'progress', stage: 'Ghi bản vẽ CAD (BanVeCAD.gpkg)', done: 0, total: 1 });
+    post({ type: 'progress', stage: `Ghi bản vẽ CAD (${cadFile}.gpkg)`, done: 0, total: 1 });
     // The CAD drawing has its own list of removed objects (Biên tập → "Bản vẽ CAD"), apart from the geodatabases'.
     const rawInside = used().map((u) => ({ ...u, inside: analysis!.inside.get(u.id)!, removed: new Set(req.excluded[`${CAD_EDIT_PREFIX}${u.id}`] ?? []) }));
     const data = cadLayerData(cadSourceDocument(rawInside, new Map(req.mapping), analysis.boundary?.ring ?? null));
-    const plan = planCadGpkg(data, tt16Wkt(req.lon0, req.zone));
+    const plan = planCadGpkg(data, tt16Wkt(req.lon0, req.zone), cadFile);
     if (plan.steps.length) {
       const pc = nextPrefix('c');
       try {
@@ -378,10 +379,10 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
           out.push(...gp);
           cad = { counts: data.counts, patternColors: data.patternColors };
           cadThinned = data.thinned.map((t) => `${t.layer} (${t.dropped.toLocaleString('vi-VN')})`).join(', ');
-          cadNote = `Bản vẽ CAD trong .qgz: ${data.counts.lines.toLocaleString('vi-VN')} đường, ${data.counts.areas.toLocaleString('vi-VN')} vùng, ${data.counts.texts.toLocaleString('vi-VN')} chữ (tệp BanVeCAD.gpkg cạnh các geodatabase)${cadThinned ? `; bỏ bớt các nét ký hiệu nhỏ nhất của: ${cadThinned}` : ''}`;
+          cadNote = `Bản vẽ CAD trong .qgz: ${data.counts.lines.toLocaleString('vi-VN')} đường, ${data.counts.areas.toLocaleString('vi-VN')} vùng, ${data.counts.texts.toLocaleString('vi-VN')} chữ (tệp ${cadFile}.gpkg cạnh các geodatabase)${cadThinned ? `; bỏ bớt các nét ký hiệu nhỏ nhất của: ${cadThinned}` : ''}`;
         }
       } catch (e) {
-        cadNote = `Không ghi được BanVeCAD.gpkg (${gdalFailure(e).message}) — tệp .qgz không có nhóm Bản vẽ CAD`;
+        cadNote = `Không ghi được ${cadFile}.gpkg (${gdalFailure(e).message}) — tệp .qgz không có nhóm Bản vẽ CAD`;
       }
     }
   }

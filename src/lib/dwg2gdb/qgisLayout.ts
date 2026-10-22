@@ -18,7 +18,7 @@ export interface Sheet {
   w: number;
   h: number;
   scale: number;
-  /** Width of the right column (legend + title block), mm. */
+  /** Width of the right column (wind rose, scale bar, legend, title block), mm. */
   panel: number;
   /** Map frame, mm: x from the page's left edge. */
   mapX: number;
@@ -32,9 +32,12 @@ export const MARGIN_LEFT = 20;
 export const MARGIN = 10;
 /** Bottom margin. */
 export const MARGIN_BOTTOM = 10;
-/** Right panel: the legend column and the title column ("khung tên", 135 mm — the proportions of the office's template). */
-export const LEGEND_W = 150;
-export const TITLE_W = 135;
+/**
+ * Right panel: one column, from the top the wind rose, the scale bar, the legend ("chú giải") and at the bottom the
+ * title block ("khung tên", the proportions of the office's template scaled to the column).
+ */
+export const PANEL_W = 150;
+export const TITLE_W = PANEL_W;
 const FILL = 0.96;
 /** Room between the sheet frame and the map for the coordinate labels of the grid (mm). */
 export const GUTTER = 18;
@@ -48,7 +51,7 @@ export const typeFactor = (width: number) => Math.max(0.7, Math.sqrt(width / 841
  */
 export function chooseSheet(extentW: number, extentH: number): Sheet {
   const p = SHEET;
-  const panel = LEGEND_W + TITLE_W;
+  const panel = PANEL_W;
   const make = (scale: number): Sheet => ({ paper: p.name, w: p.w, h: p.h, scale, panel, mapX: MARGIN_LEFT + GUTTER, mapY: MARGIN + GUTTER, mapW: p.w - MARGIN_LEFT - MARGIN - panel - 2 * GUTTER, mapH: p.h - MARGIN - MARGIN_BOTTOM - 2 * GUTTER });
   const base = make(1);
   for (const scale of SCALES) if ((extentW / scale) * 1000 <= base.mapW * FILL && (extentH / scale) * 1000 <= base.mapH * FILL) return make(scale);
@@ -198,15 +201,15 @@ export function buildLayouts(p: LayoutInput): string {
       `<atlasClippingSettings clippingType="1" enabled="0" forceLabelsInside="0" restrictLayers="0"><layersToClip/></atlasClippingSettings><itemClippingSettings clipSource="" clippingType="1" enabled="0" forceLabelsInside="0"/></LayoutItem>`,
   );
 
-  // Frame of the sheet; the right panel is two columns: the legend, and the title column.
-  const tx = px + LEGEND_W; // left edge of the title column
+  // Frame of the sheet; the right panel is one column (wind rose, scale bar, legend, title block).
+  const tx = px; // left edge of the column
   const frameBottom = H - MARGIN_BOTTOM;
   const fh = frameBottom - MARGIN;
   rect(MARGIN_LEFT, MARGIN, W - MARGIN_LEFT - MARGIN, fh, 0.7);
-  rect(px, MARGIN, LEGEND_W, fh, 0.35);
+  rect(px, MARGIN, PANEL_W, fh, 0.35);
 
-  // The top of the title column: the wind rose (hoa gió) and, centred under it, the scale bar.
-  const colCx = tx + TITLE_W / 2;
+  // The top of the column: the wind rose (hoa gió) and, centred under it, the scale bar.
+  const colCx = tx + PANEL_W / 2;
   const rose = 40;
   const roseY = MARGIN + 5;
   const seg = scaleBarSegment(scale);
@@ -215,7 +218,7 @@ export function buildLayouts(p: LayoutInput): string {
   const sbH = 14;
   const sbY = roseY + rose + 2;
 
-  // Legend ("chú giải"): the left column; its size follows its content.
+  // Legend ("chú giải"): under the scale bar, in the room left above the title block; its size follows its content.
   const lg = (name: string, pts: number, bold: boolean, extra = '') =>
     `<style name="${name}" alignment="1" indent="0"${extra}>${textStyle(pts, bold)}</style>`;
   const legendStyles =
@@ -229,7 +232,7 @@ export function buildLayouts(p: LayoutInput): string {
     )
     .join('');
   items.push(
-    `${itemAttrs(65642, 'chu_giai', ++n, px + 3, MARGIN + 3, LEGEND_W - 6, 10, z++, `map_uuid="${mapUuid}" title="CHÚ GIẢI" titleAlignment="1" resizeToContents="1" boxSpace="2" columnCount="1" columnSpace="2" symbolWidth="${mm(7)}" symbolHeight="${mm(4)}" symbolAlignment="1" splitLayer="0" equalColumnWidth="0" legendFilterByAtlas="0" maxSymbolSize="0" minSymbolSize="0" wmsLegendWidth="50" wmsLegendHeight="25" rasterBorder="0" wrapChar=""`)}${COLORS}${OBJ}` +
+    `${itemAttrs(65642, 'chu_giai', ++n, px + 3, sbY + sbH + 3, PANEL_W - 6, 10, z++, `map_uuid="${mapUuid}" title="CHÚ GIẢI" titleAlignment="1" resizeToContents="1" boxSpace="2" columnCount="1" columnSpace="2" symbolWidth="${mm(7)}" symbolHeight="${mm(4)}" symbolAlignment="1" splitLayer="0" equalColumnWidth="0" legendFilterByAtlas="0" maxSymbolSize="0" minSymbolSize="0" wmsLegendWidth="50" wmsLegendHeight="25" rasterBorder="0" wrapChar=""`)}${COLORS}${OBJ}` +
       `${legendStyles}<layer-tree-group><customproperties><Option/></customproperties>${legendTree}<custom-order enabled="0">${p.legend.map((l) => `<item>${esc(l.id)}</item>`).join('')}</custom-order></layer-tree-group></LayoutItem>`,
   );
 

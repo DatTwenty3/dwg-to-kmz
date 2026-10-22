@@ -13,6 +13,7 @@ import {
   colorContexts,
   previewHandle,
   buildFeatures,
+  coverageReport,
   outputDatabases,
   outputView,
   type ClassData,
@@ -35,6 +36,7 @@ import {
   provinceFromTexts,
   summaryDocument,
 
+  type CoverageReport,
   type DrawingInfo,
   type FolderFile,
   type LayerRow,
@@ -61,6 +63,8 @@ export type DwgTt16Request =
   | { type: 'section'; section: number | null }
   /** What one geodatabase will get with this mapping ("Biên tập"), in WGS84. */
   | { type: 'output'; db: string; drawings: string[]; mapping: [string, MappingEntry][]; crs: CrsOptions; projectTitle: string | null; roles: Record<string, RoleId> }
+  /** Which CAD objects inside the planning area do not reach the geodatabases with this mapping. */
+  | { type: 'coverage'; drawings: string[]; mapping: [string, MappingEntry][]; roles: Record<string, RoleId>; projectTitle: string | null; excluded: Record<string, number[]> }
   | {
       type: 'export';
       drawings: string[];
@@ -114,6 +118,7 @@ export type DwgTt16Response =
   | { type: 'preview'; drawingId: string; doc: CadDocument; truncated: boolean }
   | { type: 'rows'; rows: LayerRow[]; section: number | null; sectionWhy: string }
   | { type: 'output'; db: string; doc: CadDocument; refs: SourceRef[][][]; dbs: { db: string; count: number }[] }
+  | { type: 'coverage'; report: CoverageReport }
   | {
       type: 'done';
       zip: Blob;
@@ -260,6 +265,22 @@ function output(req: Extract<DwgTt16Request, { type: 'output' }>) {
   }
   const { doc, refs } = outputView(outputCache.classes, req.db);
   post({ type: 'output', db: req.db, doc: transformDocument(doc, req.crs), refs, dbs: dbs(cadCount) });
+}
+
+function coverage(req: Extract<DwgTt16Request, { type: 'coverage' }>) {
+  if (!analysis) throw new Error('Chưa đọc thư mục bản vẽ.');
+  const ids = new Set(req.drawings);
+  const colors = colorContexts(analysis);
+  const inputs = parsed
+    .filter((p) => ids.has(p.id))
+    .map((p) => {
+      const flags = analysis!.inside.get(p.id)!.slice();
+      for (const i of req.excluded[p.id] ?? []) if (i >= 0 && i < flags.length) flags[i] = 0;
+      return { id: p.id, name: p.name, doc: p.doc, inside: flags, color: colors.get(p.id), role: req.roles[p.id] ?? ('other' as RoleId) };
+    });
+  const mapping = new Map(req.mapping);
+  const built = buildFeatures(inputs, mapping, { boundary: analysis.boundary?.ring ?? null, sourceInGhiChu: false, planUnit: planUnitFromTitle(req.projectTitle) });
+  post({ type: 'coverage', report: coverageReport(inputs, mapping, built.classes) });
 }
 
 /** Number of objects of the CAD view the last time it was built (-1: not yet). */
@@ -453,6 +474,12 @@ self.onmessage = (ev: MessageEvent<DwgTt16Request>) => {
   } else if (m.type === 'output') {
     try {
       output(m);
+    } catch (e) {
+      fail('output')(e);
+    }
+  } else if (m.type === 'coverage') {
+    try {
+      coverage(m);
     } catch (e) {
       fail('output')(e);
     }

@@ -36,8 +36,10 @@ export function templateAttributes(c: Pick<ClassData, 'db' | 'cls' | 'geom'>, f:
     if (field.name === 'loaiTenDVHC') {
       const level = adminLevel(f.phanLoai);
       if (level) out[field.name] = level;
-    } else if (field.name === 'chieuDai' && c.geom === 'L') out[field.name] = Math.round(lineLength(f.geometry) * 100) / 100;
-    else if (field.domain && f.phanLoai) {
+    } else if (field.name.toLowerCase() === 'chieudai' && c.geom === 'L') {
+      // HienTrang writes "ChieuDai" for bridges, the other classes "chieuDai".
+      out[field.name] = Math.round(lineLength(f.geometry) * 100) / 100;
+    } else if (field.domain && f.phanLoai) {
       const label = field.domain === 'ChucNangSuDungDatM1' ? (LAND_USE_M1[f.phanLoai] ?? f.phanLoai) : f.phanLoai;
       const code = domainCode(c.db, field.domain, label);
       if (code !== null) out[field.name] = code;
@@ -53,7 +55,7 @@ export function classGeoJson(c: ClassData): string {
     features: c.features.map((f, i) => ({
       type: 'Feature',
       id: i + 1,
-      properties: { tenDoiTuong: f.tenDoiTuong ?? '', phanLoai: f.phanLoai ?? '', ghiChu: f.ghiChu ?? '', ...templateAttributes(c, f) },
+      properties: { tenDoiTuong: f.tenDoiTuong ?? '', phanLoai: f.phanLoai ?? '', ghiChu: f.ghiChu ?? '', ...templateAttributes(c, f), ...f.attrs },
       geometry: f.geometry,
     })),
   });

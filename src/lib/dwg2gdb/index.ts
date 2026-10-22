@@ -16,6 +16,7 @@ import { placeXref, resolveXref, xrefNameRole, xrefOwners, type FolderFile, type
 
 export * from './cadLayers';
 export * from './color';
+export * from './coverage';
 export * from './colorClass';
 export * from './features';
 export * from './inventory';
@@ -23,6 +24,7 @@ export * from './output';
 export * from './place';
 export * from './plan';
 export * from './qgis';
+export * from './roads';
 export * from './roles';
 export * from './section';
 export * from './summary';

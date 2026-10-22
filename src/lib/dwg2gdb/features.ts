@@ -7,7 +7,9 @@ import { foldVietnamese } from '@/lib/geo/provinces';
 import { chainRings, cleanRing, interiorPoint, isClosedLine, labelIn, labelIndex, lineMidpoint, ringsToPolygons } from './geometry';
 import { entityRowKey } from './inventory';
 import { colorRole, hatchSymbol, type ColorContext } from './colorClass';
-import { parseTarget, type TargetPath } from './suggest';
+import { compactName, parseTarget, type TargetPath } from './suggest';
+import { chainIds, layerRank, layerSurface, parseBridgeText, parseRoadText, roadFields, textAlong, type RoadName, type RoadText } from './roads';
+import { domainCode } from '@/lib/gdb/tt16Schema';
 import { targetOption, type MappingEntry } from './template';
 import { symbolsOfSection, type Tt16Symbol } from './tt16Symbols';
 
@@ -30,6 +32,8 @@ export interface GisFeature {
    * as one alternative has none of its objects left out. Empty: added by the app (detected boundary…).
    */
   refs?: SourceRef[][];
+  /** Further TT16 fields the drawing gives (tenDuong, loaiDuong, loaiChatLieuTraiMat…), written as they are. */
+  attrs?: Record<string, string | number>;
 }
 
 export interface ClassData {
@@ -188,6 +192,94 @@ export function adminName(raw: string): { name: string; kind: string } | null {
 
 export { labelIn, labelIndex };
 
+
+const ROAD_LINE = 'MangLuoiGiaoThongDuongBo_L';
+const BRIDGE_LINE = 'CongTrinhGiaoThong_L';
+
+/** Fields a line gets from the name of its layer: a road's surface and rank, a bridge's kind. */
+function lineAttrs(c: { db: string; cls: string }, layer: string): Record<string, string> | undefined {
+  const cn = compactName(layer);
+  if (c.cls === ROAD_LINE) {
+    const a = roadFields(c.db, { surface: layerSurface(cn), rank: layerRank(cn) });
+    return Object.keys(a).length ? a : undefined;
+  }
+  if (c.cls === BRIDGE_LINE && /cau/.test(cn)) {
+    const out: Record<string, string> = {};
+    const hinh = domainCode(c.db, 'LoaiHinhGiaoThong', 'Đường bộ');
+    const loai = domainCode(c.db, 'CongTrinhGiaoThong', 'Cầu');
+    if (hinh !== null) out.loaiHinhGiaoThong = hinh;
+    if (loai !== null) out.loaiCongTrinh = loai;
+    return Object.keys(out).length ? out : undefined;
+  }
+  return undefined;
+}
+
+/**
+ * Names of the roads and bridges, from the texts written along them (any drawing: the same road is named on one map
+ * only). A name also goes to the pieces of the road that continue it without a junction.
+ */
+function nameRoads(classes: Iterable<{ db: string; cls: string; features: GisFeature[] }>, drawings: DrawingInput[]): { roads: number; bridges: number } {
+  const roadTexts: (RoadText & RoadName)[] = [];
+  const noteTexts: (RoadText & RoadName)[] = [];
+  const bridgeTexts: (RoadText & { name: string | null; note: string })[] = [];
+  for (const d of drawings)
+    d.doc.entities.forEach((e, i) => {
+      if (e.kind !== 'text' || !d.inside[i]) return;
+      const base: RoadText = { text: e.text, at: e.position, height: e.height, rotation: e.rotation };
+      const r = parseRoadText(e.text);
+      if (r) (r.name ? roadTexts : noteTexts).push({ ...base, ...r });
+      const b = parseBridgeText(e.text);
+      if (b) bridgeTexts.push({ ...base, ...b });
+    });
+  let roads = 0;
+  let bridges = 0;
+  for (const c of classes) {
+    if (c.cls === ROAD_LINE && (roadTexts.length || noteTexts.length)) {
+      const own = c.features.map((f) => (f.geometry.type === 'MultiLineString' ? roadTexts[textAlong(f.geometry.coordinates, roadTexts)] : undefined));
+      const ends = c.features.map((f) => {
+        const lines = f.geometry.type === 'MultiLineString' ? f.geometry.coordinates : [];
+        const first = lines[0]?.[0] ?? [NaN, NaN];
+        const lastLine = lines[lines.length - 1];
+        const last = lastLine?.[lastLine.length - 1] ?? [NaN, NaN];
+        return { a: [first[0], first[1]] as [number, number], b: [last[0], last[1]] as [number, number] };
+      });
+      const chain = chainIds(ends);
+      const names = new Map<number, Set<string>>();
+      own.forEach((o, i) => {
+        if (o?.name) (names.get(chain[i]) ?? names.set(chain[i], new Set()).get(chain[i])!).add(o.name);
+      });
+      const byChain = new Map<number, RoadName>();
+      own.forEach((o, i) => {
+        if (o && names.get(chain[i])?.size === 1) byChain.set(chain[i], o);
+      });
+      c.features.forEach((f, i) => {
+        if (f.geometry.type !== 'MultiLineString') return;
+        const r = own[i] ?? byChain.get(chain[i]);
+        const note = f.attrs?.loaiChatLieuTraiMat ? undefined : noteTexts[textAlong(f.geometry.coordinates, noteTexts)];
+        if (!r && !note) return;
+        const fields = roadFields(c.db, { name: r?.name, rank: r?.rank, surface: r?.surface ?? note?.surface });
+        if (r?.name) {
+          f.tenDoiTuong = r.name.slice(0, 100);
+          roads++;
+        }
+        f.attrs = { ...f.attrs, ...fields };
+      });
+    } else if (c.cls === BRIDGE_LINE && bridgeTexts.length) {
+      for (const f of c.features) {
+        if (f.geometry.type !== 'MultiLineString' || !f.attrs?.loaiCongTrinh) continue;
+        const t = bridgeTexts[textAlong(f.geometry.coordinates, bridgeTexts)];
+        if (!t) continue;
+        if (t.name) {
+          f.tenDoiTuong = t.name.slice(0, 100);
+          f.attrs = { ...f.attrs, tenCongTrinh: t.name.slice(0, 100) };
+          bridges++;
+        } else f.attrs = { ...f.attrs, thongSoKyThuat: t.note.slice(0, 250) };
+      }
+    }
+  }
+  return { roads, bridges };
+}
+
 export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, MappingEntry>, o: BuildOptions): BuildResult {
   const byTarget = new Map<TargetPath, Omit<ClassData, 'styles'> & { seen: Map<string, GisFeature>; tally: Map<string, Tally> }>();
   const notes: string[] = [];
@@ -258,7 +350,7 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
         else if (e.kind === 'polygon') lines = e.rings.map(cleanRing).filter((r): r is Vec2[] => !!r).map((r) => [...r, r[0]]);
         lines = lines.filter((l) => l.length >= 2);
         if (!lines.length) return;
-        add(c, { ...base, refs, tenDoiTuong: null, geometry: { type: 'MultiLineString', coordinates: lines.map((l) => l.map(pt)) } });
+        add(c, { ...base, refs, tenDoiTuong: null, attrs: lineAttrs(c, e.layer), geometry: { type: 'MultiLineString', coordinates: lines.map((l) => l.map(pt)) } });
       } else {
         let p: Vec2 | null = null;
         let name: string | null = null;
@@ -295,6 +387,10 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
       );
     }
   }
+
+  const named = nameRoads(byTarget.values(), drawings);
+  if (named.roads) notes.push(`Đặt tên cho ${named.roads} đoạn đường theo chữ viết dọc tuyến`);
+  if (named.bridges) notes.push(`Đặt tên cho ${named.bridges} cầu theo chữ trên bản vẽ`);
 
   // Tên đơn vị hành chính: read from the texts themselves ("ẤP TRÀ SẤT", "X. HÀM GIANG"), whatever their layer —
   // drawings put them on general text layers. One point per name (the biggest label), inside the planning area.

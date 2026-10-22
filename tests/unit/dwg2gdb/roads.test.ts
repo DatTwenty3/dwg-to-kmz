@@ -1,0 +1,120 @@
+// Names, kinds and surfaces of the roads read from the drawing (roads.ts) and written by buildFeatures.
+import { describe, expect, it } from 'vitest';
+import type { CadDocument, CadEntity } from '@/lib/cad/types';
+import { buildFeatures, chainIds, layerRank, layerSurface, parseBridgeText, parseRoadText, roadFields, rowKey, textAlong, type MappingEntry } from '@/lib/dwg2gdb';
+import { templateAttributes } from '@/lib/dwg2gdb/plan';
+
+describe('parseRoadText', () => {
+  it('reads the kind and rank from the name', () => {
+    expect(parseRoadText('ĐƯỜNG HUYỆN 36')).toMatchObject({ name: 'Đường huyện 36', rank: 'huyen' });
+    expect(parseRoadText('ĐƯỜNG DH 18')).toMatchObject({ name: 'Đường huyện 18', rank: 'huyen' });
+    expect(parseRoadText('ĐƯỜNG DH36')).toMatchObject({ name: 'Đường huyện 36', rank: 'huyen' });
+    expect(parseRoadText('ĐT.911')).toMatchObject({ name: 'Đường tỉnh 911', rank: 'tinh' });
+    expect(parseRoadText('ĐƯỜNG 915C')).toMatchObject({ name: 'Đường 915C', rank: 'tinh' });
+    expect(parseRoadText('QL.91')).toMatchObject({ name: 'Quốc lộ 91', rank: 'quocLo' });
+    expect(parseRoadText('TUYẾN SỐ 5')).toMatchObject({ name: 'Tuyến số 5', rank: null });
+  });
+  it('a name that tells no rank stays a name; the note in brackets is the surface', () => {
+    expect(parseRoadText('ĐƯỜNG BA TRẠCH')).toMatchObject({ name: 'Đường Ba Trạch', rank: null });
+    expect(parseRoadText('ĐƯỜNG D5 (QH VÙNG HUYỆN)')).toMatchObject({ name: 'Đường D5', rank: null, surface: null });
+    expect(parseRoadText('ĐƯỜNG HL12 (ĐƯỜNG NHỰA)')).toMatchObject({ name: 'Đường HL12', surface: 'Nhựa' });
+    expect(parseRoadText('ĐƯỜNG BÊ TÔNG BA TRẠCH')).toMatchObject({ name: 'Đường Ba Trạch', surface: 'Bê tông' });
+  });
+  it('a note of surface names nothing; utility lines and pipe notes are no road', () => {
+    expect(parseRoadText('ĐƯỜNG NHỰA')).toEqual({ name: null, rank: null, surface: 'Nhựa' });
+    expect(parseRoadText('ĐƯỜNG BÊ TÔNG')).toEqual({ name: null, rank: null, surface: 'Bê tông' });
+    expect(parseRoadText('ĐƯỜNG DÂY 110KV')).toBeNull();
+    expect(parseRoadText('ĐƯỜNG ỐNG D600')).toBeNull();
+    expect(parseRoadText('Ø140 L=1400m')).toBeNull();
+    expect(parseRoadText('TRƯỜNG TIỂU HỌC')).toBeNull();
+  });
+  it('bridges: a proper name, not the type note', () => {
+    expect(parseBridgeText('Cầu Kênh Xáng')).toMatchObject({ name: 'Cầu Kênh Xáng' });
+    expect(parseBridgeText('CẦU BÊ TÔNG')).toMatchObject({ name: null, note: 'Cầu Bê Tông' });
+    expect(parseBridgeText('CẦU QUY HOẠCH MỚI')?.name).toBe('Cầu Quy Hoạch Mới');
+    expect(parseBridgeText('Trường học')).toBeNull();
+  });
+});
+
+describe('layers and codes', () => {
+  it('surface and rank of the layer name', () => {
+    expect(layerSurface('duongnhua')).toBe('Nhựa');
+    expect(layerSurface('duongbetong')).toBe('Bê tông');
+    expect(layerSurface('duongmon')).toBe('Đất');
+    expect(layerSurface('htktgtheduong')).toBeNull();
+    expect(layerRank('dquoclo')).toBe('quocLo');
+    expect(layerRank('dtinh')).toBe('tinh');
+    expect(layerRank('htktgtduongkhuvuc')).toBe('khuVuc');
+  });
+  it('codes come from the domains of each geodatabase (the labels differ)', () => {
+    expect(roadFields('QuyHoach', { name: 'Đường huyện 36', rank: 'huyen', surface: 'Nhựa' })).toEqual({ tenDuong: 'Đường huyện 36', loaiDuong: '4', capDuong: '4', loaiChatLieuTraiMat: '2' });
+    expect(roadFields('HienTrang', { rank: 'huyen' })).toEqual({ loaiDuong: '4', capDuong: '4' });
+    expect(roadFields('HienTrang', { rank: 'quocLo' })).toEqual({ loaiDuong: '2', capDuong: '2' });
+    expect(roadFields('QuyHoach', { rank: 'quocLo' })).toEqual({ loaiDuong: '2', capDuong: '2' });
+  });
+});
+
+describe('matching texts to lines', () => {
+  const along = { text: 'x', at: [50, 6] as [number, number], height: 4, rotation: 0 };
+  it('takes the text written along the line, not one across it or far away', () => {
+    expect(textAlong([[[0, 0], [100, 0]]], [along])).toBe(0);
+    expect(textAlong([[[0, 0], [100, 0]]], [{ ...along, rotation: 90 }])).toBe(-1);
+    expect(textAlong([[[0, 0], [100, 0]]], [{ ...along, at: [50, 80] }])).toBe(-1);
+    expect(textAlong([[[0, 0], [100, 0]]], [{ ...along, at: [50, 15] }, along])).toBe(1);
+  });
+  it('chains: two ends meeting alone link the lines, a junction of three does not', () => {
+    const ends = [
+      { a: [0, 0], b: [10, 0] },
+      { a: [10, 0], b: [20, 0] },
+      { a: [20, 0], b: [30, 0] },
+      { a: [20, 0], b: [20, 10] },
+    ] as { a: [number, number]; b: [number, number] }[];
+    const c = chainIds(ends);
+    expect(c[0]).toBe(c[1]);
+    expect(c[2]).not.toBe(c[1]);
+    expect(c[3]).not.toBe(c[1]);
+  });
+});
+
+describe('the roads of a drawing', () => {
+  const road = (layer: string, y: number, x0 = 0): CadEntity => ({ kind: 'polyline', layer, color: '#ffffff', points: [[x0, y], [x0 + 100, y]], closed: false });
+  const text = (t: string, x: number, y: number, rotation = 0): CadEntity => ({ kind: 'text', layer: 'TEN', color: '#ffffff', text: t, position: [x, y], height: 4, rotation, hAlign: 'left', vAlign: 'baseline' });
+  const doc = (entities: CadEntity[]): CadDocument => ({ units: 'm', crs: null, layers: [], entities, bbox: [[0, 0], [300, 100]], warnings: [] });
+  const target = 'QuyHoach/QuyHoachGiaoThong/MangLuoiGiaoThongDuongBo_L';
+
+  it('names a road from the text beside it, passes the name on to the pieces that continue it, keeps the others unnamed', () => {
+    // two pieces of one road (one named) + a separate road
+    const d = doc([road('DUONG_NHUA', 0), road('DUONG_NHUA', 0, 100), text('ĐƯỜNG HUYỆN 36', 30, 5), road('DUONG_NHUA', 50)]);
+    const m = new Map<string, MappingEntry>([[rowKey('a', 'DUONG_NHUA', 'L'), { target, phanLoai: 'Đường nhựa' }]]);
+    const built = buildFeatures([{ id: 'a', name: 'a.dwg', doc: d, inside: new Uint8Array(d.entities.length).fill(1) }], m, { boundary: null, sourceInGhiChu: false });
+    const c = built.classes.find((x) => x.target === target)!;
+    expect(c.features.map((f) => f.tenDoiTuong)).toEqual(['Đường huyện 36', 'Đường huyện 36', null]);
+    expect(c.features[0].attrs).toMatchObject({ tenDuong: 'Đường huyện 36', loaiDuong: '4', capDuong: '4', loaiChatLieuTraiMat: '2' });
+    expect(c.features[2].attrs).toEqual({ loaiChatLieuTraiMat: '2' }); // surface of the layer only
+    expect(built.notes.join(' ')).toMatch(/Đặt tên cho 2 đoạn đường/);
+    // written to the geodatabase
+    expect(templateAttributes(c, c.features[0])).not.toHaveProperty('tenDuong'); // the plan adds attrs itself
+  });
+
+  it('the surface note beside an unnamed layer gives the surface; a layer saying so wins over it', () => {
+    const d = doc([road('GT', 0), road('DUONG_BETONG', 50), text('ĐƯỜNG NHỰA', 30, 5), text('ĐƯỜNG NHỰA', 30, 55)]);
+    const m = new Map<string, MappingEntry>([
+      [rowKey('a', 'GT', 'L'), { target, phanLoai: 'x' }],
+      [rowKey('a', 'DUONG_BETONG', 'L'), { target, phanLoai: 'x' }],
+    ]);
+    const built = buildFeatures([{ id: 'a', name: 'a.dwg', doc: d, inside: new Uint8Array(d.entities.length).fill(1) }], m, { boundary: null, sourceInGhiChu: false });
+    const f = built.classes.find((x) => x.target === target)!.features;
+    expect(f[0].attrs?.loaiChatLieuTraiMat).toBe('2');
+    expect(f[1].attrs?.loaiChatLieuTraiMat).toBe('3');
+  });
+
+  it('a bridge gets the name written beside it and the type "Cầu"', () => {
+    const d = doc([road('CAU', 0), text('Cầu Kênh Xáng', 30, 5), road('CAU', 80)]);
+    const bt = 'QuyHoach/QuyHoachGiaoThong/CongTrinhGiaoThong_L';
+    const m = new Map<string, MappingEntry>([[rowKey('a', 'CAU', 'L'), { target: bt, phanLoai: 'Cầu' }]]);
+    const built = buildFeatures([{ id: 'a', name: 'a.dwg', doc: d, inside: new Uint8Array(d.entities.length).fill(1) }], m, { boundary: null, sourceInGhiChu: false });
+    const f = built.classes.find((x) => x.target === bt)!.features;
+    expect(f[0].attrs).toMatchObject({ tenCongTrinh: 'Cầu Kênh Xáng', loaiCongTrinh: '15', loaiHinhGiaoThong: '1' });
+    expect(f[1].attrs).toEqual({ loaiCongTrinh: '15', loaiHinhGiaoThong: '1' });
+  });
+});

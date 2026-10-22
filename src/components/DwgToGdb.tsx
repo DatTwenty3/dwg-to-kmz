@@ -40,6 +40,8 @@ import {
   type MappingEntry,
   type MappingState,
   type MappingTemplate,
+  type CoverageGroup,
+  type CoverageReport,
   type RoleId,
 } from '@/lib/dwg2gdb';
 import { codeForProvince } from '@/lib/gdb/crs';
@@ -167,6 +169,8 @@ export default function DwgToGdb() {
   const [editing, setEditing] = useState<string | null>(null);
   const [menu, setMenu] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  /** "Đối chiếu CAD ↔ GIS" of the current mapping, asked when the export dialog opens. */
+  const [coverage, setCoverage] = useState<{ report: CoverageReport | null; loading: boolean }>({ report: null, loading: false });
   // Reading the hatch colours against another Mục of Phụ lục I: the worker makes the rows again.
   const [recolor, setRecolor] = useState(false);
   /** Current drawings and template for the worker's message handler (it was created with older state). */
@@ -280,6 +284,8 @@ export default function DwgToGdb() {
       setOutputLoading(false);
       setOutputError(null);
       setOutput({ db: m.db, doc: m.doc, refs: m.refs, dbs: m.dbs });
+    } else if (m.type === 'coverage') {
+      setCoverage({ report: m.report, loading: false });
     } else if (m.type === 'done') {
       setExportState({ progress: null, result: m, error: null });
     } else if (m.type === 'error') {
@@ -370,6 +376,14 @@ export default function DwgToGdb() {
     }, 300);
     return () => clearTimeout(t);
   }, [editMode, editDb, crs, data, includedIds, exportMapping, rolesKey]);
+  useEffect(() => {
+    if (!exportOpen || exportState.result || exportState.progress || !data || !workerRef.current) return;
+    setCoverage({ report: null, loading: true });
+    const roles = Object.fromEntries(live.current.drawings.map((d) => [d.id, d.role]));
+    const gone = Object.fromEntries([...excluded].filter(([, set]) => set.size).map(([id, set]) => [id, [...set]]));
+    workerRef.current.postMessage({ type: 'coverage', drawings: includedIds, mapping: exportMapping, roles, projectTitle: data.projectTitle ?? null, excluded: gone } satisfies DwgTt16Request);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- asked once per opening of the dialog
+  }, [exportOpen]);
   const editView = editMode && output && output.db === editDb ? output : null;
   /** Features of the edit view that will not be written (all their sources left out). */
   const removedFeatures = useMemo(() => {
@@ -1231,6 +1245,7 @@ ${cm.reason}` : ''}`}>
           leftOut={drawings.filter((d) => roleById(d.role).db && !d.included && d.inside > 0).map((d) => d.name.replace(/\.(dwg|dxf)$/i, ''))}
           defaultName={data.projectName ?? 'DoAnQuyHoach'}
           summary={exportSummary(rows, mapping, new Set(included.map((d) => d.id)))}
+          coverage={coverage}
           onStart={startExport}
           onClose={() => setExportOpen(false)}
           onOpenChecker={openInChecker}
@@ -1274,6 +1289,48 @@ function exportSummary(rows: LayerRow[], mapping: Map<string, MappingState>, dra
   return [...by].sort((a, b) => a[0].localeCompare(b[0]));
 }
 
+/** Objects of the CAD inside the planning area that do not reach the geodatabases: the check done by eye, mechanised. */
+function CoveragePanel({ coverage }: { coverage: { report: CoverageReport | null; loading: boolean } }) {
+  const r = coverage.report;
+  if (!r) return coverage.loading ? <p className="text-[12px] text-zinc-400">Đối chiếu CAD ↔ GIS…</p> : null;
+  const left = r.groups.filter((g) => g.attention);
+  const onPurpose = r.groups.filter((g) => !g.attention);
+  const fmtLen = (m: number) => (m >= 1000 ? `${(m / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} km` : `${Math.round(m).toLocaleString('vi-VN')} m`);
+  const row = (g: CoverageGroup, k: number) => (
+    <li key={k} className="flex gap-2">
+      <span className="min-w-0 flex-1 truncate" title={`${g.layer} — ${g.why} (${g.drawings.join(', ')})`}>
+        {g.layer} <span className="text-zinc-400">· {g.why}</span>
+      </span>
+      <span className="shrink-0 tabular-nums">
+        {g.count.toLocaleString('vi-VN')}
+        {g.length > 0 ? ` · ${fmtLen(g.length)}` : ''}
+      </span>
+    </li>
+  );
+  return (
+    <div>
+      <span className="ui-label">Đối chiếu CAD ↔ GIS</span>
+      <p className="mt-1 text-zinc-700">
+        <b className="font-medium">{r.covered.toLocaleString('vi-VN')}</b> đối tượng đã vào GIS
+        {r.attention > 0 && (
+          <span className="text-amber-700">
+            {' '}
+            · <b className="font-medium">{r.attention.toLocaleString('vi-VN')}</b> chưa vào, cần xem ({left.length} layer)
+          </span>
+        )}
+        {r.onPurpose > 0 && <span className="text-zinc-400"> · {r.onPurpose.toLocaleString('vi-VN')} bỏ có chủ đích</span>}
+      </p>
+      {left.length > 0 && <ul className="mt-1 max-h-32 space-y-0.5 overflow-y-auto rounded-lg bg-amber-50 px-3 py-2 font-mono text-[11.5px] text-amber-900">{left.slice(0, 40).map(row)}</ul>}
+      {onPurpose.length > 0 && (
+        <details className="mt-1 text-[12px] text-zinc-500">
+          <summary className="cursor-pointer">Bỏ có chủ đích ({onPurpose.length} layer)</summary>
+          <ul className="mt-1 max-h-28 space-y-0.5 overflow-y-auto rounded-lg bg-zinc-50 px-3 py-2 font-mono text-[11.5px] text-zinc-600">{onPurpose.slice(0, 60).map(row)}</ul>
+        </details>
+      )}
+    </div>
+  );
+}
+
 function ExportDialog({
   state,
   provinceCode,
@@ -1283,6 +1340,7 @@ function ExportDialog({
   excludedCount,
   cadExcludedCount,
   summary,
+  coverage,
   defaultName,
   onStart,
   onClose,
@@ -1298,6 +1356,7 @@ function ExportDialog({
   excludedCount: number;
   cadExcludedCount: number;
   summary: [string, number][];
+  coverage: { report: CoverageReport | null; loading: boolean };
   defaultName: string;
   onStart: (o: ExportOptions) => void;
   onClose: () => void;
@@ -1408,6 +1467,7 @@ function ExportDialog({
                   </span>
                 </span>
               </label>
+              <CoveragePanel coverage={coverage} />
               <div>
                 <span className="ui-label">Dữ liệu sẽ ghi ({summary.length} lớp)</span>
                 <ul className="mt-1 max-h-40 overflow-y-auto rounded-lg bg-zinc-50 px-3 py-2 font-mono text-[11.5px] text-zinc-600">

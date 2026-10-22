@@ -127,6 +127,41 @@ describe('every object inside the area is in the CAD drawing', () => {
   });
 });
 
+describe('roads drawn as open lines on a land-use map', () => {
+  const open = { layerHasPolygons: false, closedShare: 0 };
+  it('an open road / bridge layer is the road network (a dossier whose only map is the land-use one)', () => {
+    // the thin lines on both sides of a road are its reserve (chỉ giới đường đỏ), the wide polyline is the road
+    expect(suggest('qh-sdd', 'HTKT_GT_Heduong', 'L', open).target).toBe('QuyHoach/QuyHoachCGDD_CGXDHanhLangHTKT/ChiGioiDuongDo_L');
+    expect(suggest('qh-sdd', 'HTKT_GT_Duongkhuvuc', 'L', open).target).toBe('QuyHoach/QuyHoachGiaoThong/MangLuoiGiaoThongDuongBo_L');
+    expect(suggest('qh-sdd', 'HTKT_GT_Cau', 'L', open).target).toBe('QuyHoach/QuyHoachGiaoThong/CongTrinhGiaoThong_L');
+    expect(suggest('ht-sdd', 'DUONG_BETONG', 'L', open).target).toBe('HienTrang/HienTrangGiaoThong/MangLuoiGiaoThongDuongBo_L');
+    expect(suggest('ht-htkt', 'KS_CAU-CONG', 'L', open).target).toBe('HienTrang/HienTrangGiaoThong/CongTrinhGiaoThong_L');
+  });
+  it('the planned road layer of the HTKT_GT_ habit is a road, not a land-use background', () => {
+    expect(suggest('qh-gt', 'HTKT_GT_Quyhoach', 'L', open)).toMatchObject({ target: 'QuyHoach/QuyHoachGiaoThong/MangLuoiGiaoThongDuongBo_L', phanLoai: 'Đường quy hoạch' });
+  });
+  it('the outline of a symbol is not data (its point is)', () => {
+    for (const [role, layer] of [['qh-tn', 'HT_Nuoc mua_Ho ga'], ['qh-dien', 'dien tram']] as const) {
+      const s = suggest(role, layer, 'L', open);
+      expect(s.target).toBeNull();
+      expect(s.unknown).toBeFalsy();
+    }
+  });
+  it('the cadastral base ("Nen giai thua") is no data of the plan', () => {
+    for (const kind of ['A', 'L', 'P'] as const) expect(suggest('qh-sdd', 'Nen giai thua', kind, open).unknown).toBeFalsy();
+    expect(suggest('qh-sdd', 'Nen giai thua', 'A', open).target).toBeNull();
+  });
+  it('concrete yards and embankments are no road', () => {
+    expect(suggest('ht-htkt', 'NEN_BETONG', 'L', open).target).toBeNull();
+    expect(suggest('ht-htkt', 'KE_BETONG', 'L', open).target).toBeNull();
+    expect(suggest('ht-htkt', 'DUONG_BETONG', 'L', open).target).toContain('MangLuoiGiaoThong');
+  });
+  it('outlines of a road lot (closed, or with a hatch on the layer) stay out', () => {
+    expect(suggest('qh-sdd', 'DUONG NHUA', 'L', { layerHasPolygons: true, closedShare: 1 }).target).toBeNull();
+    expect(suggest('qh-sdd', 'DUONG NHUA', 'L', { layerHasPolygons: false, closedShare: 1 }).target).not.toContain('MangLuoiGiaoThong');
+  });
+});
+
 describe('land-use layers named as in Phụ lục I', () => {
   it('outlines of such a layer with no hatch on it become land use; the existing-state copy "HT_…" does not', () => {
     const open = { layerHasPolygons: false, closedShare: 0 };

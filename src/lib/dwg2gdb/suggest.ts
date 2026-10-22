@@ -5,6 +5,7 @@
 // the user decides in the mapping table, and a saved template (template.ts) wins over these rules.
 import { foldVietnamese } from '@/lib/geo/provinces';
 import { roleById, type RoleId } from './roles';
+import { roadPhanLoai } from './roads';
 import { TT16_SYMBOLS } from './tt16Symbols';
 
 /** Geometry kinds of a layer row: vùng (hatch/solid), đường (polyline), điểm (point), chữ (text). */
@@ -193,7 +194,10 @@ type Pick = { theme: Theme; cls: string; phanLoai: string } | null;
 function roads(c: string, kind: GeomKind, p: string): Pick {
   // "Đường điện / đường ống / đường dây …" are utility lines, not roads (they only share the word "đường").
   if (/duong(day)?dien|duongong|duongnuoc|duongcap|duongthoat|duongtruyen/.test(c)) return null;
-  if (!/duong|giaothong|^gt|gt$|quoclo|tinhlo|huyenlo|^ql|^dt|^dh|lo$|nhua|betong|cau$|^cau|ben|baido|tim|mepduong|bovia|leduong|hem|ngo|mcn|logioi|chigioi/.test(c)) return null;
+  if (!/duong|giaothong|htktgt|^gt|gt$|quoclo|tinhlo|huyenlo|^ql|^dt|^dh|lo$|nhua|betong|cau$|^cau|caucong|ben|baido|tim|mepduong|bovia|leduong|hem|ngo|mcn|logioi|chigioi/.test(c)) return null;
+  // "Hè đường": the thin lines on both sides of a road (the road reserve, drawn blue like the lộ giới lines of other
+  // drawings), around the wide polyline that is the carriageway — the red lines, not the axis.
+  if (/heduong/.test(c)) return kind === 'L' ? { theme: 'cg', cls: 'ChiGioiDuongDo_L', phanLoai: 'Chỉ giới đường đỏ' } : null;
   if (/logioi|chigioiduongdo|cgdd|duongdo/.test(c)) return kind === 'L' ? { theme: 'cg', cls: 'ChiGioiDuongDo_L', phanLoai: 'Chỉ giới đường đỏ' } : null;
   if (/chigioixaydung|cgxd/.test(c)) return kind === 'L' ? { theme: 'cg', cls: 'ChiGioiXayDung_L', phanLoai: 'Chỉ giới xây dựng' } : null;
   if (kind === 'A') {
@@ -202,10 +206,11 @@ function roads(c: string, kind: GeomKind, p: string): Pick {
   }
   if (kind === 'P') return /cau|cong|ben|tram|baido/.test(c) ? { theme: 'gt', cls: 'CongTrinhGiaoThong_P', phanLoai: p } : null;
   if (kind !== 'L') return null;
+  const label = roadPhanLoai(c) ?? p;
   if (/mep|bovia|leduong|vihe|viahe|phancach|mcn/.test(c)) return { theme: 'gt', cls: 'BoViaDaiPhanCach_L', phanLoai: p };
   if (/huongdi/.test(c)) return { theme: 'gt', cls: 'HuongDi_L', phanLoai: p };
-  if (/^cau|cau$|congtrinh/.test(c)) return { theme: 'gt', cls: 'CongTrinhGiaoThong_L', phanLoai: p };
-  return { theme: 'gt', cls: 'MangLuoiGiaoThongDuongBo_L', phanLoai: p };
+  if (/^cau|cau$|caucong|congtrinh/.test(c)) return { theme: 'gt', cls: 'CongTrinhGiaoThong_L', phanLoai: label };
+  return { theme: 'gt', cls: 'MangLuoiGiaoThongDuongBo_L', phanLoai: label };
 }
 
 function power(c: string, kind: GeomKind): Pick {
@@ -291,6 +296,10 @@ export function suggest(roleId: RoleId, layer: string, kind: GeomKind, facts: La
   if (b) return at(b, 'Tên layer là ranh giới');
   if (NEVER.test(c) || c === '') return none('Chữ, ký hiệu, khung, kích thước — không phải dữ liệu GIS');
   if (/tuongrao|hangrao/.test(c)) return none('Tường rào — không có lớp tương ứng');
+  // The outline of a symbol that also has its point / hatch (a manhole, a transformer station): the point is the data.
+  if (kind === 'L' && /hoga|giengthu|gietthu|dientram|tramdien|^tba|bienap/.test(c)) return none('Nét viền ký hiệu (hố ga, trạm điện…) — đối tượng lấy từ điểm / hatch');
+  if (/^(nen)?giaithua$/.test(c)) return none('Nền giải thửa (địa chính) — không thuộc đồ án');
+  if (/nenbetong|kebetong/.test(c)) return none('Sân / nền / kè bê tông (hình khép kín nhỏ) — không phải đường');
 
   if (kind === 'T') {
     if ((facts.numericShare ?? 0) >= 0.7 && /nen|caodo|cdtk|cdht|ks|khaosat|dodac|^\d|giaithua|hientrang|thietke/.test(c))
@@ -315,6 +324,10 @@ export function suggest(roleId: RoleId, layer: string, kind: GeomKind, facts: La
       const r = roads(c, kind, p);
       if (r && r.theme === 'cg') return at(r, 'Lộ giới / chỉ giới');
       if (r && /tim/.test(c)) return at(r, 'Tim đường');
+      // A dossier whose only map is the land-use one (Đôn Châu) draws its roads and bridges on it as open lines
+      // (HTKT_GT_Heduong, HTKT_GT_Duongkhuvuc, CAU…): those are the road network, not the outline of a parcel.
+      if (r && (r.cls === 'MangLuoiGiaoThongDuongBo_L' || r.cls === 'CongTrinhGiaoThong_L') && !tt16LandUse(c) && !facts.layerHasPolygons && (facts.closedShare ?? 0) < 0.5)
+        return at(r, 'Đường / cầu vẽ bằng nét hở trên bản đồ sử dụng đất');
       return none('Đường viền thửa/lô — vùng đã lấy từ hatch');
     }
     return none('Điểm khảo sát / ký hiệu');

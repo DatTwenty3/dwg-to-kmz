@@ -94,7 +94,10 @@ export default function DwgPreviewMap({
   const [basemapId, setBasemapId] = useState(DEFAULT_BASEMAP_ID);
   const [font, setFont] = useState({ family: DEFAULT_FONT_FAMILY, ready: false });
   const [pick, setPick] = useState<MapPick | null>(null);
-  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [rawSelected, setSelected] = useState<Set<number>>(new Set());
+  // An object that was removed is no longer selectable: a sweep over it, or a removal made some other way (a whole layer,
+  // an undo), must not leave it in the selection (it would be drawn amber and counted).
+  const selected = useMemo(() => (excluded.size ? new Set([...rawSelected].filter((i) => !excluded.has(i))) : rawSelected), [rawSelected, excluded]);
   useEffect(() => {
     let alive = true;
     loadTextFont().then((family) => alive && setFont({ family, ready: true }));
@@ -151,6 +154,7 @@ export default function DwgPreviewMap({
     setSelected((s) => {
       const next = new Set(s);
       for (const i of indexes) {
+        if (excluded.has(i)) continue;
         if (add ?? !next.has(i)) next.add(i);
         else next.delete(i);
       }

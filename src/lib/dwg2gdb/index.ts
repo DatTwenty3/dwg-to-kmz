@@ -317,8 +317,12 @@ function factsOf(row: LayerRow, rows: readonly LayerRow[]) {
     closedShare: row.kind === 'L' && row.count ? row.closed / row.count : 0,
     layerHasPolygons: polygonLayers(rows).has(`${row.drawing}\u0001${row.layer}`),
     numericShare: row.numericShare,
+    wideLine: row.wide,
   };
 }
+
+/** Layer name a template rule is kept under: the wide lines of an annotation-named layer are not the layer's other lines. */
+const ruleLayer = (row: Pick<LayerRow, 'layer' | 'wide'>) => (row.wide ? `${row.layer} (nét rộng)` : row.layer);
 
 const LAND_USE_CLASS = /\/ChucNangSuDungDat_A$/;
 
@@ -339,7 +343,7 @@ function staleRule(t: MappingEntry): boolean {
  */
 export function suggestRow(row: LayerRow, role: RoleId, rows: readonly LayerRow[]): MappingState {
   const s = suggest(role, row.layer, row.kind, factsOf(row, rows));
-  const byName: MappingState = { target: s.target, phanLoai: s.phanLoai, source: 'auto', reason: s.reason, unknown: s.unknown };
+  const byName: MappingState = { target: s.target, phanLoai: s.phanLoai, source: 'auto', reason: s.reason, unknown: s.unknown, ...(s.review ? { review: true } : {}) };
   const info = row.colorKey ? (row.colorMatch ?? null) : null;
   const c = colorSuggestion(info, role);
   if (!c || !info) return byName;
@@ -381,7 +385,7 @@ export function retargetState(s: MappingState, db: TargetDb): MappingState {
 function resolveByRole(row: LayerRow, role: RoleId, lookup: ReturnType<typeof templateLookup>, rows: readonly LayerRow[]): MappingState {
   const fromTemplate = (t: MappingEntry): MappingState => ({ ...t, source: 'template', reason: 'Theo mẫu ghép đã lưu' });
   if (!roleById(role).db) return suggestRow(row, role, rows);
-  const exact = lookup(role, row.layer, row.kind as GeomKind, row.colorKey ? row.color : undefined);
+  const exact = lookup(role, ruleLayer(row), row.kind as GeomKind, row.colorKey ? row.color : undefined);
   if (exact && !staleRule(exact)) return fromTemplate(exact);
   const s = suggestRow(row, role, rows);
   if (row.colorKey && s.unknown) {
@@ -419,7 +423,7 @@ export function templateDecisions(drawings: Pick<DrawingInfo, 'id' | 'role' | 'd
     const m = mapping.get(r.key);
     if (!role || !roleById(role).db || !m || r.count === 0) continue;
     if (!m.target && m.source === 'auto') continue;
-    out.push({ role, layer: compactName(r.layer), kind: r.kind, ...(r.colorKey ? { color: r.color.toLowerCase() } : {}), target: m.target, phanLoai: m.phanLoai });
+    out.push({ role, layer: compactName(ruleLayer(r)), kind: r.kind, ...(r.colorKey ? { color: r.color.toLowerCase() } : {}), target: m.target, phanLoai: m.phanLoai });
   }
   return out;
 }

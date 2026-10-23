@@ -92,6 +92,19 @@ export function parseRoadText(raw: string): RoadName | null {
   return null;
 }
 
+/**
+ * A route number alone ("914", "914C" in the diamond sign at the end of a road leaving the planning area), read on a
+ * layer named after roads. `rank` is the rank the layer names (HTKT_GT_Duongtinh → tỉnh); a three-digit number is a
+ * provincial road when the layer does not say. null for anything else (a bare number elsewhere is a height or a count).
+ */
+export function parseRouteSign(raw: string, rank: RoadRank | null): RoadName | null {
+  const m = /^(\d{3})\s?([A-Za-z])?$/.exec(raw.replace(/\s+/g, ' ').trim());
+  if (!m) return null;
+  const r = rank ?? 'tinh';
+  const no = `${m[1]}${(m[2] ?? '').toUpperCase()}`;
+  return { name: r === 'quocLo' ? `Quốc lộ ${no}` : r === 'huyen' ? `Đường huyện ${no}` : `Đường ${no}`, rank: r, surface: null };
+}
+
 /** Name of a bridge written next to it ("Cầu Kênh Xáng"); the type notes ("CẦU BÊ TÔNG") name nothing. */
 export function parseBridgeText(raw: string): { name: string | null; note: string } | null {
   const text = raw.replace(/\s+/g, ' ').trim();
@@ -180,6 +193,40 @@ export function textAlong(lines: number[][][], texts: readonly RoadText[], maxTu
     if (near > reach || angleGap(angle, t.rotation) > maxTurn) return;
     if (near < bestD) {
       bestD = near;
+      best = i;
+    }
+  });
+  return best;
+}
+
+/**
+ * Index of the line a route sign belongs to (the diamond "914C" drawn at the edge of the planning area, upright whatever
+ * way the road runs): the line passing within `reach` of it; else the line one of whose ends points straight at it — the
+ * road stops short of the sign, a dashed stub with the arrow carries on. -1 when none.
+ */
+export function lineForSign(lines: readonly number[][][], sign: RoadText, reach = Math.max(2 * sign.height, 30), maxReach = 1000, maxTurn = 25): number {
+  let best = -1;
+  let bestD = reach;
+  lines.forEach((pts, i) => {
+    for (let k = 1; k < pts.length; k++) {
+      const d = segmentDistance(sign.at, pts[k - 1], pts[k]).d;
+      if (d < bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+  });
+  if (best >= 0) return best;
+  bestD = maxReach;
+  lines.forEach((pts, i) => {
+    if (pts.length < 2) return;
+    for (const [end, prev] of [[pts[pts.length - 1], pts[pts.length - 2]], [pts[0], pts[1]]] as const) {
+      const d = Math.hypot(sign.at[0] - end[0], sign.at[1] - end[1]);
+      if (d >= bestD) continue;
+      const along = (Math.atan2(end[1] - prev[1], end[0] - prev[0]) * 180) / Math.PI;
+      const toSign = (Math.atan2(sign.at[1] - end[1], sign.at[0] - end[0]) * 180) / Math.PI;
+      if (Math.abs((((along - toSign) % 360) + 540) % 360 - 180) > maxTurn) continue;
+      bestD = d;
       best = i;
     }
   });

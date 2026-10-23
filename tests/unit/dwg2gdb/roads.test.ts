@@ -1,7 +1,7 @@
 // Names, kinds and surfaces of the roads read from the drawing (roads.ts) and written by buildFeatures.
 import { describe, expect, it } from 'vitest';
 import type { CadDocument, CadEntity } from '@/lib/cad/types';
-import { buildFeatures, chainIds, layerRank, layerSurface, parseBridgeText, parseRoadText, roadFields, rowKey, textAlong, type MappingEntry } from '@/lib/dwg2gdb';
+import { buildFeatures, chainIds, insideFlags, layerRows, suggestRow, layerRank, layerSurface, lineForSign, parseBridgeText, parseRoadText, parseRouteSign, roadFields, rowKey, textAlong, type MappingEntry } from '@/lib/dwg2gdb';
 import { templateAttributes } from '@/lib/dwg2gdb/plan';
 
 describe('parseRoadText', () => {
@@ -116,5 +116,60 @@ describe('the roads of a drawing', () => {
     const f = built.classes.find((x) => x.target === bt)!.features;
     expect(f[0].attrs).toMatchObject({ tenCongTrinh: 'Cầu Kênh Xáng', loaiCongTrinh: '15', loaiHinhGiaoThong: '1' });
     expect(f[1].attrs).toEqual({ loaiCongTrinh: '15', loaiHinhGiaoThong: '1' });
+  });
+});
+
+describe('route signs ("914C" in a diamond at the edge of the planning area)', () => {
+  it('reads a bare route number only', () => {
+    expect(parseRouteSign('914C', 'tinh')).toMatchObject({ name: 'Đường 914C', rank: 'tinh' });
+    expect(parseRouteSign('914', null)).toMatchObject({ name: 'Đường 914', rank: 'tinh' });
+    expect(parseRouteSign('QL.91', null)).toBeNull();
+    expect(parseRouteSign('12', null)).toBeNull();
+    expect(parseRouteSign('Đường 914', null)).toBeNull();
+  });
+
+  it('finds the line under the sign, else the one whose end points at it; upright text turning is ignored', () => {
+    const lines = [[[0, 0], [400, 0]], [[0, 300], [400, 300]]];
+    const sign = { text: '914', at: [1000, 5] as [number, number], height: 70, rotation: 11 };
+    expect(lineForSign(lines, sign)).toBe(0);
+    expect(lineForSign(lines, { ...sign, at: [200, 20] })).toBe(0); // on it
+    expect(lineForSign(lines, { ...sign, at: [1000, 600] })).toBe(-1); // nothing points there
+  });
+
+  it('names the road that runs on to a sign outside the planning area, not the diamond drawn on the same layer', () => {
+    const layer = 'HTKT_GT_Duongtinh';
+    const line = (y: number): CadEntity => ({ kind: 'polyline', layer, color: '#ffffff', points: [[0, y], [400, y]], closed: false });
+    const diamond: CadEntity = { kind: 'polyline', layer, color: '#ffffff', points: [[900, 0], [1000, 100], [1100, 0], [1000, -100]], closed: true };
+    const sign: CadEntity = { kind: 'text', layer, color: '#ffffff', text: '914C', position: [1000, 0], height: 70, rotation: 11, hAlign: 'left', vAlign: 'baseline' };
+    const d: CadDocument = { units: 'm', crs: null, layers: [], entities: [line(0), line(500), diamond, sign], bbox: [[0, 0], [1100, 500]], warnings: [] };
+    const target = 'QuyHoach/QuyHoachGiaoThong/MangLuoiGiaoThongDuongBo_L';
+    const m = new Map<string, MappingEntry>([[rowKey('a', layer, 'L'), { target, phanLoai: 'Đường tỉnh' }]]);
+    const built = buildFeatures([{ id: 'a', name: 'a.dwg', doc: d, inside: Uint8Array.from([1, 1, 0, 0]) }], m, { boundary: null, sourceInGhiChu: false });
+    const f = built.classes.find((x) => x.target === target)!.features;
+    expect(f).toHaveLength(2);
+    expect(f[0].attrs).toMatchObject({ tenDuong: 'Đường 914C', loaiDuong: '3' });
+    expect(f[1].attrs?.tenDuong).toBeUndefined();
+  });
+});
+
+describe('a route drawn as one wide dashed line on a layer called "TEXT"', () => {
+  const square: [number, number][] = [[1000, 1000], [3000, 1000], [3000, 3000], [1000, 3000]];
+  const line = (layer: string, a: [number, number], b: [number, number], width: number): CadEntity => ({ kind: 'polyline', layer, color: '#000000', width, points: [a, b], closed: false });
+  const arrow = line('TEXT', [1500, 1500], [1560, 1500], 5);
+  const route = line('TEXT', [0, 2000], [4000, 2000], 15); // both ends outside the area, 2 km of it inside
+  const d: CadDocument = { units: 'm', crs: null, layers: [], entities: [arrow, route], bbox: [[0, 0], [4000, 4000]], warnings: [] };
+
+  it('counts as inside although neither end is', () => {
+    expect(Array.from(insideFlags(d, square))).toEqual([1, 1]);
+    expect(Array.from(insideFlags({ ...d, entities: [line('TEXT', [0, 5000], [4000, 5000], 15)] }, square))).toEqual([0]);
+  });
+
+  it('has a row of its own (flagged for a look), apart from the arrows of the layer, which stay out', () => {
+    const rows = layerRows('a', d, new Uint8Array([1, 1]));
+    expect(rows.filter((r) => r.layer === 'TEXT' && r.kind === 'L').map((r) => [r.count, !!r.wide]).sort()).toEqual([[1, false], [1, true]]);
+    const wide = rows.find((r) => r.wide)!;
+    const plain = rows.find((r) => r.layer === 'TEXT' && !r.wide)!;
+    expect(suggestRow(wide, 'qh-sdd', rows)).toMatchObject({ target: 'QuyHoach/QuyHoachGiaoThong/MangLuoiGiaoThongDuongBo_L', review: true });
+    expect(suggestRow(plain, 'qh-sdd', rows).target).toBeNull();
   });
 });

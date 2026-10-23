@@ -27,9 +27,13 @@ export interface Suggestion {
   reason: string;
   /** No rule applied: the user should decide (a layer left out on purpose has `unknown` false). */
   unknown?: boolean;
+  /** A class is chosen on geometry alone, against what the layer name says: worth a look. */
+  review?: boolean;
 }
 
 export interface LayerFacts {
+  /** L rows made of the long wide lines (inventory.WIDE_LINE) drawn on a layer named like an annotation layer. */
+  wideLine?: boolean;
   /** Closed polylines / all polylines of the row (L rows). */
   closedShare?: number;
   /** The same layer also has hatches (A row) in this drawing. */
@@ -194,6 +198,9 @@ const kv = (c: string) => /(\d{2,3})kv/.exec(c)?.[1] ?? (/(500|220|110|35|22)$/.
 const NEVER =
   /^(0|1|2|3|defpoints|ve|vp|viewport|layer\d*|text\w*|dim\w*|kichthuoc|khung\w*|bv(khung|ten|chugiai|tenchugiai|khungten|khungbanve)\w*|\w*chugiai\w*|\w*ghichu\w*|\w*kyhieu\w*|gchu|hkqhgchu|\w*text|\w*dim|tenkenh\w*|ten\w*|\w*mattcat\w*|mcat|kh ?mc|mcduong|\w*tieude\w*|\w*hoagio\w*|\w*thuoc(tyle)?\w*|\w*tyle\w*|\w*logo\w*)$/;
 
+/** A layer name that says "no data" (annotation, frames, dimensions…), whatever is drawn on it. */
+export const isAnnotationLayer = (compact: string) => NEVER.test(compact) || compact === '';
+
 const BOUNDARY_PLAN = /rglap|ranh\w*lap|lapquyhoach|ranhquyhoach|ranhqh|rgqh|ranhnghiencuu|phamvinghiencuu/;
 const BOUNDARY_ADMIN = /rgcapcoso|ranhgioi(xa|huyen|tinh|hanhchinh)|ranh(xa|huyen|tinh|hanhchinh)|diagioi|rg(xa|huyen|tinh|hc)\b|ranhgioihuyen|ranhap|rgap/;
 /** Land use colours repeated under infrastructure maps (already taken from the land use map). */
@@ -318,6 +325,10 @@ export function suggest(roleId: RoleId, layer: string, kind: GeomKind, facts: La
   if (b) return at(b, 'Tên layer là ranh giới');
   // On a terrain map the numbers are the spot heights, whatever their layer is called ("TEXT", "GHI CHU").
   if (role.id === 'nen' && kind === 'T' && (facts.numericShare ?? 0) >= 0.7) return at({ theme: 'dh', cls: 'DiemDoCao_P', phanLoai: 'Điểm độ cao' }, 'Số cao độ trên bản đồ địa hình');
+  // A long, wide line on a layer called "TEXT" (Đôn Châu: the dashed route 914C, 10 km, drawn 15 m wide) is a road
+  // whatever the layer says — the width is the carriageway. Contradicting the name, so it is flagged for a look.
+  if (facts.wideLine && kind === 'L')
+    return { ...at({ theme: 'gt', cls: 'MangLuoiGiaoThongDuongBo_L', phanLoai: 'Tim đường' }, `Nét rộng và dài như một tuyến đường (layer "${layer}" đặt tên như lớp chữ/ký hiệu) — kiểm tra lại`), review: true };
   if (NEVER.test(c) || c === '') return none('Chữ, ký hiệu, khung, kích thước — không phải dữ liệu GIS');
   if (/tuongrao|hangrao/.test(c)) return none('Tường rào — không có lớp tương ứng');
   // Terrain and boundary markers have their own databases, whatever the map they are drawn on.

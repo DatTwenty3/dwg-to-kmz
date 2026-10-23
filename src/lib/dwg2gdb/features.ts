@@ -8,7 +8,7 @@ import { chainRings, cleanRing, interiorPoint, isClosedLine, labelIn, labelIndex
 import { entityRowKey } from './inventory';
 import { colorRole, hatchSymbol, type ColorContext } from './colorClass';
 import { compactName, parseTarget, type TargetPath } from './suggest';
-import { chainIds, layerRank, layerSurface, parseBridgeText, parseRoadText, roadFields, textAlong, type RoadName, type RoadText } from './roads';
+import { chainIds, layerRank, layerSurface, parseBridgeText, parseRoadText, parseRouteSign, lineForSign, roadFields, textAlong, type RoadName, type RoadText } from './roads';
 import { domainCode } from '@/lib/gdb/tt16Schema';
 import { entryFor, targetOption, type MappingEntry, type ReassignEntry } from './template';
 import { symbolsOfSection, type Tt16Symbol } from './tt16Symbols';
@@ -254,27 +254,88 @@ function lineAttrs(c: { db: string; cls: string }, layer: string): Record<string
 }
 
 /**
+ * Roads named by a route sign ("914C" in a diamond at the edge of the planning area, usually outside it). The sign sits
+ * on a CAD line of a road layer — often one the planning area cuts off — so the name goes to that line and the lines
+ * that continue it (ends meeting alone), and from them to every road feature made of one of those lines.
+ */
+const polylineLength = (pts: number[][]) => pts.reduce((sum, p, k) => (k ? sum + Math.hypot(p[0] - pts[k - 1][0], p[1] - pts[k - 1][1]) : 0), 0);
+
+function signedRoads(classes: Iterable<{ cls: string; features: GisFeature[] }>, drawings: DrawingInput[], signs: readonly (RoadText & RoadName)[]): Map<GisFeature, RoadName> {
+  const out = new Map<GisFeature, RoadName>();
+  if (!signs.length) return out;
+  const roadFeatures: GisFeature[] = [];
+  const layers = new Set<string>();
+  const byId = new Map(drawings.map((d) => [d.id, d]));
+  for (const c of classes)
+    if (c.cls === ROAD_LINE)
+      for (const f of c.features) {
+        roadFeatures.push(f);
+        for (const alt of f.refs ?? []) for (const [id, i] of alt) layers.add(`${id}|${byId.get(id)?.doc.entities[i]?.layer}`);
+      }
+  // Every line of those layers, outside the planning area too.
+  const lines: { id: string; i: number; pts: number[][] }[] = [];
+  for (const d of drawings)
+    d.doc.entities.forEach((e, i) => {
+      // Short or closed lines are not roads (the diamond of the sign itself is on the road layer too).
+      if (e.kind === 'polyline' && e.points.length >= 2 && !e.closed && layers.has(`${d.id}|${e.layer}`) && polylineLength(e.points) >= 300) lines.push({ id: d.id, i, pts: e.points });
+    });
+  const chain = chainIds(lines.map((l) => ({ a: l.pts[0] as Vec2, b: l.pts[l.pts.length - 1] as Vec2 })), 10);
+  const named = new Map<number, Set<string>>();
+  const chosen = new Map<number, RoadName>();
+  for (const s of signs) {
+    const k = lineForSign(lines.map((l) => l.pts), s);
+    if (k < 0) continue;
+    (named.get(chain[k]) ?? named.set(chain[k], new Set()).get(chain[k])!).add(s.name ?? '');
+    chosen.set(chain[k], s);
+  }
+  const ofLine = new Map<string, number>();
+  lines.forEach((l, k) => ofLine.set(`${l.id}|${l.i}`, k));
+  for (const f of roadFeatures)
+    for (const alt of f.refs ?? [])
+      for (const [id, i] of alt) {
+        const k = ofLine.get(`${id}|${i}`);
+        const r = k === undefined ? undefined : chosen.get(chain[k]);
+        if (r && named.get(chain[k!])!.size === 1 && !out.has(f)) out.set(f, r);
+      }
+  return out;
+}
+
+/**
  * Names of the roads and bridges, from the texts written along them (any drawing: the same road is named on one map
  * only). A name also goes to the pieces of the road that continue it without a junction.
  */
-function nameRoads(classes: Iterable<{ db: string; cls: string; features: GisFeature[] }>, drawings: DrawingInput[]): { roads: number; bridges: number } {
+function nameRoads(classIter: Iterable<{ db: string; cls: string; features: GisFeature[] }>, drawings: DrawingInput[]): { roads: number; bridges: number } {
+  const classes = [...classIter];
   const roadTexts: (RoadText & RoadName)[] = [];
   const noteTexts: (RoadText & RoadName)[] = [];
+  const signTexts: (RoadText & RoadName)[] = [];
   const bridgeTexts: (RoadText & { name: string | null; note: string })[] = [];
   for (const d of drawings)
     d.doc.entities.forEach((e, i) => {
-      if (e.kind !== 'text' || !d.inside[i]) return;
+      if (e.kind !== 'text') return;
       const base: RoadText = { text: e.text, at: e.position, height: e.height, rotation: e.rotation };
+      // The number of a road leaving the planning area ("914C" in a diamond at its end) is written outside the boundary,
+      // on a road layer: it names the road that reaches it, so it counts wherever it stands.
+      const cn = compactName(e.layer);
+      const sign = /duong|giaothong|htktgt|quoclo|^gt/.test(cn) ? parseRouteSign(e.text, layerRank(cn)) : null;
+      if (sign) {
+        signTexts.push({ ...base, ...sign });
+        return;
+      }
+      if (!d.inside[i]) return;
       const r = parseRoadText(e.text);
       if (r) (r.name ? roadTexts : noteTexts).push({ ...base, ...r });
       const b = parseBridgeText(e.text);
       if (b) bridgeTexts.push({ ...base, ...b });
     });
+  const bySign = signedRoads(classes, drawings, signTexts);
   let roads = 0;
   let bridges = 0;
   for (const c of classes) {
-    if (c.cls === ROAD_LINE && (roadTexts.length || noteTexts.length)) {
-      const own = c.features.map((f) => (f.geometry.type === 'MultiLineString' ? roadTexts[textAlong(f.geometry.coordinates, roadTexts)] : undefined));
+    if (c.cls === ROAD_LINE && (roadTexts.length || noteTexts.length || signTexts.length)) {
+      const own = c.features.map((f) =>
+        f.geometry.type === 'MultiLineString' ? (roadTexts[textAlong(f.geometry.coordinates, roadTexts)] ?? bySign.get(f)) : undefined,
+      );
       const ends = c.features.map((f) => {
         const lines = f.geometry.type === 'MultiLineString' ? f.geometry.coordinates : [];
         const first = lines[0]?.[0] ?? [NaN, NaN];

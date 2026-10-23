@@ -485,7 +485,7 @@ export default function DwgToGdb() {
   }, [sel, preview, reassign]);
   /** Objects of a layer row still on it (the ones sent to another class left it). */
   const rowCount = (r: LayerRow) => {
-    const lost = r.colorKey ? (moved.byRowColor.get(`${r.layer}|${r.kind}|${r.color.toLowerCase()}`) ?? 0) : (moved.byRow.get(`${r.layer}|${r.kind}`) ?? 0);
+    const lost = r.wide ? 0 : r.colorKey ? (moved.byRowColor.get(`${r.layer}|${r.kind}|${r.color.toLowerCase()}`) ?? 0) : (moved.byRow.get(`${r.layer}|${r.kind}`) ?? 0);
     return Math.max(0, r.count - lost);
   };
   /** After "Đổi lớp": select the moved features once the view made for that change has arrived. */
@@ -781,6 +781,8 @@ export default function DwgToGdb() {
   };
   const reviewCount = (id: string) => rows.filter((r) => r.drawing === id && isReview(r)).length;
   const totalReview = included.reduce((t, d) => t + reviewCount(d.id), 0);
+  // Rows to look at that have no class (left out of the export) vs. rows with a class that only want a second look (written).
+  const leftUnmapped = included.reduce((t, d) => t + rows.filter((r) => r.drawing === d.id && isReview(r) && !mapping.get(r.key)?.target).length, 0);
   const mappedCount = (id: string) => rows.filter((r) => r.drawing === id && mapping.get(r.key)?.target).reduce((t, r) => t + r.count, 0);
   const q = compactName(query);
   const drawingRows = rows
@@ -1192,6 +1194,11 @@ ${cm.reason}` : ''}`}>
                                 {r.layer}
                               </span>
                             </div>
+                            {r.wide && (
+                              <p className="pl-5 text-[11px] leading-snug text-amber-700" title="Nét rộng ≥ 8 m, dài ≥ 1 km trên layer đặt tên như lớp chữ/ký hiệu — được tách riêng khỏi các nét còn lại của layer">
+                                nét rộng, dài như tuyến đường
+                              </p>
+                            )}
                             {!!r.labelConflicts && (
                               <p className="pl-5 text-[11px] leading-snug text-amber-700" title="Chữ nằm trong vùng ghi một loại đất khác với màu của vùng">
                                 {fmt(r.labelConflicts)} vùng có chữ khác loại đất
@@ -1441,7 +1448,8 @@ ${cm.reason}` : ''}`}>
           state={exportState}
           provinceCode={provinceCode}
           ktt={unit ? `${unit.name} — KTT ${formatDegMin(unit.lon0)}, múi ${zone}°` : ''}
-          review={totalReview}
+          review={leftUnmapped}
+          lookedAt={totalReview - leftUnmapped}
           excludedCount={excludedCount}
           reassignedCount={reassignedCount}
           cadExcludedCount={cadExcludedCount}
@@ -1539,6 +1547,7 @@ function ExportDialog({
   provinceCode,
   ktt,
   review,
+  lookedAt,
   leftOut,
   excludedCount,
   reassignedCount,
@@ -1554,6 +1563,8 @@ function ExportDialog({
   provinceCode: string | null;
   ktt: string;
   review: number;
+  /** Rows with a class chosen that are flagged "cần xem": written anyway. */
+  lookedAt: number;
   /** Drawings with a map kind that the user unticked. */
   leftOut: string[];
   /** Objects removed on the map ("Biên tập"). */
@@ -1715,6 +1726,12 @@ function ExportDialog({
                 <p className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-[12.5px] text-amber-800">
                   <IconAlert width={14} height={14} className="mt-0.5 shrink-0" />
                   Còn {review} layer có dữ liệu chưa ghép — sẽ bị bỏ qua.
+                </p>
+              )}
+              {lookedAt > 0 && (
+                <p className="flex items-start gap-2 rounded-lg bg-zinc-50 px-3 py-2 text-[12.5px] text-zinc-600">
+                  <IconAlert width={14} height={14} className="mt-0.5 shrink-0" />
+                  {lookedAt} layer đã có lớp nhưng đang ở mục “Cần xem” — vẫn được ghi vào HoSoGIS theo lớp đang chọn.
                 </p>
               )}
               {error && (

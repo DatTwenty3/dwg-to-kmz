@@ -4,7 +4,7 @@
 import type { CadDocument, CadEntity, Vec2 } from '@/lib/cad/types';
 import { colorKey, describeColorKey, keyColor, type ColorContext, type ColorInfo } from './colorClass';
 import { bboxOf, chainRings, interiorPoint, isClosedLine, labelIn, labelIndex, ringArea } from './geometry';
-import { compactName, landUseOf, sameLandUse, type GeomKind } from './suggest';
+import { compactName, isAnnotationLayer, landUseOf, sameLandUse, type GeomKind } from './suggest';
 
 /** Layer names of the planning boundary ("BV_Rg_Lapquyhoach", "Ranh giới lập quy hoạch", "RANH QH"…). */
 export const PLAN_BOUNDARY_LAYER = /rglap|ranh\w*lap|lapquyhoach|ranhquyhoach|ranhqh\b|rgqh|ranhnghiencuu|phamvinghiencuu|ranhgioilapqh/;
@@ -137,6 +137,12 @@ export class RegionMask {
     const j = Math.floor((y - this.y0) / this.size);
     return i >= 0 && j >= 0 && i < this.nx && j < this.ny && this.cells[j * this.nx + i] === 1;
   }
+  /** A segment that passes through the area, ends outside or not. */
+  crosses(a: Vec2, b: Vec2): boolean {
+    const steps = Math.min(4000, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / this.size));
+    for (let s = 0; s <= steps; s++) if (this.contains([a[0] + ((b[0] - a[0]) * s) / steps, a[1] + ((b[1] - a[1]) * s) / steps])) return true;
+    return false;
+  }
 }
 
 /** Up to `max` evenly spaced vertices. */
@@ -154,8 +160,16 @@ export function entityInside(e: CadEntity, mask: RegionMask): boolean {
       return mask.contains(e.position);
     case 'table':
       return mask.contains(e.origin);
-    case 'polyline':
-      return sample(e.points).some((p) => mask.contains(p));
+    case 'polyline': {
+      if (sample(e.points).some((p) => mask.contains(p))) return true;
+      // Both ends outside, the middle through the area (a route drawn as one long straight line): walk the segments.
+      let walked = 0;
+      for (let k = 1; k < e.points.length && walked < 20000; k++) {
+        walked += 1;
+        if (mask.crosses(e.points[k - 1], e.points[k])) return true;
+      }
+      return false;
+    }
     case 'polygon': {
       const outer = e.rings.reduce((a, r) => (r.length > 2 && ringArea(r) > ringArea(a) ? r : a), e.rings[0] ?? []);
       if (outer.length < 3) return false;
@@ -190,8 +204,28 @@ export const rowKey = (drawing: string, layer: string, kind: GeomKind, color = '
  */
 export function entityRowKey(drawing: string, e: CadEntity, ctx?: ColorContext): string | null {
   const kind = KIND_OF[e.kind];
-  return kind ? rowKey(drawing, e.layer, kind, ctx ? colorKey(e, ctx) : '') : null;
+  return kind ? rowKey(drawing, e.layer, kind, rowGroup(e, ctx)) : null;
 }
+
+/** Group of the long wide lines on an annotation-named layer, kept apart from the rest of the layer (see wideLine). */
+export const WIDE_LINE = 'wide';
+const WIDE_MIN_WIDTH = 8;
+const WIDE_MIN_LENGTH = 1000;
+
+/**
+ * A line drawn as a carriageway — wide (≥ 8 m) and long (≥ 1 km), open — on a layer whose name says annotation
+ * ("TEXT", "KYHIEU"…). Such a layer holds arrows, frames and the like, so its lines are one row; but the route the
+ * drawing marks with a wide dashed line on it (Đôn Châu 914C) is a road, and gets a row of its own to say so.
+ */
+export function wideLine(e: CadEntity): boolean {
+  if (e.kind !== 'polyline' || e.closed || (e.width ?? 0) < WIDE_MIN_WIDTH || !isAnnotationLayer(compactName(e.layer))) return false;
+  let len = 0;
+  for (let k = 1; k < e.points.length && len < WIDE_MIN_LENGTH; k++) len += Math.hypot(e.points[k][0] - e.points[k - 1][0], e.points[k][1] - e.points[k - 1][1]);
+  return len >= WIDE_MIN_LENGTH;
+}
+
+/** Colour group of a hatch, or the wide-line group of a polyline. */
+const rowGroup = (e: CadEntity, ctx?: ColorContext): string => (wideLine(e) ? WIDE_LINE : ctx ? colorKey(e, ctx) : '');
 
 export interface LayerRow {
   key: string;
@@ -215,6 +249,8 @@ export interface LayerRow {
   color: string;
   /** A rows of a land-use map the colours of Phụ lục I tell apart: the colour group ('c<rrggbb>'), else ''. */
   colorKey: string;
+  /** L rows of the long wide lines on an annotation-named layer (WIDE_LINE): a row of their own. */
+  wide?: boolean;
   /** What that colour stands for (Số N, land use, confidence) — set when colorKey is. */
   colorMatch?: ColorInfo;
   /** Hatches of the group whose label text names another land use than the colour ("KHU THƯƠNG MẠI…" on số 34). */
@@ -231,14 +267,16 @@ export function layerRows(drawing: string, doc: CadDocument, flags: Uint8Array, 
   doc.entities.forEach((e, i) => {
     const kind = KIND_OF[e.kind];
     if (!kind) return;
-    const group = ctx ? colorKey(e, ctx) : '';
-    const key = rowKey(drawing, e.layer, kind, group);
+    const wide = wideLine(e);
+    const group = wide ? '' : ctx ? colorKey(e, ctx) : '';
+    const key = rowKey(drawing, e.layer, kind, wide ? WIDE_LINE : group);
     let r = rows.get(key);
     if (!r) {
       const info = group ? describeColorKey(group, ctx!.section) : null;
       r = {
         key, drawing, layer: e.layer, kind, count: 0, total: 0, closed: 0, chained: 0, openLeft: 0, numericShare: 0, samples: [],
         color: (group && keyColor(group)) || (colorOf.get(e.layer) ?? e.color), colorKey: group, colorMatch: info ?? undefined, numeric: 0,
+        ...(wide ? { wide: true } : {}),
       };
       rows.set(key, r);
     }

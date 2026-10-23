@@ -12,7 +12,7 @@ import { entityRowKey, PLAN_BOUNDARY_LAYER } from './inventory';
 import { roleById, type DbName, type RoleId } from './roles';
 import { compactName, layerLandUse, parseTarget } from './suggest';
 import { objectKey } from './summary';
-import type { MappingEntry } from './template';
+import { entryFor, type MappingEntry, type ReassignEntry } from './template';
 
 /** Default file name (without .gpkg); the export names it like the project (.qgz). */
 export const CAD_GPKG = 'BanVeCAD';
@@ -59,11 +59,11 @@ export interface CadSource {
 /** Drawing id prefix of the CAD drawing's own list of removed objects (Biên tập → "Bản vẽ CAD"). */
 export const CAD_EDIT_PREFIX = 'cad:';
 
-export function cadSourceDocument(drawings: (DrawingInput & { role: RoleId; db?: DbName | null; removed?: ReadonlySet<number> })[], mapping: Map<string, MappingEntry>, boundary: Vec2[] | null): CadDocument {
-  return cadSource(drawings, mapping, boundary).doc;
+export function cadSourceDocument(drawings: (DrawingInput & { role: RoleId; db?: DbName | null; removed?: ReadonlySet<number> })[], mapping: Map<string, MappingEntry>, boundary: Vec2[] | null, reassign?: ReadonlyMap<string, ReassignEntry>): CadDocument {
+  return cadSource(drawings, mapping, boundary, reassign).doc;
 }
 
-export function cadSource(drawings: (DrawingInput & { role: RoleId; db?: DbName | null; removed?: ReadonlySet<number> })[], mapping: Map<string, MappingEntry>, boundary: Vec2[] | null): CadSource {
+export function cadSource(drawings: (DrawingInput & { role: RoleId; db?: DbName | null; removed?: ReadonlySet<number> })[], mapping: Map<string, MappingEntry>, boundary: Vec2[] | null, reassign?: ReadonlyMap<string, ReassignEntry>): CadSource {
   // The signs at the ends of the roads (route number in a diamond, arrow) stand just outside the boundary: a margin of
   // 10 % of its size takes them — from the layers of the map, not of the sheet.
   let around: [number, number, number, number] | null = null;
@@ -89,7 +89,7 @@ export function cadSource(drawings: (DrawingInput & { role: RoleId; db?: DbName 
         if (!box || box[0] < around[0] || box[1] < around[1] || box[2] > around[2] || box[3] > around[3]) return;
       }
       const key = entityRowKey(d.id, e, d.color);
-      const m = key ? mapping.get(key) : undefined;
+      const m = key ? entryFor(mapping, reassign, d.id, i, key) : undefined;
       const t = m?.target ? parseTarget(m.target) : null;
       // Land use is drawn by the geodatabase layer — but a polyline with a width is a road or a band, never a parcel.
       if (t?.cls === 'ChucNangSuDungDat_A' && !(e.kind === 'polyline' && (e.width ?? 0) > 0)) return;

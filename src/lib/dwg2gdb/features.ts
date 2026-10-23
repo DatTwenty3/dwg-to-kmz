@@ -10,7 +10,7 @@ import { colorRole, hatchSymbol, type ColorContext } from './colorClass';
 import { compactName, parseTarget, type TargetPath } from './suggest';
 import { chainIds, layerRank, layerSurface, parseBridgeText, parseRoadText, roadFields, textAlong, type RoadName, type RoadText } from './roads';
 import { domainCode } from '@/lib/gdb/tt16Schema';
-import { targetOption, type MappingEntry } from './template';
+import { entryFor, targetOption, type MappingEntry, type ReassignEntry } from './template';
 import { symbolsOfSection, type Tt16Symbol } from './tt16Symbols';
 
 export type GeoJsonGeometry =
@@ -76,6 +76,8 @@ export interface BuildOptions {
   planUnit?: string | null;
   /** Write "Nguồn: <file> · <layer>" into ghiChu. */
   sourceInGhiChu: boolean;
+  /** Objects the user sent to another class one by one (reassignKey → class). */
+  reassign?: ReadonlyMap<string, ReassignEntry>;
 }
 
 export interface BuildResult {
@@ -355,7 +357,7 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
       if (!d.inside[i]) return;
       const key = entityRowKey(d.id, e, d.color);
       if (!key) return;
-      const m = mapping.get(key);
+      const m = entryFor(mapping, o.reassign, d.id, i, key);
       if (!m?.target || !targetOption(m.target)) return;
       const c = classOf(m.target);
       const base = { phanLoai: m.phanLoai.trim().slice(0, 250) || null, ghiChu: o.sourceInGhiChu ? `Nguồn: ${d.name} · ${e.layer}`.slice(0, 250) : null };

@@ -42,6 +42,7 @@ import {
   type FolderFile,
   type LayerRow,
   type MappingEntry,
+  type ReassignEntry,
   type ParsedDrawing,
   type RoleId,
 } from '@/lib/dwg2gdb';
@@ -63,9 +64,9 @@ export type DwgTt16Request =
   /** Read the hatch colours against another Mục of Phụ lục I (null: colours off): the rows are made again. */
   | { type: 'section'; section: number | null }
   /** What one geodatabase will get with this mapping ("Biên tập"), in WGS84. */
-  | { type: 'output'; db: string; drawings: string[]; mapping: [string, MappingEntry][]; crs: CrsOptions; projectTitle: string | null; roles: Record<string, RoleId>; dbs: Record<string, DbName> }
+  | { type: 'output'; db: string; drawings: string[]; mapping: [string, MappingEntry][]; crs: CrsOptions; projectTitle: string | null; roles: Record<string, RoleId>; dbs: Record<string, DbName>; reassign: [string, ReassignEntry][]; tag?: string }
   /** Which CAD objects inside the planning area do not reach the geodatabases with this mapping. */
-  | { type: 'coverage'; drawings: string[]; mapping: [string, MappingEntry][]; roles: Record<string, RoleId>; dbs: Record<string, DbName>; projectTitle: string | null; excluded: Record<string, number[]> }
+  | { type: 'coverage'; drawings: string[]; mapping: [string, MappingEntry][]; roles: Record<string, RoleId>; dbs: Record<string, DbName>; reassign: [string, ReassignEntry][]; projectTitle: string | null; excluded: Record<string, number[]> }
   | {
       type: 'export';
       drawings: string[];
@@ -86,6 +87,8 @@ export type DwgTt16Request =
       roles: Record<string, RoleId>;
       /** Geodatabase the user chose for a drawing instead of the one its map kind feeds (prefix HT / QH of the CAD layers). */
       dbs: Record<string, DbName>;
+      /** Objects the user sent to another class one by one ("Đổi lớp" in Biên tập). */
+      reassign: [string, ReassignEntry][];
       /** Add the QGIS project <projectName>.qgz (tệp tổng hợp) to HoSoGIS. */
       qgz: boolean;
       /** With the .qgz: the CAD drawing (lines with their widths, symbols, texts) as <projectName>.gpkg + a group "Bản vẽ CAD". */
@@ -120,8 +123,8 @@ export type DwgTt16Response =
     }
   | { type: 'preview'; drawingId: string; doc: CadDocument; truncated: boolean }
   | { type: 'rows'; rows: LayerRow[]; section: number | null; sectionWhy: string }
-  | { type: 'output'; db: string; doc: CadDocument; refs: SourceRef[][][]; dbs: { db: string; count: number }[] }
-  | { type: 'coverage'; report: CoverageReport }
+  | { type: 'output'; db: string; doc: CadDocument; refs: SourceRef[][][]; dbs: { db: string; count: number }[]; /** Echo of the request's tag: tells the page which state of its edits this view was made for. */ tag?: string }
+  | { type: 'coverage'; report: CoverageReport; /** What each class will get (after duplicates and the user's reassignments). */ classes: { target: string; count: number }[] }
   | {
       type: 'done';
       zip: Blob;
@@ -239,7 +242,7 @@ let outputCache: { key: string; classes: ClassData[] } | null = null;
 
 function output(req: Extract<DwgTt16Request, { type: 'output' }>) {
   if (!analysis) throw new Error('Chưa đọc thư mục bản vẽ.');
-  const key = JSON.stringify([req.drawings, req.mapping, req.projectTitle]);
+  const key = JSON.stringify([req.drawings, req.mapping, req.projectTitle, req.reassign]);
   if (outputCache?.key !== key) {
     const ids = new Set(req.drawings);
     const colors = colorContexts(analysis);
@@ -247,7 +250,7 @@ function output(req: Extract<DwgTt16Request, { type: 'output' }>) {
     const built = buildFeatures(
       parsed.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: analysis!.inside.get(p.id)!, color: colors.get(p.id) })),
       new Map(req.mapping),
-      { boundary: analysis.boundary?.ring ?? null, sourceInGhiChu: false, planUnit: planUnitFromTitle(req.projectTitle) },
+      { boundary: analysis.boundary?.ring ?? null, sourceInGhiChu: false, planUnit: planUnitFromTitle(req.projectTitle), reassign: new Map(req.reassign) },
     );
     outputCache = { key, classes: built.classes };
   }
@@ -260,14 +263,15 @@ function output(req: Extract<DwgTt16Request, { type: 'output' }>) {
       parsed.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: analysis!.inside.get(p.id)!, color: colors.get(p.id), role: req.roles[p.id] ?? 'other', db: req.dbs[p.id] })),
       new Map(req.mapping),
       analysis.boundary?.ring ?? null,
+      new Map(req.reassign),
     );
     const { doc, refs } = cadOutputView(src);
     cadCount = doc.entities.length;
-    post({ type: 'output', db: req.db, doc: transformDocument(doc, req.crs), refs, dbs: dbs(cadCount) });
+    post({ type: 'output', db: req.db, doc: transformDocument(doc, req.crs), refs, dbs: dbs(cadCount), tag: req.tag });
     return;
   }
   const { doc, refs } = outputView(outputCache.classes, req.db);
-  post({ type: 'output', db: req.db, doc: transformDocument(doc, req.crs), refs, dbs: dbs(cadCount) });
+  post({ type: 'output', db: req.db, doc: transformDocument(doc, req.crs), refs, dbs: dbs(cadCount), tag: req.tag });
 }
 
 function coverage(req: Extract<DwgTt16Request, { type: 'coverage' }>) {
@@ -282,8 +286,9 @@ function coverage(req: Extract<DwgTt16Request, { type: 'coverage' }>) {
       return { id: p.id, name: p.name, doc: p.doc, inside: flags, color: colors.get(p.id), role: req.roles[p.id] ?? ('other' as RoleId) };
     });
   const mapping = new Map(req.mapping);
-  const built = buildFeatures(inputs, mapping, { boundary: analysis.boundary?.ring ?? null, sourceInGhiChu: false, planUnit: planUnitFromTitle(req.projectTitle) });
-  post({ type: 'coverage', report: coverageReport(inputs, mapping, built.classes) });
+  const reassign = new Map(req.reassign);
+  const built = buildFeatures(inputs, mapping, { boundary: analysis.boundary?.ring ?? null, sourceInGhiChu: false, planUnit: planUnitFromTitle(req.projectTitle), reassign });
+  post({ type: 'coverage', report: coverageReport(inputs, mapping, built.classes, reassign), classes: built.classes.map((c) => ({ target: c.target, count: c.features.length })) });
 }
 
 /** Number of objects of the CAD view the last time it was built (-1: not yet). */
@@ -307,7 +312,7 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
   const built = buildFeatures(
     parsed.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: insideOf(p.id), color: colors.get(p.id) })),
     new Map(req.mapping),
-    { boundary: analysis.boundary?.ring ?? null, sourceInGhiChu: req.sourceInGhiChu, planUnit: planUnitFromTitle(req.projectTitle) },
+    { boundary: analysis.boundary?.ring ?? null, sourceInGhiChu: req.sourceInGhiChu, planUnit: planUnitFromTitle(req.projectTitle), reassign: new Map(req.reassign) },
   );
   if (!built.classes.length) throw new Error('Chưa có layer nào được ghép vào lớp dữ liệu.');
 
@@ -318,7 +323,7 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
     parsed
       .filter((p) => ids.has(p.id))
       .map((p) => ({ id: p.id, name: p.name, doc: p.doc, inside: insideOf(p.id), color: colors.get(p.id), role: req.roles[p.id] ?? 'other', db: req.dbs[p.id], removed: new Set(req.excluded[p.id] ?? []) }));
-  const doc = req.dxf ? summaryDocument(used(), new Map(req.mapping), { boundary: analysis.boundary?.ring ?? null, texts: true }) : null;
+  const doc = req.dxf ? summaryDocument(used(), new Map(req.mapping), { boundary: analysis.boundary?.ring ?? null, texts: true, reassign: new Map(req.reassign) }) : null;
   if (doc) {
     post({ type: 'progress', stage: 'Ghi bản vẽ tổng hợp (.dxf)', done: 0, total: 1 });
     const text = toDxf(doc, { units: 'm', layers: doc.layers.map((l) => l.name) });
@@ -382,7 +387,7 @@ async function exportHoSoGis(req: Extract<DwgTt16Request, { type: 'export' }>) {
     post({ type: 'progress', stage: `Ghi bản vẽ CAD (${cadFile}.gpkg)`, done: 0, total: 1 });
     // The CAD drawing has its own list of removed objects (Biên tập → "Bản vẽ CAD"), apart from the geodatabases'.
     const rawInside = used().map((u) => ({ ...u, inside: analysis!.inside.get(u.id)!, removed: new Set(req.excluded[`${CAD_EDIT_PREFIX}${u.id}`] ?? []) }));
-    const data = cadLayerData(cadSourceDocument(rawInside, new Map(req.mapping), analysis.boundary?.ring ?? null));
+    const data = cadLayerData(cadSourceDocument(rawInside, new Map(req.mapping), analysis.boundary?.ring ?? null, new Map(req.reassign)));
     const plan = planCadGpkg(data, tt16Wkt(req.lon0, req.zone), cadFile);
     if (plan.steps.length) {
       const pc = nextPrefix('c');

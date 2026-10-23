@@ -9,7 +9,7 @@ import type { DrawingInput } from './features';
 import { entityRowKey } from './inventory';
 import { roleById, type DbName, type RoleId } from './roles';
 import { parseTarget, prettyLayer } from './suggest';
-import type { MappingEntry } from './template';
+import { entryFor, type MappingEntry, type ReassignEntry } from './template';
 
 const SHORT: Record<string, string> = { HienTrang: 'HT', QuyHoach: 'QH', MocGioi: 'MG', NenDiaHinh: 'DH' };
 
@@ -17,6 +17,8 @@ export interface SummaryOptions {
   boundary: Vec2[] | null;
   /** Texts inside the planning area (labels, names, elevations). */
   texts: boolean;
+  /** Objects sent to another class one by one. */
+  reassign?: ReadonlyMap<string, ReassignEntry>;
 }
 
 /** One key per drawn object, so the same object drawn in two maps / two copies of an xref is written once. */
@@ -49,7 +51,7 @@ export function summaryDocument(drawings: (DrawingInput & { role: RoleId; db?: D
       if (!d.inside[i]) return;
       const key = entityRowKey(d.id, e, d.color);
       if (!key) return;
-      const m = mapping.get(key);
+      const m = entryFor(mapping, o.reassign, d.id, i, key);
       const t = m?.target ? parseTarget(m.target) : null;
       if (t) {
         if (t.cls === 'RanhGioiQuyHoach_A') hasBoundary = true;

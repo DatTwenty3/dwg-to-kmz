@@ -44,6 +44,10 @@ import {
   type CoverageReport,
   retargetState,
   type DbName,
+  type ReassignEntry,
+  reassignKey,
+  parseTarget,
+  previewIndex,
   type RoleId,
 } from '@/lib/dwg2gdb';
 import { codeForProvince } from '@/lib/gdb/crs';
@@ -68,6 +72,7 @@ import {
   IconGeomPolygon,
   IconLayers,
   IconPanel,
+  IconPen,
   IconSave,
   IconSearch,
   IconSpinner,
@@ -128,6 +133,15 @@ const KIND_ICON: Record<GeomKind, (p: { width: number; height: number; className
   ),
 };
 const NO_INDEXES = new Set<number>();
+/** Drawn colours of the groups of objects sent to another class (one per class). */
+const MOVED_COLORS = ['#7c3aed', '#db2777', '#0891b2', '#ea580c', '#16a34a', '#ca8a04', '#4f46e5', '#be123c'];
+interface MovedGroup {
+  id: string;
+  target: string;
+  phanLoai: string | null;
+  color: string;
+  indexes: number[];
+}
 const KIND_LABEL: Record<GeomKind, string> = { A: 'vùng (hatch)', L: 'đường', P: 'điểm', T: 'chữ' };
 
 /** Short label of a target class: "QuyHoach · ChucNangSuDungDat_A". */
@@ -172,7 +186,7 @@ export default function DwgToGdb() {
   const [menu, setMenu] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   /** "Đối chiếu CAD ↔ GIS" of the current mapping, asked when the export dialog opens. */
-  const [coverage, setCoverage] = useState<{ report: CoverageReport | null; loading: boolean }>({ report: null, loading: false });
+  const [coverage, setCoverage] = useState<{ report: CoverageReport | null; classes: [string, number][] | null; loading: boolean }>({ report: null, classes: null, loading: false });
   // Reading the hatch colours against another Mục of Phụ lục I: the worker makes the rows again.
   const [recolor, setRecolor] = useState(false);
   /** Current drawings and template for the worker's message handler (it was created with older state). */
@@ -180,12 +194,18 @@ export default function DwgToGdb() {
   useEffect(() => {
     live.current = { drawings, template };
   });
-  // Objects removed on the map ("Biên tập"): drawing id → entity indexes; history for undo.
+  // Objects removed on the map ("Biên tập"): drawing id → entity indexes; objects sent to another class one by one;
+  // history of both for undo.
   const [excluded, setExcluded] = useState<Map<string, Set<number>>>(new Map());
-  const [excludedHistory, setExcludedHistory] = useState<Map<string, Set<number>>[]>([]);
+  const [reassign, setReassign] = useState<Map<string, ReassignEntry>>(new Map());
+  /** Counts the changes of `reassign`: the edit view says (tag) which count it was made for. */
+  const [reassignVersion, setReassignVersion] = useState(0);
+  /** Objects just sent to another class: selected again once the view that holds them is made (so they can be changed back). */
+  const [justMoved, setJustMoved] = useState<{ keys: Set<string>; version: number } | null>(null);
+  const [excludedHistory, setExcludedHistory] = useState<{ excluded: Map<string, Set<number>>; reassign: Map<string, ReassignEntry> }[]>([]);
   /** One undoable step: these CAD objects left out of / put back into the export. */
   const editExcluded = (add: SourceRef[], remove: SourceRef[]) => {
-    setExcludedHistory((h) => [...h.slice(-49), excluded]);
+    setExcludedHistory((h) => [...h.slice(-49), { excluded, reassign }]);
     const next = new Map(excluded);
     const setOf = (d: string) => {
       let set = next.get(d);
@@ -196,18 +216,40 @@ export default function DwgToGdb() {
     for (const [d, i] of remove) setOf(d).delete(i);
     setExcluded(next);
   };
+  /** One undoable step: these CAD objects go to `entry` (null: back to what their layer row says). */
+  const editReassign = (refs: SourceRef[], entry: ReassignEntry | null) => {
+    if (!refs.length) return;
+    setExcludedHistory((h) => [...h.slice(-49), { excluded, reassign }]);
+    const next = new Map(reassign);
+    for (const [d, i] of refs) {
+      if (entry) next.set(reassignKey(d, i), entry);
+      else next.delete(reassignKey(d, i));
+    }
+    setReassign(next);
+    setReassignVersion((v) => v + 1);
+  };
+  /** Back to the layer rows for every object sent to another class (one undoable step). */
+  const setReassignAll = () => {
+    if (!reassign.size) return;
+    setExcludedHistory((h) => [...h.slice(-49), { excluded, reassign }]);
+    setReassign(new Map());
+    setReassignVersion((v) => v + 1);
+  };
   // "Biên tập": the map shows what one geodatabase will get (worker `output`), not a drawing.
   const [editMode, setEditMode] = useState(false);
   const [editDb, setEditDb] = useState('QuyHoach');
-  const [output, setOutput] = useState<{ db: string; doc: CadDocument; refs: SourceRef[][][]; dbs: { db: string; count: number }[] } | null>(null);
+  const [output, setOutput] = useState<{ db: string; doc: CadDocument; refs: SourceRef[][][]; dbs: { db: string; count: number }[]; tag?: string } | null>(null);
   const [outputLoading, setOutputLoading] = useState(false);
   const [outputError, setOutputError] = useState<string | null>(null);
   const undoExcluded = () => {
     const prev = excludedHistory[excludedHistory.length - 1];
     if (!prev) return;
-    setExcluded(prev);
+    setExcluded(prev.excluded);
+    setReassign(prev.reassign);
+    setReassignVersion((v) => v + 1);
     setExcludedHistory((h) => h.slice(0, -1));
   };
+  const reassignedCount = reassign.size;
   const excludedCount = [...excluded].reduce((t, [id, set]) => t + (drawings.find((d) => d.id === id)?.included ? set.size : 0), 0);
   /** Objects taken out of the CAD drawing of the QGIS project (their ids carry the `cad:` prefix). */
   const cadExcludedCount = [...excluded].reduce((t, [id, set]) => t + (id.startsWith(CAD_EDIT_PREFIX) && drawings.find((d) => d.id === id.slice(CAD_EDIT_PREFIX.length))?.included ? set.size : 0), 0);
@@ -288,9 +330,14 @@ export default function DwgToGdb() {
     } else if (m.type === 'output') {
       setOutputLoading(false);
       setOutputError(null);
-      setOutput({ db: m.db, doc: m.doc, refs: m.refs, dbs: m.dbs });
+      setOutput({ db: m.db, doc: m.doc, refs: m.refs, dbs: m.dbs, tag: m.tag });
+      // The geodatabase being viewed has no data left (its objects were sent back): look at the first one that has.
+      if (m.db !== CAD_VIEW && !m.dbs.some((d) => d.db === m.db)) {
+        const first = m.dbs.find((d) => d.db !== CAD_VIEW);
+        if (first) setEditDb(first.db);
+      }
     } else if (m.type === 'coverage') {
-      setCoverage({ report: m.report, loading: false });
+      setCoverage({ report: m.report, classes: m.classes.map((c) => [c.target, c.count]).sort((a, b) => String(a[0]).localeCompare(String(b[0]))) as [string, number][], loading: false });
     } else if (m.type === 'done') {
       setExportState({ progress: null, result: m, error: null });
     } else if (m.type === 'error') {
@@ -377,16 +424,16 @@ export default function DwgToGdb() {
     const t = setTimeout(() => {
       setOutputLoading(true);
       const roles = Object.fromEntries(live.current.drawings.map((d) => [d.id, d.role]));
-      workerRef.current?.postMessage({ type: 'output', db: editDb, drawings: includedIds, mapping: exportMapping, crs, projectTitle: data.projectTitle ?? null, roles, dbs: dbsOf(live.current.drawings) } satisfies DwgTt16Request);
+      workerRef.current?.postMessage({ type: 'output', db: editDb, drawings: includedIds, mapping: exportMapping, crs, projectTitle: data.projectTitle ?? null, roles, dbs: dbsOf(live.current.drawings), reassign: [...reassign], tag: String(reassignVersion) } satisfies DwgTt16Request);
     }, 300);
     return () => clearTimeout(t);
-  }, [editMode, editDb, crs, data, includedIds, exportMapping, rolesKey]);
+  }, [editMode, editDb, crs, data, includedIds, exportMapping, rolesKey, reassign, reassignVersion]);
   useEffect(() => {
     if (!exportOpen || exportState.result || exportState.progress || !data || !workerRef.current) return;
-    setCoverage({ report: null, loading: true });
+    setCoverage({ report: null, classes: null, loading: true });
     const roles = Object.fromEntries(live.current.drawings.map((d) => [d.id, d.role]));
     const gone = Object.fromEntries([...excluded].filter(([, set]) => set.size).map(([id, set]) => [id, [...set]]));
-    workerRef.current.postMessage({ type: 'coverage', drawings: includedIds, mapping: exportMapping, roles, dbs: dbsOf(live.current.drawings), projectTitle: data.projectTitle ?? null, excluded: gone } satisfies DwgTt16Request);
+    workerRef.current.postMessage({ type: 'coverage', drawings: includedIds, mapping: exportMapping, roles, dbs: dbsOf(live.current.drawings), reassign: [...reassign], projectTitle: data.projectTitle ?? null, excluded: gone } satisfies DwgTt16Request);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- asked once per opening of the dialog
   }, [exportOpen]);
   const editView = editMode && output && output.db === editDb ? output : null;
@@ -399,6 +446,57 @@ export default function DwgToGdb() {
     return out;
   }, [editView, excluded]);
   const featureRefs = (ks: number[] | null) => (ks ?? editView?.refs.map((_, k) => k) ?? []).flatMap((k) => editView?.refs[k]?.flat() ?? []);
+  /** Features of the edit view made of objects the user sent to another class (indexes in the view). */
+  const reassignedHere = useMemo(() => {
+    const out: number[] = [];
+    editView?.refs.forEach((alts, k) => {
+      if (alts.some((alt) => alt.some(([d, i]) => reassign.has(reassignKey(d, i))))) out.push(k);
+    });
+    return out;
+  }, [editView, reassign]);
+  /**
+   * Objects of the drawing on the map sent to another class one by one: their indexes, the groups they form by class
+   * (drawn in their own colour and listed as rows "→ class"), and how many each layer row lost.
+   */
+  const moved = useMemo(() => {
+    const out = { indexes: [] as number[], groups: [] as MovedGroup[], byRow: new Map<string, number>(), byRowColor: new Map<string, number>() };
+    if (!sel || !preview || preview.id !== sel || !reassign.size) return out;
+    const KIND: Record<string, string> = { polygon: 'A', polyline: 'L', point: 'P', text: 'T' };
+    const groups = new Map<string, MovedGroup>();
+    const seen = new Set<string>();
+    for (const e of preview.doc.entities) {
+      const i = previewIndex(e.handle);
+      if (i === null) continue;
+      const to = reassign.get(reassignKey(sel, i));
+      if (!to || (e.handle && seen.has(e.handle))) continue;
+      if (e.handle) seen.add(e.handle);
+      out.indexes.push(i);
+      const gk = `${to.target}|${to.phanLoai ?? ''}`;
+      let g = groups.get(gk);
+      if (!g) groups.set(gk, (g = { id: gk, target: to.target, phanLoai: to.phanLoai, color: MOVED_COLORS[groups.size % MOVED_COLORS.length], indexes: [] }));
+      g.indexes.push(i);
+      const k = `${e.layer}|${KIND[e.kind] ?? ''}`;
+      out.byRow.set(k, (out.byRow.get(k) ?? 0) + 1);
+      const kc = `${k}|${e.color.toLowerCase()}`;
+      out.byRowColor.set(kc, (out.byRowColor.get(kc) ?? 0) + 1);
+    }
+    out.groups = [...groups.values()];
+    return out;
+  }, [sel, preview, reassign]);
+  /** Objects of a layer row still on it (the ones sent to another class left it). */
+  const rowCount = (r: LayerRow) => {
+    const lost = r.colorKey ? (moved.byRowColor.get(`${r.layer}|${r.kind}|${r.color.toLowerCase()}`) ?? 0) : (moved.byRow.get(`${r.layer}|${r.kind}`) ?? 0);
+    return Math.max(0, r.count - lost);
+  };
+  /** After "Đổi lớp": select the moved features once the view made for that change has arrived. */
+  const autoSelect = useMemo(() => {
+    if (!justMoved || justMoved.version !== reassignVersion || !editView || editView.tag !== String(reassignVersion)) return null;
+    const indexes: number[] = [];
+    editView.refs.forEach((alts, k) => {
+      if (alts.some((alt) => alt.some(([d, i]) => justMoved.keys.has(reassignKey(d, i))))) indexes.push(k);
+    });
+    return { token: reassignVersion, indexes };
+  }, [justMoved, editView, reassignVersion]);
   const editLayers = useMemo(() => new Set(editView?.doc.layers.map((l) => l.name) ?? []), [editView]);
 
   // ----- Mapping edits -----
@@ -522,6 +620,7 @@ export default function DwgToGdb() {
       ...opts,
       roles: Object.fromEntries(drawings.map((d) => [d.id, d.role])),
       dbs: dbsOf(drawings),
+      reassign: [...reassign],
       projectTitle: data?.projectTitle ?? null,
       provinceCode,
       excluded: Object.fromEntries([...excluded].filter(([, set]) => set.size).map(([id, set]) => [id, [...set]])),
@@ -685,10 +784,10 @@ export default function DwgToGdb() {
   const mappedCount = (id: string) => rows.filter((r) => r.drawing === id && mapping.get(r.key)?.target).reduce((t, r) => t + r.count, 0);
   const q = compactName(query);
   const drawingRows = rows
-    .filter((r) => r.drawing === sel && r.count > 0)
+    .filter((r) => r.drawing === sel && r.count > 0 && rowCount(r) > 0)
     .filter((r) => (view === 'review' ? isReview(r) : view === 'mapped' ? !!mapping.get(r.key)?.target : true))
     .filter((r) => !q || compactName(r.layer).includes(q))
-    .sort((a, b) => b.count - a.count);
+    .sort((a, b) => rowCount(b) - rowCount(a));
   const focusRow = rowSel ? rowsByKey.get(rowSel) : undefined;
   const focusLayer = focusRow && focusRow.drawing === sel ? focusRow.layer : null;
   const focusColor = focusLayer && focusRow?.colorKey ? keyColor(focusRow.colorKey) : null;
@@ -1022,6 +1121,46 @@ export default function DwgToGdb() {
                     </tr>
                   </thead>
                   <tbody>
+                    {view !== 'review' && moved.groups.length > 0 && (
+                      <tr className="bg-violet-50/60 text-[11.5px] text-violet-800">
+                        <td colSpan={3} className="px-2.5 py-1">
+                          <span className="font-medium">Đã đổi lớp · {fmt(moved.indexes.length)} đối tượng</span>
+                        </td>
+                      </tr>
+                    )}
+                    {view !== 'review' &&
+                      moved.groups.map((g) => {
+                        const t = targetOption(g.target);
+                        const GIcon = t ? KIND_ICON[t.geom] : null;
+                        return (
+                          <tr key={g.id} className="border-t border-violet-100 bg-violet-50/30 align-middle">
+                            <td className="max-w-[11rem] px-2.5 py-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="h-2.5 w-2.5 shrink-0 rounded-sm ring-1 ring-black/10" style={{ background: g.color }} />
+                                {GIcon && <GIcon width={13} height={13} className="shrink-0 text-zinc-500" />}
+                                <span className="truncate font-medium text-zinc-900" title={`Các đối tượng đã chọn riêng và ghi vào ${t?.cls ?? g.target}${g.phanLoai ? ` · ${g.phanLoai}` : ''}`}>
+                                  {t?.cls ?? g.target}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-1 py-1.5 text-right tabular-nums text-zinc-600">{fmt(g.indexes.length)}</td>
+                            <td className="px-2.5 py-1.5">
+                              <div className="flex items-center gap-2 text-[12px]">
+                                <span className="min-w-0 flex-1 truncate rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-800" title={g.target}>
+                                  {t ? `${t.db === 'HienTrang' ? 'HT' : t.db === 'QuyHoach' ? 'QH' : t.db} · ${t.cls}` : g.target}
+                                </span>
+                                <button
+                                  className="shrink-0 font-medium text-blue-600 hover:underline"
+                                  onClick={() => sel && editReassign(g.indexes.map((i): SourceRef => [sel, i]), null)}
+                                  title="Trả các đối tượng này về lớp theo layer của chúng"
+                                >
+                                  Hoàn lại
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     {drawingRows.map((r) => {
                       const m = mapping.get(r.key);
                       const Icon = KIND_ICON[r.kind];
@@ -1060,7 +1199,7 @@ ${cm.reason}` : ''}`}>
                             )}
                             {r.kind === 'T' && r.samples.length > 0 && <p className="truncate pl-8 text-[11px] text-zinc-400">{r.samples.join(' · ')}</p>}
                           </td>
-                          <td className="px-1 py-1.5 text-right tabular-nums text-zinc-600">{fmt(r.count)}</td>
+                          <td className="px-1 py-1.5 text-right tabular-nums text-zinc-600">{fmt(rowCount(r))}</td>
                           <td className="px-2.5 py-1.5">
                             {editing === r.key ? (
                               <select
@@ -1172,8 +1311,28 @@ ${cm.reason}` : ''}`}>
             loadingText={editMode ? 'Đang dựng các đối tượng sẽ ghi vào gdb…' : undefined}
             note={editMode ? (outputError ? `Không dựng được: ${outputError}` : !unit ? mapNote : null) : mapNote}
             excluded={editMode ? removedFeatures : (sel && excluded.get(sel)) || NO_INDEXES}
-            onExclude={(ks) => editMode && editExcluded(featureRefs(ks), [])}
-            onRestore={(ks) => editMode && editExcluded([], featureRefs(ks))}
+            onExclude={(ks) => (editMode ? editExcluded(featureRefs(ks), []) : sel && editExcluded(ks.map((i): SourceRef => [sel, i]), []))}
+            onRestore={(ks) => (editMode ? editExcluded([], featureRefs(ks)) : sel && editExcluded([], (ks ?? [...(excluded.get(sel) ?? [])]).map((i): SourceRef => [sel, i])))}
+            onReassign={
+              !editMode
+                ? sel
+                  ? (ks, target, phanLoai) => editReassign(ks.map((i): SourceRef => [sel, i]), target ? { target, phanLoai } : null)
+                  : undefined
+                : editDb !== CAD_VIEW
+                ? (ks, target, phanLoai) => {
+                    const refs = featureRefs(ks);
+                    editReassign(refs, target ? { target, phanLoai } : null);
+                    // The objects may leave this geodatabase: follow them there so they do not just vanish.
+                    const db = target ? parseTarget(target)?.db : null;
+                    if (db && db !== editDb) setEditDb(db);
+                    setJustMoved({ keys: new Set(refs.map(([d, i]) => reassignKey(d, i))), version: reassignVersion + 1 });
+                  }
+                : undefined
+            }
+            reassigned={{ here: editMode ? reassignedHere : moved.indexes, total: reassign.size }}
+            movedGroups={editMode ? undefined : moved.groups.map((g) => ({ id: g.id, label: `→ ${targetOption(g.target)?.cls ?? g.target}`, color: g.color, indexes: g.indexes }))}
+            onRevertAll={setReassignAll}
+            autoSelect={autoSelect}
             undo={{ can: excludedHistory.length > 0, run: undoExcluded }}
             editMode={editMode}
             onEditMode={setEditMode}
@@ -1284,10 +1443,11 @@ ${cm.reason}` : ''}`}>
           ktt={unit ? `${unit.name} — KTT ${formatDegMin(unit.lon0)}, múi ${zone}°` : ''}
           review={totalReview}
           excludedCount={excludedCount}
+          reassignedCount={reassignedCount}
           cadExcludedCount={cadExcludedCount}
           leftOut={drawings.filter((d) => roleById(d.role).db && !d.included && d.inside > 0).map((d) => d.name.replace(/\.(dwg|dxf)$/i, ''))}
           defaultName={data.projectName ?? 'DoAnQuyHoach'}
-          summary={exportSummary(rows, mapping, new Set(included.map((d) => d.id)))}
+          summary={coverage.classes ?? exportSummary(rows, mapping, new Set(included.map((d) => d.id)))}
           coverage={coverage}
           onStart={startExport}
           onClose={() => setExportOpen(false)}
@@ -1381,6 +1541,7 @@ function ExportDialog({
   review,
   leftOut,
   excludedCount,
+  reassignedCount,
   cadExcludedCount,
   summary,
   coverage,
@@ -1397,9 +1558,11 @@ function ExportDialog({
   leftOut: string[];
   /** Objects removed on the map ("Biên tập"). */
   excludedCount: number;
+  /** Objects sent to another class one by one ("Đổi lớp"). */
+  reassignedCount: number;
   cadExcludedCount: number;
   summary: [string, number][];
-  coverage: { report: CoverageReport | null; loading: boolean };
+  coverage: { report: CoverageReport | null; classes: [string, number][] | null; loading: boolean };
   defaultName: string;
   onStart: (o: ExportOptions) => void;
   onClose: () => void;
@@ -1526,6 +1689,12 @@ function ExportDialog({
                 <p className="flex items-start gap-2 rounded-lg bg-zinc-50 px-3 py-2 text-[12.5px] text-zinc-600">
                   <IconTrash width={14} height={14} className="mt-0.5 shrink-0 text-red-500" />
                   <span>{excludedCount.toLocaleString('vi-VN')} đối tượng đã loại trên bản đồ (Biên tập) sẽ không có trong HoSoGIS và bản vẽ tổng hợp.</span>
+                </p>
+              )}
+              {reassignedCount > 0 && (
+                <p className="flex items-start gap-2 rounded-lg bg-zinc-50 px-3 py-2 text-[12.5px] text-zinc-600">
+                  <IconPen width={14} height={14} className="mt-0.5 shrink-0 text-blue-600" />
+                  <span>{reassignedCount.toLocaleString('vi-VN')} đối tượng đã đổi sang lớp khác trên bản đồ (Biên tập) sẽ được ghi vào lớp bạn chọn.</span>
                 </p>
               )}
               {cadExcludedCount > 0 && withQgz && withCad && (

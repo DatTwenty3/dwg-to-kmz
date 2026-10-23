@@ -53,6 +53,24 @@ export const targetOption = (p: TargetPath | null | undefined) => (p ? TARGET_SE
 export type TargetDb = DbName;
 
 /**
+ * The user's choice for one CAD object ("Đổi lớp" in Biên tập): it goes to this class whatever its layer row says.
+ * `phanLoai` null = keep the phanLoai of its row.
+ */
+export interface ReassignEntry {
+  target: TargetPath;
+  phanLoai: string | null;
+}
+/** Key of a CAD object in a reassignment map: `<drawing id>|<index of the entity>`. */
+export const reassignKey = (drawing: string, index: number) => `${drawing}|${index}`;
+
+/** The mapping that applies to one object: its own reassignment, else the entry of its layer row. */
+export function entryFor(mapping: ReadonlyMap<string, MappingEntry>, reassign: ReadonlyMap<string, ReassignEntry> | undefined, drawing: string, index: number, rowKey: string): MappingEntry | undefined {
+  const own = reassign?.get(reassignKey(drawing, index));
+  if (!own) return mapping.get(rowKey);
+  return { target: own.target, phanLoai: own.phanLoai ?? mapping.get(rowKey)?.phanLoai ?? '' };
+}
+
+/**
  * The class of another database that corresponds to `target`: the same class in the paired dataset
  * (QuyHoachGiaoThong/MangLuoiGiaoThongDuongBo_L → HienTrangGiaoThong/MangLuoiGiaoThongDuongBo_L), else the same class
  * anywhere in that database. Boundaries (ViTriRanhGioi) belong to both and stay. undefined: the other database has no

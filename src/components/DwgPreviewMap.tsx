@@ -6,16 +6,19 @@
 // "Biên tập": objects of the mapped layers can be picked (click) or boxed (a CAD-style selection rectangle:
 // left → right = wholly inside, right → left = touching) and left
 // out of the export — stray hatches, legend leftovers, an old map's patches. Removed objects disappear from the map
-// (Hoàn tác / "Khôi phục tất cả" bring them back); every change can be undone.
+// (Hoàn tác / "Khôi phục tất cả" bring them back); every change can be undone. "Đổi lớp" sends the selected objects to
+// another feature class (one by one, whatever their layer row says). "Chọn đối tượng" does the same on the drawing
+// itself (any layer, mapped or not): keep a few objects of a layer to review, or move ones that were put in the wrong class.
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
 import { robustBBox } from '@/lib/cad/normalize/bbox';
 import type { CadDocument, CadEntity, Vec2 } from '@/lib/cad/types';
 import { BOUNDARY_LAYER, previewIndex } from '@/lib/dwg2gdb/inventory';
+import { TARGETS } from '@/lib/dwg2gdb/template';
 import { sweepSelect } from '@/lib/dwg2gdb/sweep';
 import { basemapPaper, buildLayers, DEFAULT_BASEMAP_ID, DEFAULT_FONT_FAMILY, documentBounds } from '@/lib/map';
 import EntityPopup from './EntityPopup';
-import { IconPen, IconSpinner, IconTrash, IconUndo, IconX } from './icons';
+import { IconPen, IconSelect, IconSpinner, IconTrash, IconUndo, IconX } from './icons';
 import { loadTextFont } from './mapFont';
 import type { MapPick } from './MapView';
 
@@ -25,6 +28,7 @@ const MapView = dynamic(() => import('./MapView'), {
 });
 
 const PICKED = '__selected';
+const MOVED = '__moved';
 const fmt = (n: number) => n.toLocaleString('vi-VN');
 
 /** The objects of `doc` with these indexes, recoloured on one layer (removed: red ghost, selected: amber). */
@@ -48,6 +52,11 @@ export default function DwgPreviewMap({
   excluded,
   onExclude,
   onRestore,
+  onReassign,
+  reassigned,
+  movedGroups,
+  onRevertAll,
+  autoSelect = null,
   undo,
   loadingText,
   editMode,
@@ -76,6 +85,16 @@ export default function DwgPreviewMap({
   onExclude: (indexes: number[]) => void;
   /** Put objects back (null = all of this drawing). */
   onRestore: (indexes: number[] | null) => void;
+  /** Send the objects to a class (`target`, with `phanLoai` or null = keep theirs); target null = back to their layer row's class. Absent: not offered. */
+  onReassign?: (indexes: number[], target: string | null, phanLoai: string | null) => void;
+  /** Features of this view made of objects sent to another class (indexes), and how many CAD objects were sent in all. */
+  reassigned?: { here: number[]; total: number };
+  /** On the drawing: the objects sent to another class, by class — hidden from their own layer, drawn in the class's colour. */
+  movedGroups?: { id: string; label: string; color: string; indexes: number[] }[];
+  /** Put every object sent to another class back. */
+  onRevertAll?: () => void;
+  /** Select these features (once per `token`): the objects just moved, when the view that holds them is ready. */
+  autoSelect?: { token: number; indexes: number[] } | null;
   undo: { can: boolean; run: () => void };
   /** Spinner text while `loading` (default: drawing the drawing). */
   loadingText?: string;
@@ -95,6 +114,9 @@ export default function DwgPreviewMap({
   const [font, setFont] = useState({ family: DEFAULT_FONT_FAMILY, ready: false });
   const [pick, setPick] = useState<MapPick | null>(null);
   const [rawSelected, setSelected] = useState<Set<number>>(new Set());
+  /** The editing toolbar is open: on the drawing itself (editMode false) or on what the geodatabases will get (editMode). */
+  const [open, setOpen] = useState(false);
+  const active = editMode || open;
   // An object that was removed is no longer selectable: a sweep over it, or a removal made some other way (a whole layer,
   // an undo), must not leave it in the selection (it would be drawn amber and counted).
   const selected = useMemo(() => (excluded.size ? new Set([...rawSelected].filter((i) => !excluded.has(i))) : rawSelected), [rawSelected, excluded]);
@@ -114,20 +136,33 @@ export default function DwgPreviewMap({
     setPick(null);
   }
 
+  // The objects just moved to another class are selected once (after the reset above: their view is a new document).
+  const [seenAuto, setSeenAuto] = useState<number | null>(null);
+  if (autoSelect && autoSelect.token !== seenAuto) {
+    setSeenAuto(autoSelect.token);
+    if (autoSelect.indexes.length) setSelected(new Set(autoSelect.indexes));
+  }
+
+  const movedSet = useMemo(() => new Set(reassigned?.here ?? []), [reassigned]);
   const layers = useMemo(() => {
     if (!doc) return [];
     const opts = { fontFamily: font.family, showText: font.ready, highlightHandle: pick?.ref.entity.handle, paper: basemapPaper(basemapId) };
     // Removed and selected objects are drawn only by their overlays.
     const hidden = (e: CadEntity) => {
       const i = previewIndex(e.handle);
-      return i !== null && (excluded.has(i) || selected.has(i));
+      return i !== null && (excluded.has(i) || selected.has(i) || (!editMode && movedSet.has(i)));
     };
     const otherColor = (e: CadEntity) => !!focusColor && e.layer === focusLayer && e.kind === 'polygon' && e.color.toLowerCase() !== focusColor;
-    const base = excluded.size || selected.size || focusColor ? { ...doc, entities: doc.entities.filter((e) => !hidden(e) && !otherColor(e)) } : doc;
+    const base = excluded.size || selected.size || movedSet.size || focusColor ? { ...doc, entities: doc.entities.filter((e) => !hidden(e) && !otherColor(e)) } : doc;
     const all = doc.layers.map((l) => l.name);
     const strong = new Set(all.filter((n) => used.has(n) || n === BOUNDARY_LAYER));
     const weak = new Set(all.filter((n) => !strong.has(n)));
     const picked = overlayDoc(doc, (i) => selected.has(i), PICKED, '#f59e0b');
+    // Objects already sent to another class (on the drawing: the geodatabase view shows them in their new class).
+    const movedDocs = editMode ? [] : (movedGroups ?? []).map((g) => {
+      const idx = new Set(g.indexes);
+      return { g, doc: overlayDoc(doc, (i) => idx.has(i) && !selected.has(i), `${MOVED}:${g.id}`, g.color) };
+    }).filter((x) => x.doc);
     // A layer is selected: only it (and the red planning boundary, kept for orientation) is drawn; the other
     // layers are hidden until it is deselected.
     const focus = focusLayer && all.includes(focusLayer) ? focusLayer : null;
@@ -135,9 +170,10 @@ export default function DwgPreviewMap({
     return [
       ...(shown ? [] : buildLayers(base, { ...opts, visibleLayers: weak, idPrefix: 'weak:', opacity: 0.25 })),
       ...buildLayers(base, { ...opts, visibleLayers: shown ?? strong, idPrefix: 'used:' }),
+      ...movedDocs.flatMap(({ g, doc: d }) => buildLayers(d!, { ...opts, visibleLayers: new Set([`${MOVED}:${g.id}`]), idPrefix: `moved:${g.id}:` })),
       ...(picked ? buildLayers(picked, { ...opts, visibleLayers: new Set([PICKED]), idPrefix: 'picked:' }) : []),
     ];
-  }, [doc, used, focusLayer, focusColor, font, pick, excluded, selected, basemapId]);
+  }, [doc, used, focusLayer, focusColor, font, pick, excluded, selected, basemapId, editMode, movedGroups, movedSet]);
 
   // Zoom to the drawing, then to the selected layer.
   const fit = useMemo(() => {
@@ -186,12 +222,35 @@ export default function DwgPreviewMap({
   };
   const exit = () => {
     onEditMode(false);
+    setOpen(false);
     setSelected(new Set());
+  };
+
+  // "Đổi lớp": the class the selection goes to.
+  const [reassignOpen, setReassignOpen] = useState(false);
+  const [reassignTarget, setReassignTarget] = useState('');
+  const [reassignPhanLoai, setReassignPhanLoai] = useState('');
+  /** The classes used last: one click to use them again. */
+  const [recent, setRecent] = useState<string[]>([]);
+  const targetGroups = useMemo(() => {
+    const by = new Map<string, typeof TARGETS>();
+    for (const t of TARGETS) {
+      const k = `${t.db} · ${t.dataset}`;
+      by.set(k, [...(by.get(k) ?? []), t]);
+    }
+    return [...by];
+  }, []);
+  const applyReassign = (target: string | null) => {
+    if (!toRemove.length || (target && !target.length)) return;
+    onReassign?.(toRemove, target, target && reassignPhanLoai.trim() ? reassignPhanLoai.trim() : null);
+    if (target) setRecent((r) => [target, ...r.filter((x) => x !== target)].slice(0, 4));
+    setSelected(new Set());
+    setReassignOpen(false);
   };
 
   // Delete (or Backspace) removes the selection, Esc clears it, Ctrl+Z undoes — in both tools.
   useEffect(() => {
-    if (!editMode) return;
+    if (!active) return;
     const onKey = (ev: KeyboardEvent) => {
       const t = ev.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
@@ -209,12 +268,19 @@ export default function DwgPreviewMap({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [editMode, toRemove, onExclude, undo]);
+  }, [active, toRemove, onExclude, undo]);
 
-  const popup = pick && !editMode ? { lngLat: pick.lngLat, content: <EntityPopup pick={pick.ref} onClose={() => setPick(null)} /> } : null;
+  const popup = pick && !active ? { lngLat: pick.lngLat, content: <EntityPopup pick={pick.ref} onClose={() => setPick(null)} /> } : null;
+  // Layers whose objects can be picked: in the geodatabase view those that are drawn there; on the drawing, every layer
+  // that is drawn (only the selected layer when one is, else all but the planning boundary).
+  const selectLayers = useMemo(() => {
+    if (editMode || !doc) return used;
+    const all = doc.layers.map((l) => l.name).filter((n) => n !== BOUNDARY_LAYER);
+    return new Set(focusLayer && all.includes(focusLayer) ? [focusLayer] : all);
+  }, [editMode, doc, used, focusLayer]);
   const selectable = (p: MapPick) => {
     const i = previewIndex(p.ref.entity.handle);
-    return i !== null && (used.has(p.ref.layer) || p.ref.layer === PICKED) && !excluded.has(i) ? i : null;
+    return i !== null && (selectLayers.has(p.ref.layer) || p.ref.layer === PICKED || p.ref.layer.startsWith(MOVED)) && !excluded.has(i) ? i : null;
   };
 
   return (
@@ -231,9 +297,9 @@ export default function DwgPreviewMap({
         loading={loading}
         popup={popup}
         compact
-        onBoxSelect={editMode && doc ? (ring, crossing) => toggle(sweepSelect(doc, ring, used, crossing), true) : null}
+        onBoxSelect={active && doc ? (ring, crossing) => toggle(sweepSelect(doc, ring, selectLayers, crossing), true) : null}
         onPick={(p) => {
-          if (editMode) {
+          if (active) {
             const i = p ? selectable(p) : null;
             if (i !== null) toggle([i]);
             return;
@@ -242,64 +308,168 @@ export default function DwgPreviewMap({
           if (p && p.ref.layer !== BOUNDARY_LAYER) onPickLayer(p.ref.layer, p.ref.entity.color);
         }}
       />
-      {doc && !editMode && (
+      {doc && !active && (
         <button
-          className="ui-floating absolute left-[calc(var(--map-il,0px)+0.75rem)] top-[calc(var(--map-it,0px)+0.75rem)] z-10 flex items-center gap-1.5 px-2.5 py-1.5 text-[12.5px] font-medium text-zinc-800 hover:bg-zinc-50"
+          className="ui-floating absolute left-[calc(var(--map-il,0px)+0.75rem)] top-[calc(var(--map-it,0px)+0.75rem)] z-10 flex items-center gap-1.5 px-3 py-1.5 text-[12.5px] font-medium text-zinc-800 hover:bg-zinc-50"
           onClick={() => {
             setPick(null);
-            onEditMode(true);
+            setOpen(true);
           }}
-          title="Chọn hoặc quét các đối tượng không mong muốn để bỏ khỏi HoSoGIS"
+          title="Chọn hoặc quét đối tượng trên bản đồ để đổi sang feature class khác hoặc bỏ khỏi HoSoGIS"
         >
-          <IconPen width={14} height={14} className="text-blue-600" />
-          Biên tập
-          {excluded.size > 0 && <span className="rounded-full bg-red-50 px-1.5 text-[11px] font-semibold text-red-600">{fmt(excluded.size)} đã loại</span>}
+          <IconSelect width={14} height={14} className="text-blue-600" />
+          Chỉnh sửa đối tượng
+          {reassigned && reassigned.total > 0 && <span className="rounded-full bg-violet-50 px-1.5 text-[11px] font-semibold text-violet-700">{fmt(reassigned.total)} đổi lớp</span>}
+          {excluded.size > 0 && !editMode && <span className="rounded-full bg-red-50 px-1.5 text-[11px] font-semibold text-red-600">{fmt(excluded.size)} đã xóa</span>}
         </button>
       )}
-      {editMode && (
-        <div className="ui-floating ui-pop-in absolute left-[calc(var(--map-il,0px)+0.75rem)] top-[calc(var(--map-it,0px)+0.75rem)] z-20 flex w-[min(24rem,calc(100%-1.5rem))] max-w-[calc(100%-var(--map-il,0px)-var(--map-ir,0px)-1.5rem)] flex-col gap-1.5 p-2 text-[12.5px] text-zinc-700">
-          <div className="flex flex-wrap gap-1" role="group" aria-label="Geodatabase" title="Bản đồ đang hiện đúng những gì sẽ ghi vào geodatabase (và tệp .qgz)">
-            {views.map((v) => (
-              <button
-                key={v.id}
-                aria-pressed={v.id === view}
-                onClick={() => onView(v.id)}
-                className={`rounded-md px-2 py-0.5 font-mono text-[11.5px] ring-1 ring-inset ${
-                  v.id === view ? 'bg-blue-600 text-white ring-blue-600' : 'bg-white text-zinc-700 ring-zinc-200 hover:bg-zinc-50'
-                }`}
-              >
-                {v.label} {v.count >= 0 && <span className={v.id === view ? 'text-blue-100' : 'text-zinc-400'}>{fmt(v.count)}</span>}
+      {active && (
+        <div className="ui-floating ui-pop-in absolute left-[calc(var(--map-il,0px)+0.75rem)] top-[calc(var(--map-it,0px)+0.75rem)] z-20 flex w-[min(22rem,calc(100%-1.5rem))] max-w-[calc(100%-var(--map-il,0px)-var(--map-ir,0px)-1.5rem)] flex-col gap-2 p-2.5 text-[12.5px] text-zinc-700">
+          {/* What is shown: the drawing, or what the geodatabases will get. */}
+          <div className="flex items-center gap-2">
+            <div className="ui-segment" role="group" aria-label="Đang chỉnh trên">
+              <button className="whitespace-nowrap" aria-pressed={!editMode} onClick={() => onEditMode(false)} title="Các đối tượng của bản vẽ, mọi layer đang hiện">
+                Bản vẽ
               </button>
-            ))}
-            {!views.length && <span className="text-[11.5px] text-zinc-400">Chưa có lớp nào được ghép.</span>}
+              <button className="whitespace-nowrap" aria-pressed={editMode} onClick={() => onEditMode(true)} title="Đúng những gì sẽ ghi vào từng geodatabase (và tệp .qgz)">
+                Kết quả
+              </button>
+            </div>
+            <button className="ui-btn-primary ml-auto !px-3 !py-1 !text-[12px]" onClick={exit}>
+              Xong
+            </button>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span
-              className="px-1 tabular-nums"
-              title="Bấm đối tượng để chọn · kéo khung để quét (trái → phải: nằm trọn, phải → trái: chạm) · chuột giữa kéo bản đồ · Delete xóa · Esc bỏ chọn · Ctrl+Z hoàn tác"
-            >
-              <b className="font-semibold text-zinc-900">{fmt(selected.size)}</b> đã chọn
+          {editMode && (
+            <div className="flex flex-wrap gap-1" role="group" aria-label="Geodatabase">
+              {views.map((v) => (
+                <button
+                  key={v.id}
+                  aria-pressed={v.id === view}
+                  onClick={() => onView(v.id)}
+                  className={`rounded-md px-2 py-0.5 font-mono text-[11.5px] ring-1 ring-inset ${
+                    v.id === view ? 'bg-blue-600 text-white ring-blue-600' : 'bg-white text-zinc-700 ring-zinc-200 hover:bg-zinc-50'
+                  }`}
+                >
+                  {v.label} {v.count >= 0 && <span className={v.id === view ? 'text-blue-100' : 'text-zinc-400'}>{fmt(v.count)}</span>}
+                </button>
+              ))}
+              {!views.length && <span className="text-[11.5px] text-zinc-400">Chưa có lớp nào được ghép.</span>}
+            </div>
+          )}
+
+          {/* The selection and what can be done with it. */}
+          <div className="flex items-center gap-1.5">
+            <span className="min-w-0 flex-1 truncate tabular-nums" title="Bấm đối tượng để chọn · kéo khung để quét (trái → phải: nằm trọn, phải → trái: chạm) · chuột giữa kéo bản đồ · Delete xóa · Esc bỏ chọn · Ctrl+Z hoàn tác">
+              {selected.size > 0 ? (
+                <>
+                  <b className="font-semibold text-zinc-900">{fmt(selected.size)}</b> đối tượng đã chọn
+                </>
+              ) : (
+                <span className="text-zinc-400">Bấm hoặc kéo khung để chọn</span>
+              )}
             </span>
             {selected.size > 0 && (
               <button className="ui-icon-btn !h-7 !w-7" onClick={() => setSelected(new Set())} aria-label="Bỏ chọn" title="Bỏ chọn (Esc)">
                 <IconX width={13} height={13} />
               </button>
             )}
-            <button className="ui-btn !px-2.5 !py-1 !text-[12px] text-red-600 disabled:opacity-40" disabled={!toRemove.length} onClick={remove} title="Xóa các đối tượng đã chọn khỏi HoSoGIS (Delete)">
-              <IconTrash width={13} height={13} />
-              Xóa{toRemove.length ? ` ${fmt(toRemove.length)}` : ''}
+            {onReassign && (
+              <button
+                className={`ui-btn-primary !px-2.5 !py-1 !text-[12px] disabled:opacity-40 ${reassignOpen && toRemove.length ? 'ring-2 ring-blue-300' : ''}`}
+                disabled={!toRemove.length}
+                aria-expanded={reassignOpen}
+                onClick={() => setReassignOpen((o) => !o)}
+                title="Ghi các đối tượng đã chọn vào feature class khác (chỉ các đối tượng này, không đổi cả layer)"
+              >
+                <IconPen width={13} height={13} />
+                Đổi lớp
+              </button>
+            )}
+            <button className="ui-icon-btn !h-7 !w-7 text-red-600 disabled:opacity-40" disabled={!toRemove.length} onClick={remove} aria-label="Xóa" title="Xóa các đối tượng đã chọn khỏi HoSoGIS (Delete)">
+              <IconTrash width={14} height={14} />
             </button>
             <button className="ui-icon-btn !h-7 !w-7 disabled:opacity-40" disabled={!undo.can} onClick={undo.run} aria-label="Hoàn tác" title="Hoàn tác (Ctrl+Z)">
               <IconUndo width={14} height={14} />
             </button>
-            <button className="ui-btn-primary ml-auto !px-3 !py-1 !text-[12px]" onClick={exit}>
-              Xong
-            </button>
           </div>
-          {layerCounts.length > 1 && (
-            <div className="px-1">
+
+          {onReassign && reassignOpen && toRemove.length > 0 && (
+            <div className="flex flex-col gap-1.5 rounded-lg bg-zinc-50 p-2">
+              {recent.length > 0 && (
+                <div className="flex flex-wrap gap-1" role="group" aria-label="Lớp dùng gần đây">
+                  {recent.map((t) => (
+                    <button
+                      key={t}
+                      aria-pressed={t === reassignTarget}
+                      onClick={() => setReassignTarget(t)}
+                      className={`rounded-md px-1.5 py-0.5 font-mono text-[11px] ring-1 ring-inset ${t === reassignTarget ? 'bg-blue-600 text-white ring-blue-600' : 'bg-white text-zinc-700 ring-zinc-200 hover:bg-zinc-100'}`}
+                      title={t}
+                    >
+                      {t.split('/').pop()}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <select className="ui-input !py-1 font-mono text-[12px]" value={reassignTarget} onChange={(e) => setReassignTarget(e.target.value)} aria-label="Feature class đích">
+                <option value="">Chọn feature class đích…</option>
+                {targetGroups.map(([group, list]) => (
+                  <optgroup key={group} label={group}>
+                    {list.map((t) => (
+                      <option key={t.path} value={t.path}>
+                        {t.cls} — {t.alias}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <input className="ui-input !py-1 text-[12px]" value={reassignPhanLoai} onChange={(e) => setReassignPhanLoai(e.target.value)} maxLength={250} placeholder="Phân loại (để trống: giữ phân loại hiện có)" aria-label="Phân loại" />
+              <div className="flex items-center gap-2">
+                <button className="ui-btn-primary !px-3 !py-1 !text-[12px] disabled:opacity-40" disabled={!reassignTarget} onClick={() => applyReassign(reassignTarget)}>
+                  Áp dụng cho {fmt(toRemove.length)}
+                </button>
+                <button className="text-[11.5px] font-medium text-blue-600 hover:underline" onClick={() => applyReassign(null)} title="Trả các đối tượng về lớp theo bảng ghép layer">
+                  Về lớp theo layer
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* What was already changed: one line each, with the way back. */}
+          {((reassigned && reassigned.total > 0) || excluded.size > 0) && (
+            <div className="flex flex-col gap-0.5 border-t border-zinc-100 pt-1.5 text-[11.5px] text-zinc-500">
+              {reassigned && reassigned.total > 0 && (
+                <p className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate">
+                    <b className="font-medium text-violet-700">{fmt(reassigned.here.length)}</b> đã đổi lớp{reassigned.total !== reassigned.here.length ? ` (${fmt(reassigned.total)} ở mọi gdb)` : ''}
+                  </span>
+                  {reassigned.here.length > 0 && (
+                    <button className="shrink-0 font-medium text-blue-600 hover:underline" onClick={() => setSelected(new Set(reassigned.here.filter((i) => !excluded.has(i))))} title="Chọn các đối tượng đã đổi lớp để đổi lại hoặc đưa về lớp theo layer">
+                      Chọn
+                    </button>
+                  )}
+                  <button className="shrink-0 font-medium text-blue-600 hover:underline" onClick={onRevertAll} title="Đưa mọi đối tượng đã đổi lớp về lớp theo bảng ghép">
+                    Hoàn lại
+                  </button>
+                </p>
+              )}
+              {excluded.size > 0 && (
+                <p className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate">
+                    <b className="font-medium text-red-600">{fmt(excluded.size)}</b> đã xóa khỏi bản xuất
+                  </span>
+                  <button className="shrink-0 font-medium text-blue-600 hover:underline" onClick={() => onRestore(null)}>
+                    Khôi phục
+                  </button>
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Rarely needed: a whole layer at once. */}
+          {editMode && layerCounts.length > 1 && (
+            <div>
               <button className="text-[11.5px] font-medium text-blue-600 hover:underline" onClick={() => setLayersOpen((o) => !o)} aria-expanded={layersOpen}>
-                {layersOpen ? 'Ẩn danh sách layer' : `Xóa cả layer (${fmt(layerCounts.length)})`}
+                {layersOpen ? 'Ẩn danh sách layer' : `Xóa cả layer… (${fmt(layerCounts.length)})`}
               </button>
               {layersOpen && (
                 <ul className="ui-scroll mt-1 max-h-52 overflow-y-auto rounded-lg bg-zinc-50 py-1">
@@ -323,14 +493,6 @@ export default function DwgPreviewMap({
                 </ul>
               )}
             </div>
-          )}
-          {excluded.size > 0 && (
-            <p className="flex items-center gap-2 px-1 text-[11.5px] text-zinc-500">
-              <span className="flex-1">{fmt(excluded.size)} đối tượng đã xóa khỏi {views.find((v) => v.id === view)?.label ?? 'gdb này'}</span>
-              <button className="shrink-0 font-medium text-blue-600 hover:underline" onClick={() => onRestore(null)}>
-                Khôi phục tất cả
-              </button>
-            </p>
           )}
         </div>
       )}

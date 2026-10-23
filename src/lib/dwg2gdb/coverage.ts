@@ -6,7 +6,7 @@ import type { CadEntity } from '@/lib/cad/types';
 import type { ClassData, DrawingInput } from './features';
 import { entityRowKey } from './inventory';
 import { suggest, type GeomKind } from './suggest';
-import { targetOption, type MappingEntry } from './template';
+import { entryFor, targetOption, type MappingEntry, type ReassignEntry } from './template';
 import type { RoleId } from './roles';
 
 export interface CoverageGroup {
@@ -64,6 +64,7 @@ export function coverageReport(
   drawings: (DrawingInput & { role: RoleId })[],
   mapping: Map<string, MappingEntry>,
   classes: ClassData[],
+  reassign?: ReadonlyMap<string, ReassignEntry>,
 ): CoverageReport {
   const used = new Set<string>();
   for (const c of classes) for (const f of c.features) for (const alt of f.refs ?? []) for (const [d, i] of alt) used.add(`${d}|${i}`);
@@ -93,7 +94,7 @@ export function coverageReport(
         return;
       }
       const key = entityRowKey(d.id, e, d.color);
-      const target = key ? mapping.get(key)?.target : null;
+      const target = key ? entryFor(mapping, reassign, d.id, i, key)?.target : null;
       let why: string;
       let attn: boolean;
       if (target) {

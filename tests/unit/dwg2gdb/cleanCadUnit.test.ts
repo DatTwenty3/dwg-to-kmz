@@ -70,6 +70,13 @@ describe('decisions (overrides)', () => {
     expect(r.doc.lineTypes?.['TH-D.22']).toBeDefined();
   });
 
+  it('a route number written big on layer "0" is a sign and stays; small numbers and other texts on layer "0" are junk', () => {
+    const t = (txt: string, h: number): CadEntity => ({ kind: 'text', layer: '0', color: '#ffffff', text: txt, position: [50, 50], height: h, rotation: 0, hAlign: 'center', vAlign: 'middle' });
+    const d = doc([t('914B', 60), t('915', 2), t('hello', 60)]);
+    const r = cleanDocument([input(d)], new Map(), null);
+    expect(r.doc.entities.map((e) => [e.kind === 'text' ? e.text : '', e.layer])).toEqual([['914B', 'HTKT_GT_Kyhieutuyen']]);
+  });
+
   it('a closed line drawn with the line type "Ranh giới lập quy hoạch" is the planning boundary, whatever its layer is called', () => {
     const ring: CadEntity = { kind: 'polyline', layer: 'Ranh giới huyện', color: '#ff0000', points: [[0, 0], [100, 0], [100, 100], [0, 100]], closed: true, lineType: 'QH_Ranh giới lập quy hoạch', lineScale: 50 };
     const d: CadDocument = { ...doc([ring]), lineTypes: { 'QH_Ranh giới lập quy hoạch': { elements: [{ length: 1, text: 'l', textScale: 1.5 }, { length: 2.5 }] } } };

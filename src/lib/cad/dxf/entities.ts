@@ -49,6 +49,24 @@ export interface ConvertContext {
   layerName(raw: string): string;
   /** Count of entities skipped because they belong to paper space. */
   paperSpace: number;
+  /** Line type of each layer (by decoded name): ByLayer entities take it. */
+  layerLineTypes?: Map<string, string>;
+  /** $LTSCALE: multiplies the scale of every pattern. */
+  ltScale?: number;
+}
+
+/** Line types that are no pattern. */
+export const PLAIN_LINETYPE = /^(continuous|bylayer|byblock|)$/i;
+
+const PATTERN_ENTITIES = new Set(['LINE', 'LWPOLYLINE', 'POLYLINE', 'ARC', 'CIRCLE', 'ELLIPSE', 'SPLINE']);
+
+/** Line type of an entity (group 6, ByLayer resolved) and the scale of its pattern (group 48 × $LTSCALE); nothing for a continuous line. */
+function lineTypeOf(f: First, layer: string, ctx: ConvertContext): { lineType?: string; lineScale?: number } {
+  let name = ctx.layerName(s(f, 6, '').trim());
+  if (/^bylayer$/i.test(name) || name === '') name = ctx.layerLineTypes?.get(layer) ?? '';
+  if (PLAIN_LINETYPE.test(name)) return {};
+  const own = n(f, 48, 1);
+  return { lineType: name, lineScale: (own > 0 ? own : 1) * (ctx.ltScale ?? 1) };
 }
 
 /** Text split across chunk groups (MTEXT: 3; table cells: 2/3) followed by the final group 1. */
@@ -353,7 +371,8 @@ export function convertRawList(list: RawEntity[], ctx: ConvertContext, isModelSp
     }
     if (n(f, 60) === 1) continue; // invisible
     const handle = has(f, 5) ? s(f, 5) : undefined;
-    const common = { layer: ctx.layerName(s(f, 8, '0')), color: color(f), handle };
+    const layer = ctx.layerName(s(f, 8, '0'));
+    const common = { layer, color: color(f), handle, ...(PATTERN_ENTITIES.has(raw.type) ? lineTypeOf(f, layer, ctx) : {}) };
     switch (raw.type) {
       case 'LINE':
         out.push({ ...common, type: 'line', a: pt(f, 10), b: pt(f, 11) });

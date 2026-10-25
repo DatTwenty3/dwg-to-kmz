@@ -208,3 +208,35 @@ describe('DXF errors', () => {
     await expect(parseDxf(bin, { wasmBaseUrl: '' })).rejects.toThrow(/nhị phân/);
   });
 });
+
+describe('DXF line types (our own DXF written, then read back)', () => {
+  it('reads the LTYPE table with the texts in the gaps, and the line type + scale of each line (ByLayer, $LTSCALE)', async () => {
+    const { toDxf } = await import('@/lib/export/dxf');
+    const src: CadDocument = {
+      units: 'm',
+      crs: null,
+      layers: [{ name: 'D', color: '#ff0000', visible: true }, { name: 'R', color: '#ff0000', visible: true }],
+      lineTypes: {
+        '110HH': { elements: [{ length: 68.9 }, { length: -2.9, text: '110kV', textScale: 6, offset: [0, -3], rotation: 0 }, { length: -23.1 }] },
+        'QH_Ranh giới lập quy hoạch': { elements: [{ length: 1.035, text: 'l', textScale: 1.5, offset: [0, -0.68], rotation: 0 }, { length: 2.465 }] },
+      },
+      entities: [
+        { kind: 'polyline', layer: 'D', color: '#ff0000', points: [[0, 0], [500, 0]], closed: false, lineType: '110HH', lineScale: 2 },
+        { kind: 'polyline', layer: 'R', color: '#ff0000', points: [[0, 10], [500, 10], [500, 100]], closed: false, lineType: 'QH_Ranh giới lập quy hoạch', lineScale: 50 },
+        { kind: 'polyline', layer: 'D', color: '#ff0000', points: [[0, 20], [10, 20]], closed: false },
+      ],
+      bbox: [[0, 0], [500, 100]],
+      warnings: [],
+    };
+    const d = await parseDxf(new TextEncoder().encode(toDxf(src, { units: 'm' })).buffer as ArrayBuffer, { wasmBaseUrl: '' });
+    const lt = d.lineTypes!;
+    expect(lt['110HH'].elements).toHaveLength(3);
+    expect(lt['110HH'].elements[1]).toMatchObject({ length: -2.9, text: '110kV', textScale: 6, offset: [0, -3], rotation: 0, absolute: false });
+    // the dot letter comes back as the Arial circle, sized and shifted to stay on the line
+    const dot = lt['QH_Ranh giới lập quy hoạch'].elements[0];
+    expect(dot.text).toBe('●');
+    expect(dot.textScale).toBeCloseTo((1.5 * 0.7) / (881 / 2048), 3);
+    const lines = d.entities.filter((e): e is PolylineEntity => e.kind === 'polyline');
+    expect(lines.map((l) => [l.lineType, l.lineScale])).toEqual([['110HH', 2], ['QH_Ranh giới lập quy hoạch', 50], [undefined, undefined]]);
+  });
+});

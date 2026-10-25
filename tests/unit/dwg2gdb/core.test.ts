@@ -119,6 +119,12 @@ describe('suggestions', () => {
     expect(suggest('qh-sdd', 'DAT_XD_Khudancu', 'A')).toMatchObject({ target: 'QuyHoach/QuyHoachSuDungDat/ChucNangSuDungDat_A', phanLoai: 'Đất ở' });
     expect(suggest('ht-sdd', 'HK-QH-OLangXom', 'A')).toMatchObject({ target: 'HienTrang/HienTrangSuDungDat/ChucNangSuDungDat_A', phanLoai: 'Đất ở' });
     expect(suggest('qh-sdd', 'LOGIOI_LINE', 'L').target).toBe('QuyHoach/QuyHoachCGDD_CGXDHanhLangHTKT/ChiGioiDuongDo_L');
+    // layers of a cleaned drawing name their network (HTKT_<CD|CN|TN|TTLL|GT>_…): whatever the map they are drawn on
+    expect(suggest('ht-sdd', 'HTKT_CD_Duongday', 'L', { closedShare: 0 }).target).toBe('HienTrang/HienTrangCapDien/MangLuoiPhanPhoiDien_L'); // "duong" in it, yet no road
+    expect(suggest('qh-sdd', 'HTKT_CD_Duongday110kV', 'L', { closedShare: 0 })).toMatchObject({ target: 'QuyHoach/QuyHoachCapDien/MangLuoiPhanPhoiDien_L', phanLoai: 'Đường dây 110 kV' });
+    expect(suggest('qh-tn', 'HTKT_TN_Tuyen_Nuocmua', 'L')).toMatchObject({ target: 'QuyHoach/QuyHoachChuanBiKyThuat/MangLuoiThoatNuocMua_L' }); // "htkttn" holds "tnt", which is not "nước thải"
+    expect(suggest('ht-sdd', 'HTKT_GT_Cau_Betong', 'L', { closedShare: 1 })).toMatchObject({ target: 'HienTrang/HienTrangGiaoThong/CongTrinhGiaoThong_L', phanLoai: 'Cầu bê tông' }); // closed outline of a bridge, not a parcel
+    expect(suggest('qh-sdd', 'HTKT_GT_Giaothong', 'A')).toMatchObject({ target: 'QuyHoach/QuyHoachGiaoThong/MangLuoiGiaoThongDuongBo_A', phanLoai: 'Mặt đường quy hoạch' });
     expect(suggest('qh-dien', 'HTKT_CD_Tuyen 22 kV', 'L')).toMatchObject({ target: 'QuyHoach/QuyHoachCapDien/MangLuoiPhanPhoiDien_L', phanLoai: 'Đường dây 22 kV' });
     expect(suggest('qh-dien', 'dien tram', 'A').target).toBe('QuyHoach/QuyHoachCapDien/CongTrinhCapDien_P');
     // Layers named as Thông tư 16 names them get the land use of their symbol (Phụ lục I), prefixes and Mục aside.

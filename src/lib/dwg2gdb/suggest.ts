@@ -222,7 +222,9 @@ function terrainOrMarker(c: string, kind: GeomKind, facts: LayerFacts, role: Rol
 
 function roads(c: string, kind: GeomKind, p: string): Pick {
   // "Đường điện / đường ống / đường dây …" are utility lines, not roads (they only share the word "đường").
-  if (/duong(day)?dien|duongong|duongnuoc|duongcap|duongthoat|duongtruyen/.test(c)) return null;
+  if (/duong(day)?dien|duongday|duongong|duongnuoc|duongcap|duongthoat|duongtruyen/.test(c)) return null;
+  // Layers of a cleaned drawing (HTKT_CD_… power, HTKT_CN_… water, HTKT_TN_… drainage, HTKT_TTLL_… telecom) are no roads.
+  if (/^htkt(cd|cn|tn|ttll)/.test(c)) return null;
   if (!/duong|giaothong|htktgt|^gt|gt$|quoclo|tinhlo|huyenlo|^ql|^dt|^dh|lo$|nhua|betong|cau$|^cau|caucong|ben|baido|tim|mepduong|bovia|leduong|hem|ngo|mcn|logioi|chigioi/.test(c)) return null;
   // "Hè đường": the thin lines on both sides of a road (the road reserve, drawn blue like the lộ giới lines of other
   // drawings), around the wide polyline that is the carriageway — the red lines, not the axis.
@@ -230,20 +232,20 @@ function roads(c: string, kind: GeomKind, p: string): Pick {
   if (/logioi|chigioiduongdo|cgdd|duongdo/.test(c)) return kind === 'L' ? { theme: 'cg', cls: 'ChiGioiDuongDo_L', phanLoai: 'Chỉ giới đường đỏ' } : null;
   if (/chigioixaydung|cgxd/.test(c)) return kind === 'L' ? { theme: 'cg', cls: 'ChiGioiXayDung_L', phanLoai: 'Chỉ giới xây dựng' } : null;
   if (kind === 'A') {
-    if (/ben|baido|cau|nut/.test(c)) return { theme: 'gt', cls: 'CongTrinhGiaoThong_A', phanLoai: p };
-    return { theme: 'gt', cls: 'MangLuoiGiaoThongDuongBo_A', phanLoai: p };
+    if (/ben|baido|cau|nut/.test(c)) return { theme: 'gt', cls: 'CongTrinhGiaoThong_A', phanLoai: roadPhanLoai(c) ?? p };
+    return { theme: 'gt', cls: 'MangLuoiGiaoThongDuongBo_A', phanLoai: roadPhanLoai(c) ?? p };
   }
   if (kind === 'P') return /cau|cong|ben|tram|baido/.test(c) ? { theme: 'gt', cls: 'CongTrinhGiaoThong_P', phanLoai: p } : null;
   if (kind !== 'L') return null;
   const label = roadPhanLoai(c) ?? p;
   if (/mep|bovia|leduong|vihe|viahe|phancach|mcn/.test(c)) return { theme: 'gt', cls: 'BoViaDaiPhanCach_L', phanLoai: p };
   if (/huongdi/.test(c)) return { theme: 'gt', cls: 'HuongDi_L', phanLoai: p };
-  if (/^cau|cau$|caucong|congtrinh/.test(c)) return { theme: 'gt', cls: 'CongTrinhGiaoThong_L', phanLoai: label };
+  if (/^cau|cau$|caucong|congtrinh|htktgtcau/.test(c)) return { theme: 'gt', cls: 'CongTrinhGiaoThong_L', phanLoai: label };
   return { theme: 'gt', cls: 'MangLuoiGiaoThongDuongBo_L', phanLoai: label };
 }
 
 function power(c: string, kind: GeomKind): Pick {
-  if (!/dien|kv|^ee|^e$|^e\d|cdtuyen|tuyen\d|trungthe|hathe|caothe|tba|bienap|tramdien|dientram|chieusang|denduong|^den/.test(c)) return null;
+  if (!/dien|kv|^ee|^e$|^e\d|cdtuyen|tuyen\d|trungthe|hathe|caothe|tba|bienap|tramdien|dientram|chieusang|denduong|^den|^htktcd/.test(c)) return null;
   const v = kv(c);
   if (/chieusang|denduong|^den/.test(c)) return kind === 'L' ? { theme: 'dien', cls: 'MangLuoiChieuSang_L', phanLoai: 'Chiếu sáng' } : kind === 'T' ? null : { theme: 'dien', cls: 'CongTrinhChieuSang_P', phanLoai: 'Đèn chiếu sáng' };
   if (/tba|bienap|tram/.test(c)) {
@@ -343,6 +345,20 @@ export function suggest(roleId: RoleId, layer: string, kind: GeomKind, facts: La
   if (/^ktcq(nha|congtrinh)/.test(c) && (kind === 'A' || (kind === 'L' && (facts.closedShare ?? 0) >= 0.5)))
     return at({ theme: 'ktcq', cls: 'CongTrinh_A', phanLoai: /bankienco|bkc/.test(c) ? 'Nhà bán kiên cố' : /kienco/.test(c) ? 'Nhà kiên cố' : /tam/.test(c) ? 'Nhà tạm' : 'Nhà, công trình' }, 'Nhà / công trình (layer KTCQ_… của bản vẽ đã chuẩn hóa)');
   if (/nenbetong|kebetong/.test(c)) return none('Sân / nền / kè bê tông (hình khép kín nhỏ) — không phải đường');
+
+  // Layers of a cleaned drawing name the network they belong to (HTKT_<CD|CN|TN|TTLL>_…): that wins over the words in the
+  // rest of the name ("Duongday" is a power line, not a road) and over the kind of map the layer is drawn on.
+  const network = /^htkt(cd|cn|tn|ttll|gt)/.exec(c)?.[1];
+  if (network && kind !== 'T') {
+    // The prefix is taken off for drainage: "htkttn…" holds the letters "tnt" that mean "thoát nước thải" in the drainage rules.
+    const net =
+      network === 'cd' ? power(c, kind)
+      : network === 'cn' ? water(c, kind, p)
+      : network === 'tn' ? drainage(c.replace(/^htkttn/, ''), kind, p, true)
+      : network === 'ttll' ? telecom(c, kind)
+      : roads(c, kind, p); // a road / bridge is no land use, and no outline of a parcel, whatever shape it is drawn in
+    if (net) return at(net, `Layer ${layer} của bản vẽ đã chuẩn hóa — ${network === 'cd' ? 'cấp điện' : network === 'cn' ? 'cấp nước' : network === 'tn' ? 'thoát nước' : network === 'ttll' ? 'thông tin liên lạc' : 'giao thông'}`);
+  }
 
   if (kind === 'T') {
     if ((facts.numericShare ?? 0) >= 0.7 && /nen|caodo|cdtk|cdht|ks|khaosat|dodac|^\d|giaithua|hientrang|thietke/.test(c))

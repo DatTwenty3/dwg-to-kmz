@@ -1,11 +1,11 @@
 // DXF → CadDocument. dxf-parser provides the section/block framework; every entity is captured as
 // raw group codes by our own handlers (dxf-parser 1.1.2 lacks HATCH, ATTRIB, ACAD_TABLE, true colour…).
 import * as DxfParserModule from 'dxf-parser';
-import type { CadDocument } from '../types';
+import type { CadDocument, LineTypeDef, LineTypeElement, Vec2 } from '../types';
 import { type BuildOptions, buildDocument } from '../normalize/build';
 import { type SrcBlock, type SrcColor, type SrcDocument, type SrcLayer, insunitsToName } from '../normalize/source';
 import { codepageToEncoding, decodeDxfBytes } from './bytes';
-import { type ConvertContext, convertRawList } from './entities';
+import { type ConvertContext, PLAIN_LINETYPE, convertRawList } from './entities';
 import { type RawEntity, makeRawHandler } from './groups';
 
 export { decodeDxfBytes } from './bytes';
@@ -26,9 +26,18 @@ function parserCtor(): DxfParserCtor {
 
 const STRUCTURAL = new Set(['SECTION', 'ENDSEC', 'ENDBLK', 'EOF', 'BLOCK', 'TABLE', 'ENDTAB']);
 
+interface RawLineType {
+  name: string;
+  elements: (LineTypeElement & { flags?: number })[];
+}
+
 interface Structure {
   entityNames: Set<string>;
-  layers: { name: string; aci: number; rgb?: number; flags: number }[];
+  layers: { name: string; aci: number; rgb?: number; flags: number; lineType?: string }[];
+  /** LTYPE table (names and texts still raw). */
+  lineTypes: RawLineType[];
+  /** $LTSCALE. */
+  ltScale?: number;
   styles: Map<string, string>;
   insunits?: number;
 }
@@ -38,7 +47,10 @@ function scanStructure(lines: string[]): Structure {
   const entityNames = new Set<string>();
   const layers: Structure['layers'] = [];
   const styles = new Map<string, string>();
+  const lineTypes: RawLineType[] = [];
+  let ltype: RawLineType | null = null;
   let insunits: number | undefined;
+  let ltScale: number | undefined;
   let section = '';
   let expectSectionName = false;
   let record = '';
@@ -48,8 +60,10 @@ function scanStructure(lines: string[]): Structure {
   const flush = () => {
     if (layer && layer.name) layers.push(layer);
     if (style && style.name) styles.set(style.name, (style.font || style.big).trim());
+    if (ltype && ltype.name) lineTypes.push(ltype);
     layer = null;
     style = null;
+    ltype = null;
   };
   for (let i = 0; i + 1 < lines.length; i += 2) {
     const code = parseInt(lines[i], 10);
@@ -69,6 +83,7 @@ function scanStructure(lines: string[]): Structure {
       if (section === 'TABLES') {
         if (value === 'LAYER') layer = { name: '', aci: 7, flags: 0 };
         else if (value === 'STYLE') style = { name: '', font: '', big: '' };
+        else if (value === 'LTYPE') ltype = { name: '', elements: [] };
       } else if (section === 'ENTITIES' || section === 'BLOCKS') {
         if (!STRUCTURAL.has(value)) entityNames.add(value);
       }
@@ -82,6 +97,7 @@ function scanStructure(lines: string[]): Structure {
     if (section === 'HEADER') {
       if (code === 9) headerVar = value;
       else if (headerVar === '$INSUNITS' && code === 70) insunits = parseInt(value, 10);
+      else if (headerVar === '$LTSCALE' && code === 40) ltScale = parseFloat(value);
       continue;
     }
     if (section === 'TABLES') {
@@ -90,6 +106,18 @@ function scanStructure(lines: string[]): Structure {
         else if (code === 62) layer.aci = parseInt(value, 10);
         else if (code === 420) layer.rgb = parseInt(value, 10) & 0xffffff;
         else if (code === 70) layer.flags = parseInt(value, 10);
+        else if (code === 6) layer.lineType = value;
+      } else if (record === 'LTYPE' && ltype) {
+        // Pattern elements: 49 length, then (for a text element) 74 flags, 46 height, 50 rotation, 44/45 shift, 9 text.
+        const el = ltype.elements[ltype.elements.length - 1];
+        if (code === 2) ltype.name = value;
+        else if (code === 49) ltype.elements.push({ length: parseFloat(value) || 0 });
+        else if (el && code === 74) el.flags = parseInt(value, 10) || 0;
+        else if (el && code === 46) el.textScale = parseFloat(value) || 1;
+        else if (el && code === 50) el.rotation = parseFloat(value) || 0;
+        else if (el && code === 44) el.offset = [parseFloat(value) || 0, el.offset?.[1] ?? 0];
+        else if (el && code === 45) el.offset = [el.offset?.[0] ?? 0, parseFloat(value) || 0];
+        else if (el && code === 9) el.text = value;
       } else if (record === 'STYLE' && style) {
         if (code === 2) style.name = value;
         else if (code === 3) style.font = value;
@@ -98,7 +126,7 @@ function scanStructure(lines: string[]): Structure {
     }
   }
   flush();
-  return { entityNames, layers, styles, insunits };
+  return { entityNames, layers, lineTypes, ltScale, styles, insunits };
 }
 
 /** \U+XXXX escapes (used by R2000–R2004 for non-codepage characters in names). */
@@ -143,7 +171,9 @@ export async function parseDxfBuffer(data: ArrayBuffer, opts: BuildOptions = {})
   }
   if (!dxf) throw new Error('File DXF rỗng hoặc không hợp lệ.');
 
-  const ctx: ConvertContext = { layerName, paperSpace: 0 };
+  const layerLineTypes = new Map<string, string>();
+  for (const l of st.layers) if (l.lineType) layerLineTypes.set(layerName(l.name), layerName(l.lineType));
+  const ctx: ConvertContext = { layerName, paperSpace: 0, layerLineTypes, ltScale: st.ltScale && st.ltScale > 0 ? st.ltScale : 1 };
   const blocks = new Map<string, SrcBlock>();
   for (const [key, b] of Object.entries(dxf.blocks ?? {})) {
     const name = b.name ?? key;
@@ -167,6 +197,23 @@ export async function parseDxfBuffer(data: ArrayBuffer, opts: BuildOptions = {})
     return { name: layerName(l.name), color, visible: l.aci >= 0 && (l.flags & 1) === 0 };
   });
 
+  // LTYPE: dashes, gaps and the texts written in the gaps ("110kV" of the 110 kV line, the dots of the planning boundary).
+  const lineTypes: Record<string, LineTypeDef> = {};
+  for (const lt of st.lineTypes) {
+    const name = layerName(lt.name);
+    if (!name || PLAIN_LINETYPE.test(name) || !lt.elements.length) continue;
+    lineTypes[name] = {
+      elements: lt.elements.map((el) => {
+        const flags = el.flags ?? 0;
+        const text = flags & 2 && el.text ? unescapeUnicode(el.text).normalize('NFC') : undefined;
+        return {
+          length: el.length,
+          ...(text ? { text, textScale: el.textScale ?? 1, offset: (el.offset ?? [0, 0]) as Vec2, rotation: el.rotation ?? 0, absolute: !!(flags & 1) } : {}),
+        };
+      }),
+    };
+  }
+
   const header = (dxf.header ?? {}) as Record<string, unknown>;
   const insunits = typeof header['$INSUNITS'] === 'number' ? (header['$INSUNITS'] as number) : st.insunits;
   const src: SrcDocument = {
@@ -174,6 +221,7 @@ export async function parseDxfBuffer(data: ArrayBuffer, opts: BuildOptions = {})
     codepage: decoded.codepage,
     legacyBytes: decoded.legacyBytes,
     layers,
+    lineTypes,
     styles: st.styles,
     blocks,
     entities,

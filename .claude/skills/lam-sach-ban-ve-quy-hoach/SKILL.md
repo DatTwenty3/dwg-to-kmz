@@ -88,3 +88,6 @@ Không ghi được `.dwg` (chỉ DXF). Ký hiệu SVG Phụ lục I chưa nhún
 
 ## Sau khi làm sạch: kiểm tra đường sang `.qgz`
 Bản sạch phải ra `.qgz` giống bản gốc: chữ biển số tuyến (911, 914, 914C), chấm ranh quy hoạch nằm trên đường, đường 110kV có chữ. Nếu sửa `cleanCad.ts`/`dxf.ts`, so số liệu `cadLayerData` của bản gốc và bản sạch (số chấm có `kt` > 0, khoảng cách chấm tới ranh, chữ 91x) trước khi bàn giao.
+
+## So lớp-theo-lớp với bản gốc (bắt buộc trước khi bàn giao)
+Sau `clean`, đọc lại thư mục sạch bằng `loadFolder` + `analyzeDrawings` + `buildFeatures` và so với thư mục gốc: **số đối tượng và `phanLoai` của từng lớp TT16** (đường, cầu, điện, nước, thoát nước, TTLL, sử dụng đất) phải khớp; số chấm ranh (`cad_diem` có `kt` > 0) và chữ biển số (`cad_chu`) phải bằng bản gốc. Lệch có nghĩa là cleaner đổi tên layer làm web app hiểu khác (ví dụ chữ "duong" trong `HTKT_CD_Duongday`, biển số trên layer `0`).

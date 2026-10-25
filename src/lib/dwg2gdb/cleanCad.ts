@@ -141,6 +141,14 @@ const JUNK_LAYER = /giaithua|ghepmanh|^audit|^ks|spm_?map|defpoints|viewport|^la
 // Facility pictograms the planning office drew on purpose (schools, markets…): content, kept apart.
 const PICTOGRAM_LAYER = /kyhieucaccongtrinhchucnang|^02kyhieu|^00gtkihieu|^kyhieucongtrinh/;
 const ROADISH_LAYER = /htktgt|giaothong|duongtinh|quoclo|timduong|duongkhuvuc|heduong/;
+/** A route number ("914B") written big enough to be a sign on the map, not a parcel or a survey number. */
+const SIGN_MIN_HEIGHT = 20;
+/**
+ * The number of a route (911, 914C, 915) standing at the end of a road: on a road layer, on a layer called "TEXT", or on any
+ * layer (Lưu Nghiệp Anh draws its signs on layer "0", which is otherwise junk) when the text is as big as a sign.
+ */
+const isRouteSign = (e: CadEntity, c: string): boolean =>
+  e.kind === 'text' && !!parseRouteSign(e.text, null) && !/giaithua/.test(c) && (ROADISH_LAYER.test(c) || /text/.test(c) || e.height >= SIGN_MIN_HEIGHT);
 const ADMIN_NAME = /^(xa|x\.|phuong|p\.|thi tran|ap|khom|thon|ban|to dan pho|khu pho)\s/;
 const ROAD_NAME = /^(duong|tuyen so|dt\.|ql\.)\s?/;
 
@@ -186,7 +194,11 @@ const ringArea = (r: Vec2[]) => Math.abs(r.reduce((t, q, k) => t + (q[0] * r[(k 
 
 function roadLayer(cls: string, phanLoai: string, layer: string): string {
   if (cls === 'ChiGioiDuongDo_L') return 'HTKT_GT_Heduong';
-  if (cls === 'CongTrinhGiaoThong_L' || cls === 'CongTrinhGiaoThong_A' || cls === 'CongTrinhGiaoThong_P') return 'HTKT_GT_Cau';
+  if (cls === 'CongTrinhGiaoThong_L' || cls === 'CongTrinhGiaoThong_A' || cls === 'CongTrinhGiaoThong_P') {
+    // The material of the bridge ("Cầu bê tông") stays in the layer name, so the phanLoai can be read back.
+    const rest = norm(phanLoai).replace(/^cau\s*/, '').trim();
+    return rest && rest.length <= 20 ? `HTKT_GT_Cau_${pascalAscii(rest)}` : 'HTKT_GT_Cau';
+  }
   const f = norm(phanLoai || prettyLayer(layer));
   if (/tinh/.test(f)) return 'HTKT_GT_Duongtinh';
   if (/quoc lo/.test(f)) return 'HTKT_GT_Quoclo';
@@ -248,6 +260,7 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
         if (ov.to) return { layer: ov.to, color: ov.color, why: ov.why ?? 'theo quyết định', look: ov.look };
       }
       if (options.keepBase && /giaithua/.test(c)) return { layer: e.kind === 'text' ? 'NEN_Giaithua_Chu' : 'NEN_Giaithua', color: aciHex(8), why: 'nền giải thửa (địa chính) — giữ làm nền (hiện sẵn, nằm dưới cùng)' };
+      if (isRouteSign(e, c)) return { layer: 'HTKT_GT_Kyhieutuyen', why: 'biển số tuyến' };
       if (JUNK_LAYER.test(c) && !PICTOGRAM_LAYER.test(c)) return { drop: /giaithua/.test(c) ? 'nền giải thửa (địa chính), không thuộc đồ án' : 'layer rác (ký hiệu khảo sát, layer 0/Defpoints, nét thừa)' };
       const key = entityRowKey(d.id, e, d.color);
       const m = key ? mapping.get(key) : undefined;
@@ -256,7 +269,6 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
       if (e.kind === 'text') {
         const f = norm(e.text);
         if (/^\d{1,4}([.,]\d+)?$/.test(f) && /giaithua/.test(c)) return { drop: 'số thửa' };
-        if (parseRouteSign(e.text, null) && (ROADISH_LAYER.test(c) || /text/.test(c))) return { layer: 'HTKT_GT_Kyhieutuyen', why: 'biển số tuyến' };
         if (/ten ?kenh|kenh_?rach|rach_?song/.test(foldVietnamese(e.layer))) return { layer: 'BV_Chu_Tenkenh', why: 'tên kênh, rạch' };
         if (ADMIN_NAME.test(f) || /^bv_?ten_?diadanh/i.test(e.layer)) return { layer: 'BV_Ten_Diadanh', why: 'tên đơn vị hành chính / địa danh (Phụ lục I)' };
         if (ROAD_NAME.test(f) || /tenduong/.test(c)) return { layer: 'HTKT_GT_Tenduong', why: 'tên đường' };
@@ -281,7 +293,8 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
             const sym = landUseSymbol(m!.phanLoai, section);
             return { layer: sym.layer, color: sym.aci !== null ? aciHex(sym.aci) : undefined, why: `vùng ${sym.label}${sym.aci !== null ? ` — màu ${sym.aci}` : ''}` };
           }
-          if (e.kind === 'polyline' && (e.width ?? 0) > 0) return { layer: roadLayer('', '', e.layer), why: 'nét có độ rộng — là đường, không phải thửa' };
+          // A wide line on a land-use layer is a road (Đôn Châu: 20 m); a thin one (3 m) is only the outline of the parcel.
+          if (e.kind === 'polyline' && (e.width ?? 0) >= 8) return { layer: roadLayer('', '', e.layer), why: 'nét rộng ≥ 8 m — là đường, không phải thửa' };
           return { layer: 'BV_Vienthua', why: 'viền thửa/lô (vùng đã có hatch)' };
         }
         if (/^RanhGioiQuyHoach/.test(cls)) return { layer: 'BV_Rg_lapquyhoach', color: aciHex(1), dash: 'dotted', why: 'ranh lập quy hoạch (Phụ lục I)' };
@@ -332,7 +345,7 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
         }
       }
       if (!inside && e.kind === 'text') {
-        const sign = parseRouteSign(e.text, null) && ROADISH_LAYER.test(compactName(e.layer));
+        const sign = isRouteSign(e, compactName(e.layer));
         const b = entityBox(e);
         if (!(sign && b && around && b[0] >= around[0] && b[1] >= around[1] && b[2] <= around[2] && b[3] <= around[3])) {
           totals.outside++;

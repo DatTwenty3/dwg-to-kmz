@@ -8,7 +8,7 @@
     { "layer": "ranh_thuc_vat", "action": "keep", "to": "NEN_Diahinh_Ranhthucvat", "why": "ranh thực vật — nền đo đạc" },
     { "drawing": "QH03", "layer": "MUONG AO", "action": "keep", "to": "NEN_Diahinh_Muongao", "why": "đường bờ ao/mương hiện trạng — nền địa hình, không phải tuyến thoát nước mưa" },
     { "drawing": "QH02", "layer": "DUONG_DIEN", "action": "keep", "to": "HTKT_CD_Duongday", "why": "ký hiệu cột điện + hướng đường dây (hạ/trung thế) — chưa rõ cấp điện áp", "look": true },
-    { "drawing": "QH02", "layer": "CAU BE TONG", "kind": "polyline", "action": "keep", "to": "HTKT_GT_Cau", "why": "cầu bê tông" },
+    { "drawing": "QH02", "layer": "CAU BE TONG", "kind": "polyline", "action": "keep", "to": "HTKT_GT_Cau_Betong", "why": "cầu bê tông (giữ chất liệu trong tên layer)" },
     { "layer": "-0-gt-cau", "action": "keep", "to": "HTKT_GT_Cau", "why": "cầu Đại Ngãi (hai nét song song có vạch ngang)" },
     { "layer": "TRU PHAT SONG", "action": "keep", "to": "HTKT_TTLL_Ghichu", "why": "ghi chú trụ phát sóng" },
     { "layer": "DAT_Tronglua", "action": "keep", "to": "DAT_NNK_Tronglua", "color": "#00ff00", "why": "một vùng tô xanh phủ toàn xã làm nền hiện trạng (không phải ranh đất lúa thật; loại đất cụ thể nằm ở nhãn KS-GHICHU)", "look": true },

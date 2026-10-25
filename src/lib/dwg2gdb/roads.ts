@@ -151,6 +151,7 @@ export function roadPhanLoai(compact: string): string | null {
     [/kebetong/, 'Kè bê tông'],
     [/caubetong/, 'Cầu bê tông'],
     [/giaothongdinhhuong|giaothongqh/, 'Giao thông quy hoạch'],
+    [/htktgtgiaothong$/, 'Mặt đường quy hoạch'],
     [/cau$/, 'Cầu'],
   ];
   return table.find(([re]) => re.test(compact))?.[1] ?? null;

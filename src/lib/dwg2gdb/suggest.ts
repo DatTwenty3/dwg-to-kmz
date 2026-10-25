@@ -340,7 +340,15 @@ export function suggest(roleId: RoleId, layer: string, kind: GeomKind, facts: La
   if (kind === 'L' && /hoga|giengthu|gietthu|dientram|tramdien|^tba|bienap/.test(c)) return none('Nét viền ký hiệu (hố ga, trạm điện…) — đối tượng lấy từ điểm / hatch');
   if (/^(nen)?giaithua$/.test(c)) return none('Nền giải thửa (địa chính) — không thuộc đồ án');
   // Layers of a cleaned drawing (cleanCad.ts): the outline of the parcels and the footprints of buildings.
-  if (/^nen(diahinh|giaithua)/.test(c)) return none('Nền giải thửa / địa hình của bản vẽ đã chuẩn hóa — không thuộc đồ án');
+  // The survey base of a cleaned drawing (NEN_Diahinh_*: ground edges, water edges, graves, spot points and heights) is the
+  // terrain database NenDiaHinh.gdb: heights and spot points → DiemDoCao_P (caoDo read from the number), the rest → NenDiaHinh_L.
+  if (/^nendiahinh/.test(c)) {
+    if (kind === 'T') return (facts.numericShare ?? 0) >= 0.7 ? at({ theme: 'dh', cls: 'DiemDoCao_P', phanLoai: 'Điểm độ cao' }, 'Số cao độ của nền địa hình (bản vẽ đã chuẩn hóa)') : none('Chữ — dùng làm tên đối tượng');
+    if (kind === 'P') return at({ theme: 'dh', cls: 'DiemDoCao_P', phanLoai: /caodo/.test(c) ? 'Điểm độ cao' : 'Điểm đo' }, 'Điểm đo của nền địa hình (bản vẽ đã chuẩn hóa)');
+    const label = /bodat/.test(c) ? 'Bờ đất' : /songho|kenh|rach/.test(c) ? 'Mép sông, hồ' : /moma/.test(c) ? 'Mồ mả' : /thucvat/.test(c) ? 'Ranh thực vật' : /^nendiahinhkh$/.test(c) ? 'Chi tiết địa hình' : p.replace(/^NEN /i, '');
+    return at({ theme: 'dh', cls: 'NenDiaHinh_L', phanLoai: label }, 'Nền địa hình (bản vẽ đã chuẩn hóa)');
+  }
+  if (/^nengiaithua/.test(c)) return none('Nền giải thửa của bản vẽ đã chuẩn hóa — không thuộc đồ án');
   if (/^bvvienthua/.test(c)) return none('Viền thửa/lô của bản vẽ đã chuẩn hóa — vùng đã lấy từ hatch');
   if (/^ktcq(nha|congtrinh)/.test(c) && (kind === 'A' || (kind === 'L' && (facts.closedShare ?? 0) >= 0.5)))
     return at({ theme: 'ktcq', cls: 'CongTrinh_A', phanLoai: /bankienco|bkc/.test(c) ? 'Nhà bán kiên cố' : /kienco/.test(c) ? 'Nhà kiên cố' : /tam/.test(c) ? 'Nhà tạm' : 'Nhà, công trình' }, 'Nhà / công trình (layer KTCQ_… của bản vẽ đã chuẩn hóa)');

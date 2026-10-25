@@ -124,6 +124,11 @@ describe('suggestions', () => {
     expect(suggest('qh-sdd', 'HTKT_CD_Duongday110kV', 'L', { closedShare: 0 })).toMatchObject({ target: 'QuyHoach/QuyHoachCapDien/MangLuoiPhanPhoiDien_L', phanLoai: 'Đường dây 110 kV' });
     expect(suggest('qh-tn', 'HTKT_TN_Tuyen_Nuocmua', 'L')).toMatchObject({ target: 'QuyHoach/QuyHoachChuanBiKyThuat/MangLuoiThoatNuocMua_L' }); // "htkttn" holds "tnt", which is not "nước thải"
     expect(suggest('ht-sdd', 'HTKT_GT_Cau_Betong', 'L', { closedShare: 1 })).toMatchObject({ target: 'HienTrang/HienTrangGiaoThong/CongTrinhGiaoThong_L', phanLoai: 'Cầu bê tông' }); // closed outline of a bridge, not a parcel
+    // the survey base kept by a cleaned drawing is the terrain database, on whatever map it is drawn
+    expect(suggest('ht-sdd', 'NEN_Diahinh_Bodat', 'L')).toMatchObject({ target: 'NenDiaHinh/NenDiaHinh/NenDiaHinh_L', phanLoai: 'Bờ đất' });
+    expect(suggest('qh-sdd', 'NEN_Diahinh_Caodo', 'T', { numericShare: 1 })).toMatchObject({ target: 'NenDiaHinh/NenDiaHinh/DiemDoCao_P', phanLoai: 'Điểm độ cao' });
+    expect(suggest('ht-sdd', 'NEN_Diahinh_Diem', 'P').target).toBe('NenDiaHinh/NenDiaHinh/DiemDoCao_P');
+    expect(suggest('ht-sdd', 'NEN_Giaithua', 'L').target).toBeNull(); // the cadastral base stays in the CAD drawing only
     expect(suggest('qh-sdd', 'HTKT_GT_Giaothong', 'A')).toMatchObject({ target: 'QuyHoach/QuyHoachGiaoThong/MangLuoiGiaoThongDuongBo_A', phanLoai: 'Mặt đường quy hoạch' });
     expect(suggest('qh-dien', 'HTKT_CD_Tuyen 22 kV', 'L')).toMatchObject({ target: 'QuyHoach/QuyHoachCapDien/MangLuoiPhanPhoiDien_L', phanLoai: 'Đường dây 22 kV' });
     expect(suggest('qh-dien', 'dien tram', 'A').target).toBe('QuyHoach/QuyHoachCapDien/CongTrinhCapDien_P');

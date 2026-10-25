@@ -404,6 +404,12 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
       duplicates++;
       // The same object on another map: one more way to get the feature.
       if (f.refs?.length) first.refs = [...(first.refs ?? []), ...f.refs];
+      // A surveyed point and the height written at it are one point: the one with the height completes the other.
+      if (c.cls === 'DiemDoCao_P' && f.attrs?.caoDo != null && first.attrs?.caoDo == null) {
+        first.attrs = { ...first.attrs, caoDo: f.attrs.caoDo };
+        first.tenDoiTuong = first.tenDoiTuong ?? f.tenDoiTuong;
+        first.phanLoai = f.phanLoai;
+      }
       return;
     }
     c.seen.set(k, f);

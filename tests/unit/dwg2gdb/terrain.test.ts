@@ -44,6 +44,19 @@ describe('features', () => {
     expect(by('DiemDoCao_P').map((f) => f.attrs?.caoDo)).toEqual([7.5, 3.25]);
     expect(by('DuongDongMuc_L')[0].attrs?.caoDo).toBe(12.5);
   });
+  it('a surveyed point and the height written at it are one point, with the height', () => {
+    const spot: CadEntity = { kind: 'point', layer: 'DIEM', color: '#ffffff', position: [20.2, 20.3] };
+    const d = doc([spot, height('7.5', 20, 20, 'DIEM DO CAO'), { kind: 'point', layer: 'DIEM', color: '#ffffff', position: [300, 300] }]);
+    const m = new Map<string, MappingEntry>([
+      [rowKey('a', 'DIEM', 'P'), { target: DO_CAO, phanLoai: 'Điểm đo' }],
+      [rowKey('a', 'DIEM DO CAO', 'T'), { target: DO_CAO, phanLoai: 'Điểm độ cao' }],
+    ]);
+    const built = buildFeatures([{ id: 'a', name: 'a.dwg', doc: d, inside: new Uint8Array(d.entities.length).fill(1) }], m, { boundary: null, sourceInGhiChu: false });
+    const pts = built.classes.find((c) => c.cls === 'DiemDoCao_P')!.features;
+    expect(pts).toHaveLength(2);
+    expect(pts[0]).toMatchObject({ phanLoai: 'Điểm độ cao', tenDoiTuong: '7.5', attrs: { caoDo: 7.5 } });
+    expect(pts[1].attrs?.caoDo).toBeUndefined();
+  });
 });
 
 const WORK = 'node_modules/.cache/terrain';

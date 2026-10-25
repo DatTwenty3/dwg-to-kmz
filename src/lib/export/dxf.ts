@@ -22,6 +22,7 @@ import {
   HatchBoundaryPaths,
   HatchPolylineBoundary,
   HatchPredefinedPatterns,
+  LayerFlags,
   LWPolylineFlags,
   TextHorizontalAlignment,
   TextVerticalAlignment,
@@ -35,7 +36,7 @@ import {
   type DxfLayer,
   type MTextAttachmentPoint,
 } from '@tarikjabiri/dxf';
-import type { CadDocument, CadEntity, HAlign, PolygonEntity, TableEntity, TextEntity, VAlign, Vec2 } from '@/lib/cad/types';
+import type { CadDocument, CadEntity, HAlign, LineTypeDef, PolygonEntity, TableEntity, TextEntity, VAlign, Vec2 } from '@/lib/cad/types';
 import { normalizeHex } from './color';
 import { planeMapper, tableGeometry } from './kml';
 
@@ -196,6 +197,49 @@ function patchDxfy(entity: { dxfy(dx: Dxfier): void }, patch: (dx: Dxfier, o: Dx
   };
 }
 
+// ---------------------------------------------------------------- line types of the drawing
+
+/** Characters AutoCAD does not take in a line type name. */
+const BAD_LTYPE_CHARS = /[<>/\\":;?*|=`,\u0000-\u001f\u007f]/g;
+
+/** A line type of the drawing written to the file; the text elements ("110kV" in the gaps) are added afterwards. */
+interface WrittenLineType {
+  name: string;
+  def: LineTypeDef;
+}
+
+const escapeRe = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const STYLE_RECORD = /0\nSTYLE\n5\n([0-9A-F]+)\n330\n[0-9A-F]+\n100\nAcDbSymbolTableRecord\n100\nAcDbTextStyleTableRecord\n2\nVN-ARIAL\n/;
+
+/**
+ * Rewrites the records of the line types that carry text (the library writes dashes and gaps only): the elements of
+ * a complex line type (DXF group 74 = 2: text embedded) with the text style, scale, rotation, offset and string, so
+ * the 110kV / 22kV / 220kV lines keep their labels in the gaps as in the source drawing.
+ */
+function writeTextLineTypes(dxf: string, written: WrittenLineType[], unitScale: number): string {
+  const style = STYLE_RECORD.exec(dxf)?.[1];
+  if (!style) return dxf;
+  let out = dxf;
+  for (const { name, def } of written) {
+    if (!def.elements.some((el) => el.text)) continue;
+    const head = `0\\nLTYPE\\n5\\n[0-9A-F]+\\n330\\n[0-9A-F]+\\n100\\nAcDbSymbolTableRecord\\n100\\nAcDbLinetypeTableRecord\\n2\\n${escapeRe(name)}\\n70\\n0\\n3\\n[^\\n]*\\n72\\n65\\n73\\n`;
+    const re = new RegExp(`(${head})\\d+\\n40\\n[^\\n]*\\n(?:49\\n[^\\n]*\\n74\\n0\\n)+`);
+    const total = def.elements.reduce((t, el) => t + Math.abs(el.length), 0) * unitScale;
+    const body = def.elements
+      .map((el) => {
+        const len = rnd(el.length * unitScale);
+        if (!el.text) return `49\n${len}\n74\n0\n`;
+        // "l" of a symbol font (Wingdings) is a dot: Arial has no such letter, so the black circle takes its place.
+        const text = el.text === 'l' ? '●' : el.text.replace(/[\r\n]+/g, ' ');
+        const off = el.offset ?? [0, 0];
+        return `49\n${len}\n74\n${el.absolute ? 3 : 2}\n75\n0\n340\n${style}\n46\n${rnd((el.textScale ?? 1) * unitScale)}\n50\n${rnd(el.rotation ?? 0)}\n44\n${rnd(off[0] * unitScale)}\n45\n${rnd(off[1] * unitScale)}\n9\n${text}\n`;
+      })
+      .join('');
+    out = out.replace(re, (_m, h: string) => `${h}${def.elements.length}\n40\n${rnd(total)}\n${body}`);
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------- writer
 
 export function toDxf(doc: CadDocument, opts: DxfExportOptions = {}): string {
@@ -224,6 +268,24 @@ export function toDxf(doc: CadDocument, opts: DxfExportOptions = {}): string {
   for (const l of doc.layers) if (l.style && !styleOf.has(l.name)) styleOf.set(l.name, l.style);
   const unitScale = UNIT_PER_METRE[opts.units ?? 'm'] ?? 1;
   let anyWeight = false;
+  // Line types of the entities (doc.lineTypes), registered when first used; names taken by the layer styles are kept apart.
+  const written = new Map<string, WrittenLineType>();
+  const takenNames = new Set<string>(Object.values(DXF_LINETYPES).map((d) => d[0].toUpperCase()));
+  const lineTypeOf = (e: CadEntity): { lineType: string; lineTypeScale?: number } | undefined => {
+    if (e.kind !== 'polyline' || !e.lineType || /^(continuous|bylayer|byblock)$/i.test(e.lineType)) return undefined;
+    const def = doc.lineTypes?.[e.lineType];
+    if (!def || def.elements.length < 2 || !def.elements.some((el) => el.length !== 0)) return undefined;
+    let w1 = written.get(e.lineType);
+    if (!w1) {
+      let name = e.lineType.normalize('NFC').replace(BAD_LTYPE_CHARS, '_').trim().slice(0, 100) || 'LT';
+      while (takenNames.has(name.toUpperCase())) name += '_';
+      takenNames.add(name.toUpperCase());
+      w.tables.addLType(name, name, def.elements.map((el) => rnd(el.length * unitScale)));
+      written.set(e.lineType, (w1 = { name, def }));
+    }
+    const scale = e.lineScale && Number.isFinite(e.lineScale) && e.lineScale > 0 ? rnd(e.lineScale) : undefined;
+    return { lineType: w1.name, ...(scale && scale !== 1 ? { lineTypeScale: scale } : {}) };
+  };
   const applyLayerStyle = (layer: DxfLayer, cadName: string): void => {
     const st = styleOf.get(cadName);
     if (!st) return;
@@ -268,6 +330,8 @@ export function toDxf(doc: CadDocument, opts: DxfExportOptions = {}): string {
     dxfName.set(name, cand);
     const layer = w.addLayer(cand, nearestAci(hex), 'Continuous');
     layer.trueColor = TrueColor.fromHex(hex);
+    // A layer the drawing keeps but hides (the cadastral base of a cleaned plan) is written frozen.
+    if (visible.get(name) === false) layer.flags = LayerFlags.Frozen;
     applyLayerStyle(layer, name);
   }
   if (anyWeight) w.setVariable('$LWDISPLAY', { 290: 1 });
@@ -448,6 +512,7 @@ export function toDxf(doc: CadDocument, opts: DxfExportOptions = {}): string {
           pts.map(([x, y]) => ({ point: point2d(x, y) })),
           {
             ...common(e, layer),
+            ...lineTypeOf(e),
             flags: closed ? LWPolylineFlags.Closed : LWPolylineFlags.None,
             ...(e.width && e.width > 0 && Number.isFinite(e.width) ? { constantWidth: rnd(e.width) } : {}),
           },
@@ -475,5 +540,5 @@ export function toDxf(doc: CadDocument, opts: DxfExportOptions = {}): string {
     w.setVariable('$EXTMIN', { 10: minX, 20: minY, 30: 0 });
     w.setVariable('$EXTMAX', { 10: maxX, 20: maxY, 30: 0 });
   }
-  return w.stringify();
+  return writeTextLineTypes(w.stringify(), [...written.values()], unitScale);
 }

@@ -28,6 +28,8 @@ export * from './roads';
 export * from './roles';
 export * from './section';
 export * from './summary';
+export * from './cleanCad';
+export * from './previewSvg';
 export * from './suggest';
 export * from './sweep';
 export * from './template';
@@ -202,8 +204,8 @@ export function analysisRows(parsed: ParsedDrawing[], a: Pick<Analysis, 'drawing
 /**
  * `section` undefined = choose it (title of the drawings, else the hatch colours); a number or null = the user's choice.
  */
-export function analyzeDrawings(parsed: ParsedDrawing[], section?: number | null): Analysis {
-  const boundary = pickBoundary(parsed.map((p) => findBoundary(p.doc)));
+export function analyzeDrawings(parsed: ParsedDrawing[], section?: number | null, boundaryLayer?: RegExp): Analysis {
+  const boundary = pickBoundary(parsed.map((p) => findBoundary(p.doc, boundaryLayer)));
   const drawings: DrawingInfo[] = [];
   const inside = new Map<string, Uint8Array>();
   // A "định hướng phát triển không gian" map holding the land-use layers of the plan, in a dossier without a land-use map

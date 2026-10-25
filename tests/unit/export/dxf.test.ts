@@ -212,3 +212,28 @@ describe('colour helpers', () => {
     expect(nearestAci('#fe0101')).toBe(1);
   });
 });
+
+describe('line types of the entities', () => {
+  it('writes the line type of a polyline with the text elements in its gaps (110kV lines keep their labels)', () => {
+    const doc: CadDocument = {
+      units: 'm',
+      crs: null,
+      layers: [{ name: 'D', color: '#ff0000', visible: true }],
+      lineTypes: { '110HH': { elements: [{ length: 68.9 }, { length: -2.9, text: '110kV', textScale: 6, offset: [0, -3], rotation: 0 }, { length: -23.1 }] } },
+      entities: [{ kind: 'polyline', layer: 'D', color: '#ff0000', points: [[0, 0], [500, 0]], closed: false, lineType: '110HH', lineScale: 2 }],
+      bbox: [[0, 0], [500, 0]],
+      warnings: [],
+    };
+    const dxf = toDxf(doc, { units: 'm' });
+    const rec = /2\n110HH\n70\n0\n3\n[^\n]*\n72\n65\n73\n3\n40\n([^\n]*)\n([\s\S]*?)\n0\n(?:LTYPE|ENDTAB)/.exec(dxf)!;
+    expect(rec).toBeTruthy();
+    expect(Number(rec[1])).toBeCloseTo(94.9, 3);
+    expect(rec[2]).toMatch(/49\n68\.9\n74\n0\n49\n-2\.9\n74\n2\n75\n0\n340\n[0-9A-F]+\n46\n6\n50\n0\n44\n0\n45\n-3\n9\n110kV\n49\n-23\.1\n74\n0/);
+    // the polyline uses it, at its own scale
+    expect(dxf).toMatch(/LWPOLYLINE[\s\S]*?\n6\n110HH\n48\n2\n/);
+  });
+  it('leaves a line type with no usable pattern continuous', () => {
+    const doc: CadDocument = { units: 'm', crs: null, layers: [{ name: 'D', color: '#ff0000', visible: true }], lineTypes: { X: { elements: [{ length: 0 }] } }, entities: [{ kind: 'polyline', layer: 'D', color: '#ff0000', points: [[0, 0], [5, 0]], closed: false, lineType: 'X' }], bbox: [[0, 0], [5, 0]], warnings: [] };
+    expect(toDxf(doc)).not.toMatch(/\n2\nX\n70\n0\n3/);
+  });
+});

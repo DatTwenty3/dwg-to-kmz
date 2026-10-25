@@ -24,8 +24,8 @@ export interface BoundaryCandidate {
   layer: string;
 }
 
-/** Largest closed outline (≥ 1 ha) on a planning-boundary layer of the drawing. */
-export function findBoundary(doc: CadDocument): BoundaryCandidate | null {
+/** Largest closed outline (≥ 1 ha) on a planning-boundary layer of the drawing (`layerName`: the layer names to look at). */
+export function findBoundary(doc: CadDocument, layerName: RegExp = PLAN_BOUNDARY_LAYER): BoundaryCandidate | null {
   let best: BoundaryCandidate | null = null;
   const consider = (ring: Vec2[], layer: string) => {
     if (ring.length < 3) return;
@@ -34,7 +34,7 @@ export function findBoundary(doc: CadDocument): BoundaryCandidate | null {
   };
   const pieces = new Map<string, Vec2[][]>();
   for (const e of doc.entities) {
-    if (!PLAN_BOUNDARY_LAYER.test(compactName(e.layer))) continue;
+    if (!layerName.test(compactName(e.layer))) continue;
     if (e.kind === 'polyline') {
       if (isClosedLine(e.points, e.closed)) consider(e.points, e.layer);
       else {

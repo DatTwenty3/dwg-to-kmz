@@ -337,6 +337,11 @@ export function suggest(roleId: RoleId, layer: string, kind: GeomKind, facts: La
   // The outline of a symbol that also has its point / hatch (a manhole, a transformer station): the point is the data.
   if (kind === 'L' && /hoga|giengthu|gietthu|dientram|tramdien|^tba|bienap/.test(c)) return none('Nét viền ký hiệu (hố ga, trạm điện…) — đối tượng lấy từ điểm / hatch');
   if (/^(nen)?giaithua$/.test(c)) return none('Nền giải thửa (địa chính) — không thuộc đồ án');
+  // Layers of a cleaned drawing (cleanCad.ts): the outline of the parcels and the footprints of buildings.
+  if (/^nen(diahinh|giaithua)/.test(c)) return none('Nền giải thửa / địa hình của bản vẽ đã chuẩn hóa — không thuộc đồ án');
+  if (/^bvvienthua/.test(c)) return none('Viền thửa/lô của bản vẽ đã chuẩn hóa — vùng đã lấy từ hatch');
+  if (/^ktcq(nha|congtrinh)/.test(c) && (kind === 'A' || (kind === 'L' && (facts.closedShare ?? 0) >= 0.5)))
+    return at({ theme: 'ktcq', cls: 'CongTrinh_A', phanLoai: /bankienco|bkc/.test(c) ? 'Nhà bán kiên cố' : /kienco/.test(c) ? 'Nhà kiên cố' : /tam/.test(c) ? 'Nhà tạm' : 'Nhà, công trình' }, 'Nhà / công trình (layer KTCQ_… của bản vẽ đã chuẩn hóa)');
   if (/nenbetong|kebetong/.test(c)) return none('Sân / nền / kè bê tông (hình khép kín nhỏ) — không phải đường');
 
   if (kind === 'T') {

@@ -84,6 +84,27 @@ const RULES: [RegExp, RoleId][] = [
   [/moi truong|chat thai ran|nghia trang/, 'qh-mt'],
 ];
 
+/**
+ * A title that [guessRole] reads back as this kind of map: written into a cleaned drawing whose own title is missing or
+ * says something else, so the drawing keeps its kind when the web app opens it.
+ */
+export const CANONICAL_TITLE: Partial<Record<RoleId, string>> = {
+  'ht-sdd': 'BẢN ĐỒ HIỆN TRẠNG SỬ DỤNG ĐẤT',
+  'ht-htkt': 'BẢN ĐỒ HIỆN TRẠNG HẠ TẦNG KỸ THUẬT',
+  ranh: 'BẢN ĐỒ RANH GIỚI',
+  'qh-sdd': 'BẢN ĐỒ QUY HOẠCH SỬ DỤNG ĐẤT',
+  'qh-ktcq': 'BẢN ĐỒ ĐỊNH HƯỚNG PHÁT TRIỂN KHÔNG GIAN',
+  'qh-gt': 'BẢN ĐỒ QUY HOẠCH GIAO THÔNG',
+  'qh-dien': 'BẢN ĐỒ QUY HOẠCH CẤP ĐIỆN',
+  'qh-ttll': 'BẢN ĐỒ QUY HOẠCH THÔNG TIN LIÊN LẠC',
+  'qh-nuoc': 'BẢN ĐỒ QUY HOẠCH CẤP NƯỚC',
+  'qh-tn': 'BẢN ĐỒ QUY HOẠCH THOÁT NƯỚC',
+  'qh-cbkt': 'BẢN ĐỒ QUY HOẠCH CHUẨN BỊ KỸ THUẬT',
+  'qh-mt': 'BẢN ĐỒ QUY HOẠCH MÔI TRƯỜNG',
+  nen: 'BẢN ĐỒ NỀN ĐỊA HÌNH',
+  moc: 'BẢN ĐỒ MỐC GIỚI QUY HOẠCH',
+};
+
 /** Title of a map: the text starting with "BẢN ĐỒ" / "SƠ ĐỒ" (the drawing number line is not a title). */
 export function findTitle(texts: string[]): string | null {
   let best: string | null = null;

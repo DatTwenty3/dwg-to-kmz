@@ -295,7 +295,7 @@ function boundary(c: string, kind: GeomKind, facts: LayerFacts): Pick {
     return null;
   }
   if (BOUNDARY_ADMIN.test(c)) {
-    if (kind === 'L' || kind === 'A') return { theme: 'ranh', cls: 'RanhGioiHanhChinh_L', phanLoai: /ap/.test(c) ? 'Ranh giới ấp' : /huyen/.test(c) ? 'Ranh giới huyện' : /tinh/.test(c) ? 'Ranh giới tỉnh' : 'Ranh giới xã' };
+    if (kind === 'L' || kind === 'A') return { theme: 'ranh', cls: 'RanhGioiHanhChinh_L', phanLoai: /capcoso|capxa/.test(c) ? 'Ranh giới xã' : /ranhap|rgap|^ap|ap$/.test(c) ? 'Ranh giới ấp' : /huyen/.test(c) ? 'Ranh giới huyện' : /tinh/.test(c) ? 'Ranh giới tỉnh' : 'Ranh giới xã' };
     if (kind === 'T') return { theme: 'ranh', cls: 'TenDonViHanhChinh_P', phanLoai: 'Tên đơn vị hành chính' };
   }
   return null;

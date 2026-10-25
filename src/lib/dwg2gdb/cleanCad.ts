@@ -139,6 +139,8 @@ function entityBox(e: CadEntity): [number, number, number, number] | null {
 // Layers that are not the plan: the cadastral base, survey remains, plotting leftovers.
 const JUNK_LAYER = /giaithua|ghepmanh|^audit|^ks|spm_?map|defpoints|viewport|^layer\d*$|^(0|1|2|3)$|^kyhieu$|^plin|^pline/;
 // Facility pictograms the planning office drew on purpose (schools, markets…): content, kept apart.
+/** Survey layer of the bridges and culverts ("KS_CAU-CONG"): the only trace of them, so no junk. */
+const SURVEY_BRIDGE = /^kscau/;
 const PICTOGRAM_LAYER = /kyhieucaccongtrinhchucnang|^02kyhieu|^00gtkihieu|^kyhieucongtrinh/;
 const ROADISH_LAYER = /htktgt|giaothong|duongtinh|quoclo|timduong|duongkhuvuc|heduong/;
 /** A route number ("914B") written big enough to be a sign on the map, not a parcel or a survey number. */
@@ -196,7 +198,7 @@ function roadLayer(cls: string, phanLoai: string, layer: string): string {
   if (cls === 'ChiGioiDuongDo_L') return 'HTKT_GT_Heduong';
   if (cls === 'CongTrinhGiaoThong_L' || cls === 'CongTrinhGiaoThong_A' || cls === 'CongTrinhGiaoThong_P') {
     // The material of the bridge ("Cầu bê tông") stays in the layer name, so the phanLoai can be read back.
-    const rest = norm(phanLoai).replace(/^cau\s*/, '').trim();
+    const rest = norm(phanLoai).replace(/^(ks\s*)?cau\s*/, '').trim();
     return rest && rest.length <= 20 ? `HTKT_GT_Cau_${pascalAscii(rest)}` : 'HTKT_GT_Cau';
   }
   const f = norm(phanLoai || prettyLayer(layer));
@@ -261,7 +263,7 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
       }
       if (options.keepBase && /giaithua/.test(c)) return { layer: e.kind === 'text' ? 'NEN_Giaithua_Chu' : 'NEN_Giaithua', color: aciHex(8), why: 'nền giải thửa (địa chính) — giữ làm nền (hiện sẵn, nằm dưới cùng)' };
       if (isRouteSign(e, c)) return { layer: 'HTKT_GT_Kyhieutuyen', why: 'biển số tuyến' };
-      if (JUNK_LAYER.test(c) && !PICTOGRAM_LAYER.test(c)) return { drop: /giaithua/.test(c) ? 'nền giải thửa (địa chính), không thuộc đồ án' : 'layer rác (ký hiệu khảo sát, layer 0/Defpoints, nét thừa)' };
+      if (JUNK_LAYER.test(c) && !PICTOGRAM_LAYER.test(c) && !SURVEY_BRIDGE.test(c)) return { drop: /giaithua/.test(c) ? 'nền giải thửa (địa chính), không thuộc đồ án' : 'layer rác (ký hiệu khảo sát, layer 0/Defpoints, nét thừa)' };
       const key = entityRowKey(d.id, e, d.color);
       const m = key ? mapping.get(key) : undefined;
       const t = m?.target ? parseTarget(m.target) : null;

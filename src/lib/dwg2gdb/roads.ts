@@ -150,6 +150,7 @@ export function roadPhanLoai(compact: string): string | null {
     [/nenbetong/, 'Nền bê tông'],
     [/kebetong/, 'Kè bê tông'],
     [/caubetong/, 'Cầu bê tông'],
+    [/caucong$/, 'Cầu, cống'],
     [/giaothongdinhhuong|giaothongqh/, 'Giao thông quy hoạch'],
     [/htktgtgiaothong$/, 'Mặt đường quy hoạch'],
     [/cau$/, 'Cầu'],

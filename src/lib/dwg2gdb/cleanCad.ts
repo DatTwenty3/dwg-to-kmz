@@ -264,6 +264,9 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
         return { layer: 'BV_Chu_Chucnang', why: 'chữ ghi chú chức năng / diện tích' };
       }
       if (!inside) return { drop: 'ngoài ranh' };
+      // The line type names what the line is: a line drawn with "Ranh giới lập quy hoạch" is the planning boundary, whatever
+      // its layer is called (Đôn Châu: layer "Ranh giới huyện") — it must not become a second, administrative boundary.
+      if (e.kind === 'polyline' && e.closed && /lapquyhoach/.test(compactName(e.lineType ?? ''))) return { layer: 'BV_Rg_lapquyhoach', color: aciHex(1), dash: 'dotted', why: 'ranh lập quy hoạch (theo kiểu nét "Ranh giới lập quy hoạch")' };
 
       if (t) {
         const cls = t.cls;

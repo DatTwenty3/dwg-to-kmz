@@ -37,6 +37,7 @@ import {
   type MTextAttachmentPoint,
 } from '@tarikjabiri/dxf';
 import type { CadDocument, CadEntity, HAlign, LineTypeDef, PolygonEntity, TableEntity, TextEntity, VAlign, Vec2 } from '@/lib/cad/types';
+import { arialDotElement } from '@/lib/cad/lineTypeDots';
 import { normalizeHex } from './color';
 import { planeMapper, tableGeometry } from './kml';
 
@@ -226,11 +227,13 @@ function writeTextLineTypes(dxf: string, written: WrittenLineType[], unitScale: 
     const re = new RegExp(`(${head})\\d+\\n40\\n[^\\n]*\\n(?:49\\n[^\\n]*\\n74\\n0\\n)+`);
     const total = def.elements.reduce((t, el) => t + Math.abs(el.length), 0) * unitScale;
     const body = def.elements
-      .map((el) => {
+      .map((e0) => {
+        // "l" of a symbol font (Wingdings) is a dot: Arial has no such letter, so the black circle takes its place, sized
+        // and shifted so that it stays where the Wingdings one stood (on the line).
+        const el = arialDotElement(e0);
         const len = rnd(el.length * unitScale);
         if (!el.text) return `49\n${len}\n74\n0\n`;
-        // "l" of a symbol font (Wingdings) is a dot: Arial has no such letter, so the black circle takes its place.
-        const text = el.text === 'l' ? '●' : el.text.replace(/[\r\n]+/g, ' ');
+        const text = el.text.replace(/[\r\n]+/g, ' ');
         const off = el.offset ?? [0, 0];
         return `49\n${len}\n74\n${el.absolute ? 3 : 2}\n75\n0\n340\n${style}\n46\n${rnd((el.textScale ?? 1) * unitScale)}\n50\n${rnd(el.rotation ?? 0)}\n44\n${rnd(off[0] * unitScale)}\n45\n${rnd(off[1] * unitScale)}\n9\n${text}\n`;
       })

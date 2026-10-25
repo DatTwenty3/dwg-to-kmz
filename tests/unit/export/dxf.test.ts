@@ -232,6 +232,27 @@ describe('line types of the entities', () => {
     // the polyline uses it, at its own scale
     expect(dxf).toMatch(/LWPOLYLINE[\s\S]*?\n6\n110HH\n48\n2\n/);
   });
+  it('writes the dot letter "l" of a symbol font as the Arial circle, sized and shifted to stay where the circle stood', () => {
+    const doc: CadDocument = {
+      units: 'm',
+      crs: null,
+      layers: [{ name: 'R', color: '#ff0000', visible: true }],
+      lineTypes: { RANH: { elements: [{ length: 1.035, text: 'l', textScale: 1.5, offset: [0, -0.68], rotation: 0 }, { length: 2.465 }] } },
+      entities: [{ kind: 'polyline', layer: 'R', color: '#ff0000', points: [[0, 0], [100, 0]], closed: false, lineType: 'RANH', lineScale: 50 }],
+      bbox: [[0, 0], [100, 0]],
+      warnings: [],
+    };
+    const dxf = toDxf(doc, { units: 'm' });
+    const rec = /2\nRANH\n70\n0\n3\n[^\n]*\n72\n65\n73\n2\n40\n[^\n]*\n([\s\S]*?)\n0\n(?:LTYPE|ENDTAB)/.exec(dxf)!;
+    expect(rec).toBeTruthy();
+    const m = /46\n([^\n]*)\n50\n0\n44\n([^\n]*)\n45\n([^\n]*)\n9\n●/.exec(rec[1])!;
+    expect(m).toBeTruthy();
+    const [h, ox, oy] = [Number(m[1]), Number(m[2]), Number(m[3])];
+    expect(h).toBeCloseTo((1.5 * 0.7) / (881 / 2048), 3); // the circle of the symbol font is 0.7 of its height, Arial's 0.43
+    // the circle's centre is where the symbol font put it: 0.4 / 0.45 of 1.5 from the origin, then the offset
+    expect(ox + (618 / 2048) * h).toBeCloseTo(0.4 * 1.5, 2);
+    expect(oy + (578 / 2048) * h).toBeCloseTo(-0.68 + 0.45 * 1.5, 2);
+  });
   it('leaves a line type with no usable pattern continuous', () => {
     const doc: CadDocument = { units: 'm', crs: null, layers: [{ name: 'D', color: '#ff0000', visible: true }], lineTypes: { X: { elements: [{ length: 0 }] } }, entities: [{ kind: 'polyline', layer: 'D', color: '#ff0000', points: [[0, 0], [5, 0]], closed: false, lineType: 'X' }], bbox: [[0, 0], [5, 0]], warnings: [] };
     expect(toDxf(doc)).not.toMatch(/\n2\nX\n70\n0\n3/);

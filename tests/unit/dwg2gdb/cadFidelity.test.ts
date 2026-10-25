@@ -1,6 +1,7 @@
 // What makes the QGIS project look like the CAD drawing: widths set on the vertices, line types (dashes and the
 // texts inside them), every object inside the area (not only the mapped layers), and the land-use rules around it.
 import { describe, expect, it } from 'vitest';
+import { arialDotElement } from '@/lib/cad/lineTypeDots';
 import { vertexWidth } from '@/lib/cad/normalize/source';
 import type { CadDocument, CadEntity, LineTypeDef, Vec2 } from '@/lib/cad/types';
 import {
@@ -82,6 +83,23 @@ describe('line types', () => {
     expect(west.angle).toBeCloseTo(0);
     expect(west.at[0]).toBeCloseTo(140 - textWidth('AB', 6), 5); // starts 60 m from the start (x = 140), runs west
     expect(west.at[1]).toBeCloseTo(-6); // the text box moved from above the (reversed) frame to below the line
+  });
+  it('a dot letter ("l" of Wingdings or "●" of Arial) is drawn as a circle on the line, the same circle through the DXF', () => {
+    const ranh = { elements: [{ length: 1.035, text: 'l', textScale: 1.5, offset: [0, -0.68] as [number, number], rotation: 0 }, { length: 2.465 }] };
+    const drawn = lineTypeTexts([[0, 0], [100, 0]], false, ranh, 50);
+    expect(drawn[0]).toMatchObject({ dot: 52.5, text: 'l' });
+    // the cleaned drawing writes "●": still a dot, and the circle keeps its size and its place
+    const arial = { elements: ranh.elements.map(arialDotElement) };
+    expect(arial.elements[0].text).toBe('●');
+    const again = lineTypeTexts([[0, 0], [100, 0]], false, arial, 50);
+    expect(again).toHaveLength(drawn.length);
+    expect(again[0].dot).toBeCloseTo(drawn[0].dot!, 6);
+    expect(again[0].at[0]).toBeCloseTo(drawn[0].at[0], 6);
+    expect(again[0].at[1]).toBeCloseTo(drawn[0].at[1], 6);
+    // the circle sits on the line (the pattern lowers the letter so that its centre is on it)
+    expect(Math.abs(drawn[0].at[1])).toBeLessThan(0.1 * 52.5);
+    // a text that is no dot is left alone
+    expect(arialDotElement({ length: -2, text: '110kV', textScale: 6 })).toEqual({ length: -2, text: '110kV', textScale: 6 });
   });
   it('lines carry their dash string and the letters become text features', () => {
     const e: CadEntity = { kind: 'polyline', layer: 'QH_EE-110', color: '#ff0000', points: [[0, 0], [200, 0]], closed: false, width: 2, lineType: '110HH', lineScale: 1 };
@@ -226,11 +244,12 @@ describe('dots of the boundary line type and the signs just outside the area', (
     kind === 'text' ? text('914C', [X0 + x, Y0 + 500], 20, layer) : { kind: 'polyline', layer, color: '#ffffff', points: [[X0 + x, Y0 + 500], [X0 + x + 40, Y0 + 500]], closed: false };
   it('objects within 10 % of the area outside it come in, from the layers of the map and not of the sheet', () => {
     const ring = sq(X0, Y0, 1000); // margin 100 m
-    const d = doc([near('HTKT_GT_Duongtinh', -80), near('HTKT_GT_Duongtinh', -80, 'text'), near('HTKT_GT_Duongtinh', -300), near('BV_Khungten', -80), near('DAT_O', -80)]);
+    // "HTKT_GT_Kyhieutuyen" is where a cleaned drawing keeps the route signs: its "kyhieu" is no sheet symbol
+    const d = doc([near('HTKT_GT_Duongtinh', -80), near('HTKT_GT_Duongtinh', -80, 'text'), near('HTKT_GT_Duongtinh', -300), near('BV_Khungten', -80), near('DAT_O', -80), near('HTKT_GT_Kyhieutuyen', -80, 'text'), near('KYHIEU_Congtrinh', -80)]);
     const flags = new Uint8Array(d.entities.length); // none inside
     const base = { id: 'd1', name: 'QH.dwg', doc: d, inside: flags, role: 'qh-sdd' as const };
     const out = cadSourceDocument([base], new Map(), ring).entities.map((e) => `${e.kind}:${e.layer}`).sort();
-    expect(out.filter((l) => !l.includes('Ranh'))).toEqual(['polyline:QH_DAT_O', 'polyline:QH_HTKT_GT_Duongtinh', 'text:QH_HTKT_GT_Duongtinh']);
+    expect(out.filter((l) => !l.includes('Ranh'))).toEqual(['polyline:QH_DAT_O', 'polyline:QH_HTKT_GT_Duongtinh', 'text:QH_HTKT_GT_Duongtinh', 'text:QH_HTKT_GT_Kyhieutuyen']);
     // what the user deleted on the map does not come back through the margin
     const removed = cadSourceDocument([{ ...base, removed: new Set([0, 1]) }], new Map(), ring).entities.filter((e) => e.layer === 'QH_HTKT_GT_Duongtinh');
     expect(removed).toHaveLength(0);

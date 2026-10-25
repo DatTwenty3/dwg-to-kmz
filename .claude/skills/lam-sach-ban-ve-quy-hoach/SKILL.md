@@ -67,4 +67,7 @@ Xem `references/ban-ve-ban.md` (xref thiếu/lồng/bind, block, text VNI/TCVN3,
 Chỉ hỏi (một lần, gom câu hỏi): thiếu xref; không có đường ranh nào và không thể suy ra; không biết đồ án thuộc xã/phường nào khi tên không có trong bản vẽ; hai bản đồ cùng loại khác năm mà cần chọn; layer có thể là nội dung quy hoạch thật nhưng bạn không đủ căn cứ (kèm đề xuất mặc định của bạn). Mọi thứ khác: tự quyết, ghi vào báo cáo.
 
 ## Giới hạn hiện có
-Không ghi được `.dwg` (chỉ DXF). Ký hiệu SVG Phụ lục I chưa nhúng vào DXF. Hình (SHX shape) và POINT theo PDMODE chưa vẽ. Chữ `l` của font ký hiệu trong kiểu nét đổi thành ●.
+Không ghi được `.dwg` (chỉ DXF). Ký hiệu SVG Phụ lục I chưa nhúng vào DXF. Hình (SHX shape) và POINT theo PDMODE chưa vẽ. Chữ `l` của font ký hiệu trong kiểu nét đổi thành ● (cỡ và độ dời được bù để chấm vẫn nằm đúng giữa đường).
+
+## Sau khi làm sạch: kiểm tra đường sang `.qgz`
+Bản sạch phải ra `.qgz` giống bản gốc: chữ biển số tuyến (911, 914, 914C), chấm ranh quy hoạch nằm trên đường, đường 110kV có chữ. Nếu sửa `cleanCad.ts`/`dxf.ts`, so số liệu `cadLayerData` của bản gốc và bản sạch (số chấm có `kt` > 0, khoảng cách chấm tới ranh, chữ 91x) trước khi bàn giao.

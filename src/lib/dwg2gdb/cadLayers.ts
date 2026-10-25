@@ -3,6 +3,7 @@
 // stations), hatch line families, texts with their height / rotation / alignment — written as GeoPackage layers
 // (<project name>.gpkg, next to the geodatabases and the .qgz of the same name) that qgis.ts draws with data-defined symbology. The land-use hatches
 // stay with the geodatabase layers (Phụ lục I symbols), so they are left out here.
+import { dotGlyph } from '@/lib/cad/lineTypeDots';
 import type { CadDocument, CadEntity, HAlign, LineTypeDef, VAlign, Vec2 } from '@/lib/cad/types';
 import type { NormalizePlan, NormalizeStep } from '@/lib/gdb/normalize';
 import { inkForPaper } from '@/lib/map/cadGrid';
@@ -27,7 +28,7 @@ const SDD_ROLES = new Set<RoleId>(['ht-sdd', 'qh-sdd']);
  * repeat the land use as a background, its hatches and outlines.
  */
 /** Layers that are the sheet (frame, legend, title, scale, notes), never the map: left out of the margin around the area. */
-const SHEET_LAYER = /khung|chugiai|chuthich|logo|hoagio|tyle|thuoc|banve|tieude|dientich|ghichu|kyhieu|bangthongke|mattcat|defpoints|viewport|^bv|^(0|1|2|3)$/;
+const SHEET_LAYER = /khung|chugiai|chuthich|logo|hoagio|tyle|thuoc|banve|tieude|dientich|ghichu|kyhieu(?!tuyen)|bangthongke|mattcat|defpoints|viewport|^bv|^(0|1|2|3)$/;
 
 function entityBox(e: CadEntity): [number, number, number, number] | null {
   const pts: Vec2[] = e.kind === 'polyline' ? e.points : e.kind === 'polygon' ? e.rings.flat() : e.kind === 'table' ? [e.origin] : [e.position];
@@ -159,9 +160,6 @@ export function dashString(def: LineTypeDef, scale: number): string {
   return parts.map((v) => String(Math.round(v * 1000) / 1000)).join(';');
 }
 
-/** A line type element made of this single letter is a dot (symbol font). */
-const DOT_TEXT = 'l';
-
 export interface LineTypeText {
   at: Vec2;
   angle: number;
@@ -211,13 +209,15 @@ export function lineTypeTexts(points: Vec2[], closed: boolean, def: LineTypeDef,
         const height = (el.textScale ?? 1) * scale;
         let at: Vec2 = [a[0] + ux * (u + ox) - uy * oy, a[1] + uy * (u + ox) + ux * oy];
         let angle = el.absolute ? (el.rotation ?? 0) : lineAngle + (el.rotation ?? 0);
-        if (el.text === DOT_TEXT) {
-          // The planning boundary writes its dots as the letter "l" of a symbol font (Wingdings: a black circle). The circle
-          // is about 0.7 of the text height across, its centre 0.4 across and 0.45 above the text origin (the pattern lowers the letter by 0.45 of its height so the circle sits on the line).
+        const glyph = dotGlyph(el.text);
+        if (glyph) {
+          // The planning boundary writes its dots as the letter "l" of a symbol font (Wingdings: a black circle), a cleaned
+          // drawing as "●" of Arial: the circle is drawn where the glyph stands, whatever the font (sizes of the glyph in
+          // `lineTypeDots`; the pattern lowers the letter so that the circle sits on the line).
           const r = (angle * Math.PI) / 180;
-          const d = height * 0.7;
+          const d = height * glyph.d;
           out.push({
-            at: [at[0] + Math.cos(r) * height * 0.4 - Math.sin(r) * height * 0.45, at[1] + Math.sin(r) * height * 0.4 + Math.cos(r) * height * 0.45],
+            at: [at[0] + Math.cos(r) * height * glyph.cx - Math.sin(r) * height * glyph.cy, at[1] + Math.sin(r) * height * glyph.cx + Math.cos(r) * height * glyph.cy],
             angle: 0,
             text: el.text,
             height,

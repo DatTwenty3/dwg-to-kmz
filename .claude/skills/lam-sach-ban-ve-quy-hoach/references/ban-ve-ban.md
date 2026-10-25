@@ -21,3 +21,14 @@
 - Mục "đọc lại bằng web app" ✔: nhận đúng loại bản đồ, ranh, 0 layer chưa nhận ra.
 - Ảnh xem trước: không còn nền xám dày; vùng đất đúng bảng màu; đường, ranh, tên đủ; chữ không chồng nát (chồng nhẹ do bản vẽ gốc thì chấp nhận).
 - Số liệu hợp lý: vài trăm đến vài chục nghìn đối tượng/bản đồ chứ không phải triệu.
+
+## Thêm từ hồ sơ Lưu Nghiệp Anh (bản đồ hiện trạng khảo sát, định hướng, hạ tầng)
+| Tình huống | Dấu hiệu | Xử lý |
+|---|---|---|
+| **Bản đồ hiện trạng là bản đo khảo sát** | 70.000 đối tượng: ký hiệu cây (hatch + nét 25.000), nhãn "CÂY DỪA/RUỘNG LÚA/AO" từng khoanh, cao độ điểm, mồ mả, một hatch xanh phủ cả xã | bỏ ký hiệu cây; **giữ nhãn** (`KS-GHICHU` → `BV_Chu_Chucnang`); cao độ/mồ mả → `NEN_Diahinh_*`; ghi rõ hatch phủ cả xã không phải ranh đất lúa. Chưa chuyển nhãn thành vùng đất từng khoanh |
+| **Bản đồ hạ tầng chỉ vẽ nét** | trạm biến áp = tam giác bằng nét, ranh chỉ có mẫu chú giải | `keep` layer trạm → `HTKT_CD_Trambienap`; công cụ vẽ ranh chung với nét chuẩn |
+| **Bản đồ định hướng không gian khi hồ sơ đã có bản đồ sdd** | đất, đường, kênh trùng bản đồ sdd | bản sạch gần như chỉ còn ranh + chữ + ký hiệu hướng tuyến — đúng thiết kế; báo người dùng, hỏi nếu muốn giữ để xem |
+| **Hai bản sdd khác năm** (2030, 2050) | tên "…nam 2030", "…nam 2050" | chỉ làm sạch bản mới nhất (năm 2050); bản cũ ghi "không đưa vào" |
+| **Ký hiệu hướng tuyến ngay ngoài ranh** | khung chữ L + vòng tròn, "ĐI XÃ …", "ĐI TP CẦN THƠ" | giữ (`KYHIEU_Congtrinh` ⚠), đừng bỏ vì ngoài ranh |
+| **Ranh có chấm tròn lớn** (kiểu nét ký tự Wingdings `l`) | ảnh gốc: đường đỏ liền + chấm | giữ nét gốc; ảnh xem trước phải vẽ chấm — nếu không, người dùng tưởng mất ký hiệu |
+| **Người dùng báo "nét/ranh chưa giống gốc"** | — | tái hiện bằng ảnh cạnh nhau ở đúng chỗ họ nhìn (`so-sanh-voi-ban-goc.md`), tìm khác biệt thật rồi sửa; kiểu nét chỉ so được qua DWG do AutoCAD lưu |

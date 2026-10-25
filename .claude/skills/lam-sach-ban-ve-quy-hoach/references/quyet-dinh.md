@@ -39,3 +39,16 @@ Ví dụ:
 Màu ACI → hex: dùng bảng `tt16-layer-mau.md` (cột ACI) và hàm `aciHex` trong `src/lib/dwg2gdb/color.ts`.
 
 Sau mỗi lần sửa: chạy lại `clean`, xem lại ảnh và mục "Kiểm tra: đọc lại bằng web app". Một quyết định được dùng lại cho mọi bản vẽ trong thư mục nếu không ghi `drawing`.
+
+## Bài học: ranh và nét đường phải giống bản gốc
+- **Đừng `drop` layer ranh** (`BV_Rg_Lapquyhoach`…). Công cụ sẽ tự vẽ lại một ranh đơn giản (mất độ rộng, kiểu nét chấm tròn). Dùng `{"layer": "<layer ranh>", "kind": "polyline", "action": "keep", "to": "BV_Rg_lapquyhoach", "color": "#ff0000"}` để giữ nét gốc; ranh hở < 2 % chiều dài được khép lại, bề rộng và kiểu nét giữ nguyên. Bản đồ không có ranh riêng (chỉ có mẫu trong chú giải) được vẽ ranh theo nét của ranh dài nhất.
+- Viền thửa/lô gom `BV_Vienthua` **giữ màu gốc** (không ép xám) — viền khu công nghiệp tím, viền đất ở nâu chấm… phải giống bản vẽ.
+- Khi người dùng nói "nét chưa giống gốc": đừng đoán — dựng ảnh cạnh nhau (bản gốc | DXF đã **lưu qua AutoCAD sang DWG**, vì `parseDxf` không đọc kiểu nét nên ảnh từ DXF luôn thấy nét liền) ở 2–3 cửa sổ (mép ranh, ngã tư, khu dân cư) rồi so từng lớp.
+
+## Bẫy khi viết quyết định
+- `"drawing"` so với **tên tệp của chính bản vẽ chứa đối tượng**. Đối tượng nằm trong xref (`Xr_ Nen giao thong.dwg`) thì phải ghi `"drawing": "Xr_ Nen giao"`, ghi `"QH07"` sẽ không khớp.
+- Đối tượng **ngoài ranh** bị loại trước khi xét quyết định (trừ chữ biển số tuyến và đường/ký hiệu tuyến nằm sát ranh): `keep` không cứu được chúng.
+- Quyết định đầu tiên khớp thắng (theo thứ tự trong tệp): đặt quyết định cụ thể (`drawing`, `kind`) lên trên quyết định chung.
+- `kind` rất hữu ích: cùng một layer có thể vừa có chữ vừa có nét (`CAU BE TONG`: nét → `HTKT_GT_Cau`, chữ để mặc định).
+- Quyết định `keep` luôn kèm `"why"` cụ thể (nói hình vẽ trông thế nào, không chỉ "theo tên") và `"look": true` khi đoán từ hình vẽ chứ không từ tên/màu chuẩn.
+- Mẫu trọn bộ: `vi-du-quyet-dinh-luu-nghiep-anh.json`.

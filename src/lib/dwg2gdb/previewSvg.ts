@@ -2,6 +2,7 @@
 // Hatches are light fills, lines keep colour, width and the dash pattern of their line type, texts are drawn small.
 // `colorBy: 'layer'` gives every layer its own colour and a legend of the biggest ones — the picture that tells which
 // layer is the cadastral base, which the roads, which a survey remains. Pure: no DOM, no image library.
+import { dotGlyph } from '@/lib/cad/lineTypeDots';
 import type { CadDocument, CadEntity, LineTypeDef, Vec2 } from '@/lib/cad/types';
 
 export interface PreviewOptions {
@@ -47,6 +48,25 @@ function dashArray(def: LineTypeDef | undefined, scale: number, sc: number): str
   return (parts.length % 2 ? [...parts, ...parts] : parts).map((v) => v.toFixed(1)).join(' ');
 }
 
+/**
+ * The round dots a line type writes as a letter (the planning boundary: "l" of Wingdings, "●" once cleaned), in pixels:
+ * where each sits along one pattern period, its diameter and the period. A dash array cannot show them (they are text),
+ * so they are laid as round-capped zero-length dashes of their own.
+ */
+function dotMarks(def: LineTypeDef | undefined, scale: number, sc: number): { at: number; d: number; period: number }[] {
+  if (!def) return [];
+  const period = def.elements.reduce((t, el) => t + Math.abs(el.length), 0) * scale * sc;
+  if (!(period >= 2.5) || period > 4000) return [];
+  const marks: { at: number; d: number; period: number }[] = [];
+  let s = 0;
+  for (const el of def.elements) {
+    const g = el.text ? dotGlyph(el.text) : null;
+    if (g && el.textScale) marks.push({ at: (s + (el.offset?.[0] ?? 0) + g.cx * el.textScale) * scale * sc, d: Math.max(2, g.d * el.textScale * scale * sc), period });
+    s += Math.abs(el.length);
+  }
+  return marks;
+}
+
 export function previewSvg(doc: CadDocument, o: PreviewOptions = {}): { svg: string; legend: PreviewLegendItem[]; height: number } {
   const px = o.px ?? 2400;
   const [x0, y0, x1, y1] = o.box ?? [doc.bbox[0][0], doc.bbox[0][1], doc.bbox[1][0], doc.bbox[1][1]];
@@ -85,6 +105,9 @@ export function previewSvg(doc: CadDocument, o: PreviewOptions = {}): { svg: str
     const d = e.points.map((p, k) => `${k ? 'L' : 'M'}${X(p[0])},${Y(p[1])}`).join('') + (e.closed ? 'Z' : '');
     const dash = e.lineType ? dashArray(doc.lineTypes?.[e.lineType], e.lineScale ?? 1, sc) : undefined;
     out.push(`<path d="${d}" fill="none" stroke="${pick(e)}" stroke-width="${Math.max(0.8, (e.width ?? 0) * sc).toFixed(1)}"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`);
+    if (e.lineType)
+      for (const m of dotMarks(doc.lineTypes?.[e.lineType], e.lineScale ?? 1, sc))
+        out.push(`<path d="${d}" fill="none" stroke="${pick(e)}" stroke-width="${m.d.toFixed(1)}" stroke-linecap="round" stroke-dasharray="0.01 ${(m.period - 0.01).toFixed(2)}" stroke-dashoffset="${(-m.at).toFixed(2)}"/>`);
   }
   if (o.texts !== false)
     for (const i of keep) {

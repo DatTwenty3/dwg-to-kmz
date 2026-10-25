@@ -282,7 +282,7 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
             return { layer: sym.layer, color: sym.aci !== null ? aciHex(sym.aci) : undefined, why: `vùng ${sym.label}${sym.aci !== null ? ` — màu ${sym.aci}` : ''}` };
           }
           if (e.kind === 'polyline' && (e.width ?? 0) > 0) return { layer: roadLayer('', '', e.layer), why: 'nét có độ rộng — là đường, không phải thửa' };
-          return { layer: 'BV_Vienthua', color: aciHex(8), why: 'viền thửa/lô (vùng đã có hatch)' };
+          return { layer: 'BV_Vienthua', why: 'viền thửa/lô (vùng đã có hatch)' };
         }
         if (/^RanhGioiQuyHoach/.test(cls)) return { layer: 'BV_Rg_lapquyhoach', color: aciHex(1), dash: 'dotted', why: 'ranh lập quy hoạch (Phụ lục I)' };
         if (/^RanhGioiHanhChinh/.test(cls)) return { layer: 'BV_Rg_capcoso', color: aciHex(14), why: 'ranh hành chính → ranh cấp cơ sở (Phụ lục I)', look: true };
@@ -306,7 +306,7 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
       if (e.kind === 'polyline' && /logioi|chigioi/.test(c)) return { layer: 'HTKT_GT_Logioi', why: 'lộ giới / chỉ giới đường' };
       if (/^bvrgcapxa|^bvrgcap/.test(c) && e.kind === 'polyline') return { layer: 'BV_Rg_capcoso', color: aciHex(14), why: 'ranh xã (Phụ lục I)' };
       if (e.kind === 'polyline' && /^tenkenh/.test(c)) return { layer: 'BV_Kenh_Rach', why: 'tuyến kênh, rạch', look: true };
-      if (e.kind === 'polyline' && /Đường viền thửa/.test(m?.reason ?? '')) return { layer: 'BV_Vienthua', color: aciHex(8), why: 'viền thửa/lô (vùng đã có hatch)' };
+      if (e.kind === 'polyline' && /Đường viền thửa/.test(m?.reason ?? '')) return { layer: 'BV_Vienthua', why: 'viền thửa/lô (vùng đã có hatch)' };
       if (PICTOGRAM_LAYER.test(c)) return { layer: 'KYHIEU_Congtrinh', why: 'ký hiệu công trình chức năng', look: true };
       if (m?.unknown) {
         if (ROADISH_LAYER.test(c)) return { layer: roadLayer('', '', e.layer), why: 'ký hiệu / nét trên layer đường', look: true };
@@ -362,10 +362,27 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
       note(d, e, dec.layer, dec.why, true, dec.look);
     });
   }
+  // A boundary drawn as an open line whose ends nearly meet (gap < 2 % of its length — a drafting slip) is closed, so it
+  // reads as the planning area (Phụ lục I: RanhGioiQuyHoach_A). Width and line type stay exactly as drawn.
+  entities.forEach((e, i) => {
+    if (e.layer !== 'BV_Rg_lapquyhoach' || e.kind !== 'polyline' || e.closed || e.points.length < 10) return;
+    let len = 0;
+    for (let k = 1; k < e.points.length; k++) len += Math.hypot(e.points[k][0] - e.points[k - 1][0], e.points[k][1] - e.points[k - 1][1]);
+    const f = e.points[0];
+    const l = e.points[e.points.length - 1];
+    if (Math.hypot(f[0] - l[0], f[1] - l[1]) < 0.02 * len) entities[i] = { ...e, closed: true };
+  });
   if (boundary && ![...layers.keys()].includes('BV_Rg_lapquyhoach')) {
     layers.set('BV_Rg_lapquyhoach', { name: 'BV_Rg_lapquyhoach', color: aciHex(1), visible: true, style: { dash: 'dotted' } });
     const ranh = 'QH_Ranh giới lập quy hoạch';
-    entities.push({ kind: 'polyline', layer: 'BV_Rg_lapquyhoach', color: aciHex(1), points: boundary, closed: true, ...(lineTypes[ranh] ? { lineType: ranh, lineScale: 1 } : {}) });
+    // Same look as the office's own boundary line (width, pattern scale): taken from the longest line of that type in the
+    // drawings — maps without a boundary of their own only carry the legend sample (2 points, other scale), so those fall back to 50.
+    let sample: { width?: number; lineScale?: number; n: number } | undefined;
+    for (const d of drawings)
+      for (const e of d.doc.entities)
+        if (e.kind === 'polyline' && e.lineType === ranh && (!sample || e.points.length > sample.n)) sample = { width: e.width, lineScale: e.lineScale, n: e.points.length };
+    const ranhScale = sample && sample.n >= 10 && sample.lineScale ? sample.lineScale : 50;
+    entities.push({ kind: 'polyline', layer: 'BV_Rg_lapquyhoach', color: aciHex(1), points: boundary, closed: true, ...(sample?.width ? { width: sample.width } : {}), ...(lineTypes[ranh] ? { lineType: ranh, lineScale: ranhScale } : {}) });
   }
   // The base is drawn first: AutoCAD draws the entities in file order, so the plan lies on top of it.
   entities.sort((x, y) => Number(y.layer.startsWith('NEN_')) - Number(x.layer.startsWith('NEN_')));

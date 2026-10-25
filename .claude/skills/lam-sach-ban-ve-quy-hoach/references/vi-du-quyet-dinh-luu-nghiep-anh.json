@@ -1,0 +1,26 @@
+{
+  "overrides": [
+    { "drawing": "QH02", "layer": "KS-GHICHU", "kind": "text", "action": "keep", "to": "BV_Chu_Chucnang", "why": "ghi chú hiện trạng theo từng khoanh đất (CÂY DỪA, RUỘNG LÚA, CÂY MÍA, AO…, tên đường/cầu/công trình) — là nội dung phân loại hiện trạng, không phải rác khảo sát", "look": true },
+    { "layer": "CAODO", "action": "keep", "to": "NEN_Diahinh_Caodo", "why": "điểm cao độ đo đạc — nền địa hình (hiện sẵn, nằm dưới)" },
+    { "layer": "MO_MA", "action": "keep", "to": "NEN_Diahinh_Moma", "why": "ký hiệu mồ mả (hình vòm có gạch chân) — nền đo đạc, không phải viền thửa", "look": true },
+    { "layer": "KH", "action": "keep", "to": "NEN_Diahinh_Kh", "why": "mảnh nhỏ rời rạc (hatch/nét vài mét) — chi tiết đo đạc, không phải loại đất", "look": true },
+    { "layer": "SONG_HO", "action": "keep", "to": "NEN_Diahinh_Songho", "why": "mép bờ sông/kênh (đường xanh dọc kênh) — nền đo đạc, không phải viền thửa" },
+    { "layer": "ranh_thuc_vat", "action": "keep", "to": "NEN_Diahinh_Ranhthucvat", "why": "ranh thực vật — nền đo đạc" },
+    { "drawing": "QH03", "layer": "MUONG AO", "action": "keep", "to": "NEN_Diahinh_Muongao", "why": "đường bờ ao/mương hiện trạng — nền địa hình, không phải tuyến thoát nước mưa" },
+    { "drawing": "QH02", "layer": "DUONG_DIEN", "action": "keep", "to": "HTKT_CD_Duongday", "why": "ký hiệu cột điện + hướng đường dây (hạ/trung thế) — chưa rõ cấp điện áp", "look": true },
+    { "drawing": "QH02", "layer": "CAU BE TONG", "kind": "polyline", "action": "keep", "to": "HTKT_GT_Cau", "why": "cầu bê tông" },
+    { "layer": "-0-gt-cau", "action": "keep", "to": "HTKT_GT_Cau", "why": "cầu Đại Ngãi (hai nét song song có vạch ngang)" },
+    { "layer": "TRU PHAT SONG", "action": "keep", "to": "HTKT_TTLL_Ghichu", "why": "ghi chú trụ phát sóng" },
+    { "layer": "DAT_Tronglua", "action": "keep", "to": "DAT_NNK_Tronglua", "color": "#00ff00", "why": "một vùng tô xanh phủ toàn xã làm nền hiện trạng (không phải ranh đất lúa thật; loại đất cụ thể nằm ở nhãn KS-GHICHU)", "look": true },
+    { "layer": "/^Level (10|35|44)$/i", "action": "drop", "why": "đoạn nét ngắn rời rạc (DGN level), không thuộc nội dung quy hoạch" },
+    { "layer": "K.WS-Pipe", "action": "drop", "why": "ký hiệu nhỏ lạc (vài đối tượng) — không có hình tuyến ống thật" },
+    { "layer": "BV_Rg_Lapquyhoach", "kind": "polyline", "action": "keep", "to": "BV_Rg_lapquyhoach", "color": "#ff0000", "why": "ranh lập quy hoạch giữ nguyên nét vẽ gốc (rộng 5 m, kiểu nét chấm tròn, hở 128 m như bản gốc)" },
+    { "drawing": "QH07", "layer": "GIAO THONG", "kind": "polygon", "action": "keep", "to": "HTKT_GT_Giaothong", "why": "dải mặt đường quy hoạch (hatch trắng) — là nội dung của bản đồ giao thông" },
+    { "drawing": "Xr_ Nen giao", "layer": "GIAO THONG", "kind": "polygon", "action": "keep", "to": "HTKT_GT_Giaothong", "why": "dải mặt đường quy hoạch (hatch trắng) — là nội dung của bản đồ giao thông" },
+    { "drawing": "QH04", "layer": "kh UBND", "action": "drop", "why": "đất đã có ở bản đồ sử dụng đất" },
+    { "drawing": "Xr_ Nen giao", "layer": "kh UBND", "action": "drop", "why": "đất đã có ở bản đồ sử dụng đất (nằm trong xref nền giao thông của QH07)" },
+    { "drawing": "QH08", "layer": "tt", "kind": "polyline", "action": "keep", "to": "HTKT_CD_Duongday22kV", "why": "kiểu nét DDXDM22kv = đường dây trung thế 22 kV xây dựng mới (giữ nguyên kiểu nét có chữ)" },
+    { "drawing": "QH08", "layer": "tram bien ap", "action": "keep", "to": "HTKT_CD_Trambienap", "why": "ký hiệu tam giác = trạm biến áp (vẽ bằng nét, không có điểm/hatch riêng)" },
+    { "drawing": "QH10", "layer": "THOAT NUOC MUA", "action": "drop", "why": "tuyến thoát nước mưa lặp lại ở bản đồ cấp nước — không thuộc cấp nước" }
+  ]
+}

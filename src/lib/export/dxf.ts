@@ -233,7 +233,8 @@ function writeTextLineTypes(dxf: string, written: WrittenLineType[], unitScale: 
         const el = arialDotElement(e0);
         const len = rnd(el.length * unitScale);
         if (!el.text) return `49\n${len}\n74\n0\n`;
-        const text = el.text.replace(/[\r\n]+/g, ' ');
+        // A caret starts a control-character code in a DXF string ("^J"): a literal one is written "^ " (AutoCAD refuses a lone "^").
+        const text = el.text.replace(/[\r\n]+/g, ' ').replace(/\^/g, '^ ');
         const off = el.offset ?? [0, 0];
         return `49\n${len}\n74\n${el.absolute ? 3 : 2}\n75\n0\n340\n${style}\n46\n${rnd((el.textScale ?? 1) * unitScale)}\n50\n${rnd(el.rotation ?? 0)}\n44\n${rnd(off[0] * unitScale)}\n45\n${rnd(off[1] * unitScale)}\n9\n${text}\n`;
       })

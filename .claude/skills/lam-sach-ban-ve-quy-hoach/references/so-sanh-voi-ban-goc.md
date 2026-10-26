@@ -50,3 +50,13 @@ Công cụ `cleanCad.test.ts` (bước `clean`) tự sinh cho mỗi bản đồ 
 4. Ảnh dựng từ DXF trong bộ nhớ (có LTYPE nên thấy nét đứt, chấm ranh) — khác với ảnh dựng từ file DXF đọc lại (nét liền).
 
 Ảnh là bước nhìn **tổng thể**; vẫn phải phóng to 3–4 cửa sổ (`CMP_MODE=side`) cho nét, ranh, đường như mục trên.
+
+## Bài kiểm "đưa sang .qgz" (bắt buộc khi sửa cách giữ nét/chữ/ký hiệu)
+Bản sạch là đầu vào của web app → HoSoGIS + `.qgz`. Chạy cả chuỗi trên thư mục sạch rồi mở bằng QGIS thật:
+```bash
+FOLDER_ROOT="dwg_to_gdb_sach/<hồ sơ>" npx vitest run tests/unit/dwg2gdb/folder.test.ts   # → node_modules/.cache/dwg2gdb/ (gdb, .gpkg, .qgs)
+```
+(1 test "recognises every map" còn kỳ vọng hồ sơ cũ — bỏ qua, 4 test còn lại phải đạt.) Gom `HoSoGIS/` = 4 `*.gdb` (đổi tên `out_X.gdb` → `X.gdb`) + `.qgs` + `.gpkg` cùng tên, rồi PyQGIS (`E:\2. software\QGIS 4.2.1\bin\python-qgis.bat`): đọc project (CRS hợp lệ, 0 lớp lỗi) và vẽ các cửa sổ — nhãn cao tốc, ký hiệu trạm/bưu điện, ranh. Đạt khi: hệ tọa độ đúng (EPSG:9209 với KTT 105°30'), tên đường hiện, ký hiệu hiện (nhóm "Bản vẽ CAD"), ranh có chấm. Ảnh QGIS khác ảnh `previewSvg` ở màu/nền — chỉ cần có đủ thành phần.
+
+## Sau mỗi lần sửa quy tắc chạy lại **cả ba hồ sơ mẫu**
+`cleanCad.test.ts` (clean) + `cleanGate.test.ts` cho Long Hiệp, Lưu Nghiệp Anh, Đôn Châu. Quy tắc mới từng làm hỏng hồ sơ khác (nhãn "QL60" chỉ có ở Lưu Nghiệp Anh; quy tắc "chữ dọc đường" lúc đầu giữ cả chú giải "ĐƯỜNG ỐNG CẤP NƯỚC"). Cổng có `chữ tên đường` / `chữ biển số` / `chấm ranh` — bản sạch không được ít hơn bản gốc.

@@ -86,3 +86,53 @@ describe('decisions (overrides)', () => {
     expect(r.doc.entities[0]).toMatchObject({ lineType: 'QH_Ranh giới lập quy hoạch', lineScale: 50 });
   });
 });
+
+describe('symbols, road names and sign frames (Long Hiệp)', () => {
+  const doc = (entities: CadEntity[]): CadDocument => ({ units: 'm', crs: null, layers: [], entities, bbox: [[0, 0], [1000, 1000]], warnings: [] });
+  const ring: [number, number][] = [[0, 0], [1000, 0], [1000, 1000], [0, 1000]];
+  const road = (layer: string, x0: number, x1: number): CadEntity => ({ kind: 'polyline', layer, color: '#ffffff', points: [[x0, 500], [x1, 500]], closed: false });
+  const text = (t: string, x: number, y: number, rotation: number, layer = 'TEXT'): CadEntity => ({ kind: 'text', layer, color: '#ffffff', text: t, position: [x, y], height: 5, rotation, hAlign: 'left', vAlign: 'baseline' });
+  const roadMap = new Map([[rowKey('a', 'HTKT_GT_Duongtinh', 'L'), { target: 'QuyHoach/QuyHoachGiaoThong/MangLuoiGiaoThongDuongBo_L', phanLoai: 'Đường tỉnh' }]]);
+  const input = (d: CadDocument, inside: number[], role: 'qh-gt' | 'qh-ttll' = 'qh-gt') => ({ id: 'a', name: 'QH.dwg', doc: d, inside: Uint8Array.from(inside), role });
+
+  it('keeps the name of a road that leaves the area when it runs along the kept road, not a label that stands alone or across', () => {
+    const d = doc([road('HTKT_GT_Duongtinh', 900, 1090), text('CAO TỐC TRÀ VINH - HỒNG NGỰ', 1010, 508, 0), text('HƯỚNG ĐI XÃ NHỊ TRƯỜNG', 1010, 560, 0), text('ĐƯỜNG NGANG', 1010, 508, 90)]);
+    const r = cleanDocument([input(d, [1, 0, 0, 0])], roadMap, ring);
+    const names = r.doc.entities.filter((e) => e.kind === 'text').map((e) => (e as { text: string }).text);
+    expect(names).toEqual(['CAO TỐC TRÀ VINH - HỒNG NGỰ']);
+    expect(r.doc.entities.find((e) => e.kind === 'text')).toMatchObject({ layer: 'HTKT_GT_Tenduong' });
+  });
+
+  it('keeps the outline of a transformer station symbol (its hatch is the data) on a layer of pictograms', () => {
+    const outline: CadEntity = { kind: 'polyline', layer: 'dien tram', color: '#ff0000', points: [[10, 10], [20, 10], [20, 20], [10, 20]], closed: true };
+    const m = new Map([[rowKey('a', 'dien tram', 'L'), { target: null, phanLoai: '', reason: 'Nét viền ký hiệu (hố ga, trạm điện…) — đối tượng lấy từ điểm / hatch' }]]);
+    const r = cleanDocument([input(doc([outline]), [1])], m, ring);
+    expect(r.doc.entities.map((e) => e.layer).filter((l) => l !== 'BV_Rg_lapquyhoach')).toEqual(['KYHIEU_Congtrinh_Trambienap']);
+  });
+
+  it('a pictogram left on an AUDIT layer is content: drawn as it was, one point for the whole symbol', () => {
+    const sq = (x: number): CadEntity[] => [
+      { kind: 'polygon', layer: 'AUDIT_D_0412', color: '#00cc99', fillOpacity: 0.4, rings: [[[x, 100], [x + 10, 100], [x + 10, 110], [x, 110]]] },
+      { kind: 'polyline', layer: 'AUDIT_D_0412', color: '#00cc99', points: [[x, 100], [x + 10, 110]], closed: false },
+    ];
+    const d = doc([...sq(100), ...sq(300)]);
+    const r = cleanDocument([input(d, [1, 1, 1, 1], 'qh-ttll')], new Map(), ring);
+    expect(r.doc.entities.filter((e) => e.layer === 'KYHIEU_Congtrinh_TTLL')).toHaveLength(4);
+    const points = r.doc.entities.filter((e) => e.kind === 'point');
+    expect(points).toHaveLength(2);
+    expect(points[0]).toMatchObject({ layer: 'HTKT_TTLL_Congtrinh', position: [105, 105] });
+  });
+
+  it('the diamond round a route number is kept beside the number', () => {
+    const frame: CadEntity = { kind: 'polyline', layer: '0', color: '#0000ff', points: [[100, 100], [110, 110], [100, 120], [90, 110]], closed: true };
+    const r = cleanDocument([input(doc([frame, text('914C', 100, 108, 0)]), [1, 1])], new Map(), ring);
+    expect(r.doc.entities.map((e) => e.layer).filter((l) => l !== 'BV_Rg_lapquyhoach').sort()).toEqual(['HTKT_GT_Kyhieutuyen', 'KYHIEU_Congtrinh_Bienso']);
+  });
+  it('a diamond of 266 m on the layer KYHIEU (Long Hiệp) is kept too, a parcel that merely contains a sign off-centre is not', () => {
+    const diamond = (cx: number, cy: number, r: number): CadEntity => ({ kind: 'polyline', layer: 'KYHIEU', color: '#ffffff', points: [[cx - r, cy], [cx, cy + r], [cx + r, cy], [cx, cy - r]], closed: true });
+    const big = cleanDocument([input(doc([diamond(500, 500, 133), text('915C', 500, 480, 0, 'TEXT')]), [1, 1])], new Map(), ring);
+    expect(big.doc.entities.filter((e) => e.layer === 'KYHIEU_Congtrinh_Bienso')).toHaveLength(1);
+    const off = cleanDocument([input(doc([diamond(500, 500, 133), text('915C', 600, 500, 0, 'TEXT')]), [1, 1])], new Map(), ring);
+    expect(off.doc.entities.filter((e) => e.layer === 'KYHIEU_Congtrinh_Bienso')).toHaveLength(0);
+  });
+});

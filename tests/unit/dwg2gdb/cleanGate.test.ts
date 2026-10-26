@@ -42,8 +42,11 @@ async function summarize(root: string) {
   const pts = (JSON.parse(data.json.points ?? '{"features":[]}').features as { properties: { kt: number } }[]).filter((f) => f.properties.kt > 0).length;
   const txt = JSON.parse(data.json.texts ?? '{"features":[]}').features as { properties: { chu: string } }[];
   const signs = txt.filter((f) => /^\d{3}[A-Z]?$/.test(f.properties.chu.trim())).length;
+  // Names of the highways (Cao tốc…, Quốc lộ, QL.91): they stand beside roads that leave the area, where the cleaner keeps them. (Street names
+  // "Đường N3" are not counted: the legend of the other maps repeats "Đường giao thông…", which the clean drawing rightly leaves out.)
+  const names = txt.filter((f) => /^(cao toc|quoc lo|tinh lo|huong lo|(ql|dt)\.? ?\d)/i.test(f.properties.chu.trim().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd'))).length;
   const unknown = [...mapping].filter(([, v]) => (v as { unknown?: boolean }).unknown).map(([k]) => k.replace(/\u0001/g, ' · '));
-  return { classes, dots: pts, signs, unknown, boundary: a.boundary?.ring?.length ?? 0 };
+  return { classes, dots: pts, signs, names, unknown, boundary: a.boundary?.ring?.length ?? 0 };
 }
 
 const MUST = /GiaoThong|CapDien|CapNuoc|ThoatNuoc|ThongTin|RanhGioi|TenDonViHanhChinh|ChiGioiDuongDo/;
@@ -51,7 +54,7 @@ const MUST = /GiaoThong|CapDien|CapNuoc|ThoatNuoc|ThongTin|RanhGioi|TenDonViHanh
 describe.skipIf(!RAW || !CLEAN || !existsSync(RAW) || !existsSync(CLEAN))('Cổng kiểm tra bản vẽ sạch', () => {
   it(`${CLEAN} đọc lại giống ${RAW}`, { timeout: 3_600_000 }, async () => {
     const [raw, clean] = [await summarize(RAW), await summarize(CLEAN)];
-    const lines: string[] = [`chấm ranh: gốc ${raw.dots} · sạch ${clean.dots}`, `chữ biển số: gốc ${raw.signs} · sạch ${clean.signs}`, `layer chưa nhận ra (sạch): ${clean.unknown.length}`];
+    const lines: string[] = [`chấm ranh: gốc ${raw.dots} · sạch ${clean.dots}`, `chữ biển số: gốc ${raw.signs} · sạch ${clean.signs}`, `chữ tên đường: gốc ${raw.names} · sạch ${clean.names}`, `layer chưa nhận ra (sạch): ${clean.unknown.length}`];
     const bad: string[] = [];
     const acceptFile = join(CLEAN, 'chap-nhan-lech.json');
     const accepted: Record<string, string> = existsSync(acceptFile) ? JSON.parse(readFileSync(acceptFile, 'utf8')) : {};
@@ -71,6 +74,7 @@ describe.skipIf(!RAW || !CLEAN || !existsSync(RAW) || !existsSync(CLEAN))('Cổn
     expect(clean.unknown, 'layer chưa nhận ra').toEqual([]);
     expect(clean.dots).toBeGreaterThanOrEqual(raw.dots - 1);
     expect(clean.signs).toBeGreaterThanOrEqual(raw.signs);
+    expect(clean.names, 'chữ tên đường không ít hơn bản gốc').toBeGreaterThanOrEqual(raw.names);
     expect(bad, 'lớp bắt buộc khớp bản gốc').toEqual([]);
   });
 });

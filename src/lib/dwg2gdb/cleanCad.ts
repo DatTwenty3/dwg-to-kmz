@@ -149,10 +149,62 @@ const SIGN_MIN_HEIGHT = 20;
  * The number of a route (911, 914C, 915) standing at the end of a road: on a road layer, on a layer called "TEXT", or on any
  * layer (Lưu Nghiệp Anh draws its signs on layer "0", which is otherwise junk) when the text is as big as a sign.
  */
+/** "QL60", "ĐT.911", "HL25" written big on the map (Lưu Nghiệp Anh: layer 0, 60 m high): the label of a highway, a sign like a route number. */
+const HIGHWAY_LABEL = /^(ql|dt|dh|hl|tl)\.? ?\d{1,3}[a-z]?$/;
 const isRouteSign = (e: CadEntity, c: string): boolean =>
-  e.kind === 'text' && !!parseRouteSign(e.text, null) && !/giaithua/.test(c) && (ROADISH_LAYER.test(c) || /text/.test(c) || e.height >= SIGN_MIN_HEIGHT);
+  e.kind === 'text' && !/giaithua/.test(c) && ((!!parseRouteSign(e.text, null) && (ROADISH_LAYER.test(c) || /text/.test(c) || e.height >= SIGN_MIN_HEIGHT)) || (e.height >= SIGN_MIN_HEIGHT && HIGHWAY_LABEL.test(norm(e.text))));
 const ADMIN_NAME = /^(xa|x\.|phuong|p\.|thi tran|ap|khom|thon|ban|to dan pho|khu pho)\s/;
-const ROAD_NAME = /^(duong|tuyen so|dt\.|ql\.)\s?/;
+const ROAD_NAME = /^(duong|tuyen so|dt\.|ql\.|cao toc|quoc lo|tinh lo|huong lo)\s?/;
+/** The outline of a symbol that also has its own hatch (manhole, transformer station): the hatch is the data, the outline is the picture. */
+const SYMBOL_OUTLINE = /hoga|giengthu|gietthu|dientram|tramdien|^tba|bienap/;
+
+interface RoadLine {
+  pts: readonly Vec2[];
+  box: [number, number, number, number];
+  /** Half the width of the road line (a 60 m expressway drawn as one wide line). */
+  hw: number;
+}
+
+/**
+ * A text written along a road: near it (within 4 × the text height, 25 m at least, beside the edge of the road) and parallel to it (within 30°).
+ * Outside the area such names (the expressway, the provincial road leaving the commune) are kept, labels that stand alone are not.
+ */
+function alongRoad(e: Extract<CadEntity, { kind: 'text' }>, roads: readonly RoadLine[]): boolean {
+  const base = Math.max(25, 4 * e.height);
+  const [px, py] = e.position;
+  for (const r of roads) {
+    const reach = base + r.hw;
+    const b = r.box;
+    if (px < b[0] - reach || px > b[2] + reach || py < b[1] - reach || py > b[3] + reach) continue;
+    for (let k = 1; k < r.pts.length; k++) {
+      const [ax, ay] = r.pts[k - 1];
+      const [bx, by] = r.pts[k];
+      const dx = bx - ax;
+      const dy = by - ay;
+      const l2 = dx * dx + dy * dy;
+      if (l2 === 0) continue;
+      const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / l2));
+      if (Math.hypot(px - (ax + t * dx), py - (ay + t * dy)) > reach) continue;
+      const d = (((e.rotation - (Math.atan2(dy, dx) * 180) / Math.PI) % 180) + 180) % 180;
+      if (Math.min(d, 180 - d) <= 30) return true;
+    }
+  }
+  return false;
+}
+
+/** The small diamond / frame drawn round a route number (914C): a closed line of a few vertices with a sign inside. */
+function frameOfSign(e: CadEntity, signs: readonly Vec2[]): boolean {
+  if (e.kind !== 'polyline' || !e.closed || e.points.length > 8 || !signs.length) return false;
+  const b = entityBox(e);
+  if (!b) return false;
+  const w = b[2] - b[0];
+  const h = b[3] - b[1];
+  // Long Hiệp: the diamond is 266 m across (a 188 m square turned 45°) on layer KYHIEU, the number 60 m high at its centre.
+  if (Math.max(w, h) > 400 || Math.min(w, h) < 20) return false;
+  const cx = (b[0] + b[2]) / 2;
+  const cy = (b[1] + b[3]) / 2;
+  return signs.some((q) => Math.abs(q[0] - cx) <= 0.3 * w && Math.abs(q[1] - cy) <= 0.3 * h);
+}
 
 /** "22 kV", "EE-22", "Dien cao the 110KV" → "22" / "110" ('' when the name says no voltage). */
 function voltage(raw: string): string {
@@ -225,6 +277,10 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
   const totals = { read: 0, kept: 0, outside: 0 };
   const baseLimit = options.baseLimit ?? 250_000;
   let baseKept = 0;
+  const roads: RoadLine[] = [];
+  const signs: Vec2[] = [];
+  const auditBoxes: { d: CleanDrawing; prefix: string; box: [number, number, number, number] }[] = [];
+  for (const d of drawings) for (const e of d.doc.entities) if (e.kind === 'text' && isRouteSign(e, compactName(e.layer))) signs.push(e.position);
 
   const note = (d: CleanDrawing, e: CadEntity, to: string | null, why: string, kept: boolean, look?: boolean) => {
     const k = `${d.name}\u0001${e.layer}\u0001${to ?? ''}\u0001${why}`;
@@ -234,6 +290,8 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
     else l.dropped++;
   };
 
+  // Two passes: every line first (the roads), then the texts — a name outside the area is kept when it runs along a kept road.
+  const passes: ((textPass: boolean) => void)[] = [];
   for (const d of drawings) {
     const db = roleById(d.role).db && (d.db ?? roleById(d.role).db);
     if (!db) continue;
@@ -263,6 +321,9 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
       }
       if (options.keepBase && /giaithua/.test(c)) return { layer: e.kind === 'text' ? 'NEN_Giaithua_Chu' : 'NEN_Giaithua', color: aciHex(8), why: 'nền giải thửa (địa chính) — giữ làm nền (hiện sẵn, nằm dưới cùng)' };
       if (isRouteSign(e, c)) return { layer: 'HTKT_GT_Kyhieutuyen', why: 'biển số tuyến' };
+      if (frameOfSign(e, signs)) return { layer: 'KYHIEU_Congtrinh_Bienso', why: 'khung hình thoi của biển số tuyến — giữ cho giống bản gốc' };
+      // AutoCAD's AUDIT command puts what it repaired on a layer "AUDIT_…": here the pictograms of the facilities (a post office) — content.
+      if (/^audit/.test(c) && rolePrefix && (e.kind === 'polygon' || e.kind === 'polyline')) return { layer: `KYHIEU_Congtrinh_${rolePrefix.replace('HTKT_', '')}`, why: 'ký hiệu công trình nằm trong layer AUDIT (AutoCAD đặt khi sửa bản vẽ) — là nội dung, không phải rác; mỗi ký hiệu thêm một điểm', look: true };
       if (JUNK_LAYER.test(c) && !PICTOGRAM_LAYER.test(c) && !SURVEY_BRIDGE.test(c)) return { drop: /giaithua/.test(c) ? 'nền giải thửa (địa chính), không thuộc đồ án' : 'layer rác (ký hiệu khảo sát, layer 0/Defpoints, nét thừa)' };
       const key = entityRowKey(d.id, e, d.color);
       const m = key ? mapping.get(key) : undefined;
@@ -323,6 +384,7 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
       if (/^bvrgcapxa|^bvrgcap/.test(c) && e.kind === 'polyline') return { layer: 'BV_Rg_capcoso', color: aciHex(14), why: 'ranh xã (Phụ lục I)' };
       if (e.kind === 'polyline' && /^tenkenh/.test(c)) return { layer: 'BV_Kenh_Rach', why: 'tuyến kênh, rạch', look: true };
       if (e.kind === 'polyline' && /Đường viền thửa/.test(m?.reason ?? '')) return { layer: 'BV_Vienthua', why: 'viền thửa/lô (vùng đã có hatch)' };
+      if (e.kind === 'polyline' && SYMBOL_OUTLINE.test(c)) return { layer: `KYHIEU_Congtrinh_${/hoga|giengthu|gietthu/.test(c) ? 'Hoga' : 'Trambienap'}`, why: 'nét viền ký hiệu (hố ga, trạm điện…) — giữ để ký hiệu trông như bản gốc; dữ liệu GIS lấy từ hatch' };
       if (PICTOGRAM_LAYER.test(c)) return { layer: 'KYHIEU_Congtrinh', why: 'ký hiệu công trình chức năng', look: true };
       if (m?.unknown) {
         if (ROADISH_LAYER.test(c)) return { layer: roadLayer('', '', e.layer), why: 'ký hiệu / nét trên layer đường', look: true };
@@ -333,7 +395,7 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
       return { drop: (m?.reason ?? 'không thuộc dữ liệu quy hoạch').slice(0, 90) };
     };
 
-    d.doc.entities.forEach((e, i) => {
+    const handle = (e: CadEntity, i: number) => {
       totals.read++;
       let inside = !!d.inside[i];
       if (!inside && e.kind !== 'text') {
@@ -341,7 +403,7 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
         const box = around ? entityBox(e) : null;
         const c = compactName(e.layer);
         const near = !!box && !!around && box[0] >= around[0] && box[1] >= around[1] && box[2] <= around[2] && box[3] <= around[3];
-        if (near && (ROADISH_LAYER.test(c) || (/^text$/.test(c) && e.kind === 'polyline' && (e.width ?? 0) >= 5))) inside = true;
+        if (near && (ROADISH_LAYER.test(c) || (/^text$/.test(c) && e.kind === 'polyline' && (e.width ?? 0) >= 5) || frameOfSign(e, signs))) inside = true;
         else {
           totals.outside++;
           return;
@@ -350,7 +412,20 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
       if (!inside && e.kind === 'text') {
         const sign = isRouteSign(e, compactName(e.layer));
         const b = entityBox(e);
-        if (!(sign && b && around && b[0] >= around[0] && b[1] >= around[1] && b[2] <= around[2] && b[3] <= around[3])) {
+        const near = !!b && !!around && b[0] >= around[0] && b[1] >= around[1] && b[2] <= around[2] && b[3] <= around[3];
+        // The name of a road that leaves the area (the expressway, a provincial road): a text of letters running along a kept road.
+        if (near && !sign && !/chugiai|chuthich|khung|tieude|banve/.test(compactName(e.layer)) && ROAD_NAME.test(norm(e.text)) && alongRoad(e, roads)) {
+          const out: CadEntity = { ...e, layer: 'HTKT_GT_Tenduong' };
+          const k = objectKey(out.layer, out);
+          if (seen.has(k)) return;
+          seen.add(k);
+          if (!layers.has(out.layer)) layers.set(out.layer, { name: out.layer, color: normalizeHex(e.color), visible: true });
+          entities.push(out);
+          totals.kept++;
+          note(d, e, out.layer, 'tên đường ngoài ranh, viết dọc một tuyến đường đã giữ', true);
+          return;
+        }
+        if (!(sign && near)) {
           totals.outside++;
           return;
         }
@@ -376,7 +451,36 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
       entities.push(out);
       totals.kept++;
       note(d, e, dec.layer, dec.why, true, dec.look);
-    });
+      if (out.kind === 'polyline' && /^HTKT_GT_/.test(dec.layer) && !/Kyhieutuyen|Tenduong/.test(dec.layer)) {
+        const box = entityBox(out);
+        if (box) roads.push({ pts: out.points, box, hw: (out.width ?? 0) / 2 });
+      }
+      if (dec.layer.startsWith('KYHIEU_Congtrinh_') && /^audit/.test(compactName(e.layer)) && rolePrefix) {
+        const box = entityBox(out);
+        if (box) auditBoxes.push({ d, prefix: rolePrefix, box });
+      }
+    };
+    passes.push((textPass) => d.doc.entities.forEach((e, i) => { if ((e.kind === 'text') === textPass) handle(e, i); }));
+  }
+  passes.forEach((run) => run(false));
+  passes.forEach((run) => run(true));
+  // One point for each facility symbol of the AUDIT layer (the pieces of a symbol lying within 10 m of each other are one).
+  if (auditBoxes.length && auditBoxes.length <= 20_000) {
+    const groups: { d: CleanDrawing; prefix: string; box: [number, number, number, number] }[] = [];
+    for (const a of auditBoxes) {
+      const g = groups.find((q) => q.prefix === a.prefix && a.box[0] <= q.box[2] + 10 && a.box[2] >= q.box[0] - 10 && a.box[1] <= q.box[3] + 10 && a.box[3] >= q.box[1] - 10);
+      if (g) g.box = [Math.min(g.box[0], a.box[0]), Math.min(g.box[1], a.box[1]), Math.max(g.box[2], a.box[2]), Math.max(g.box[3], a.box[3])];
+      else groups.push({ ...a });
+    }
+    for (const g of groups) {
+      const layer = `${g.prefix}_Congtrinh`;
+      if (!layers.has(layer)) layers.set(layer, { name: layer, color: '#ff00ff', visible: true });
+      entities.push({ kind: 'point', layer, color: '#ff00ff', position: [(g.box[0] + g.box[2]) / 2, (g.box[1] + g.box[3]) / 2] });
+      const key = `${g.d.name}\u0001audit\u0001${layer}`;
+      const l = lines.get(key) ?? { from: `${g.d.name.replace(/\.dwg$/i, '')} · AUDIT (ký hiệu)`, to: layer, kept: 0, dropped: 0, why: 'một điểm cho mỗi ký hiệu công trình', look: true };
+      l.kept++;
+      lines.set(key, l);
+    }
   }
   // A boundary drawn as an open line whose ends nearly meet (gap < 2 % of its length — a drafting slip) is closed, so it
   // reads as the planning area (Phụ lục I: RanhGioiQuyHoach_A). Width and line type stay exactly as drawn.

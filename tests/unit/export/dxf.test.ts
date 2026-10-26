@@ -253,6 +253,20 @@ describe('line types of the entities', () => {
     expect(ox + (618 / 2048) * h).toBeCloseTo(0.4 * 1.5, 2);
     expect(oy + (578 / 2048) * h).toBeCloseTo(-0.68 + 0.45 * 1.5, 2);
   });
+  it('writes a caret of a line-type text as "^ " (AutoCAD refuses a lone "^") and the reader takes it back', async () => {
+    const doc: CadDocument = {
+      units: 'm',
+      crs: null,
+      layers: [{ name: 'T', color: '#0000ff', visible: true }],
+      lineTypes: { 'CAP-TT': { elements: [{ length: 5 }, { length: -3, text: '^', textScale: 4, offset: [0, -1], rotation: 270 }] } },
+      entities: [{ kind: 'polyline', layer: 'T', color: '#0000ff', points: [[0, 0], [100, 0]], closed: false, lineType: 'CAP-TT', lineScale: 1 }],
+      bbox: [[0, 0], [100, 0]],
+      warnings: [],
+    };
+    const dxf = toDxf(doc, { units: 'm' });
+    expect(dxf).toContain('\n9\n^ \n');
+    expect(dxf).not.toMatch(/\n9\n\^\n/);
+  });
   it('leaves a line type with no usable pattern continuous', () => {
     const doc: CadDocument = { units: 'm', crs: null, layers: [{ name: 'D', color: '#ff0000', visible: true }], lineTypes: { X: { elements: [{ length: 0 }] } }, entities: [{ kind: 'polyline', layer: 'D', color: '#ff0000', points: [[0, 0], [5, 0]], closed: false, lineType: 'X' }], bbox: [[0, 0], [5, 0]], warnings: [] };
     expect(toDxf(doc)).not.toMatch(/\n2\nX\n70\n0\n3/);

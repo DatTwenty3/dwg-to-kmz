@@ -28,7 +28,7 @@ const SDD_ROLES = new Set<RoleId>(['ht-sdd', 'qh-sdd']);
  * repeat the land use as a background, its hatches and outlines.
  */
 /** Layers that are the sheet (frame, legend, title, scale, notes), never the map: left out of the margin around the area. */
-const SHEET_LAYER = /khung|chugiai|chuthich|logo|hoagio|tyle|thuoc|banve|tieude|dientich|ghichu|kyhieu(?!tuyen)|bangthongke|mattcat|defpoints|viewport|^bv|^(0|1|2|3)$/;
+const SHEET_LAYER = /khung|chugiai|chuthich|logo|hoagio|tyle|thuoc|banve|tieude|dientich|ghichu|kyhieu(?!tuyen|congtrinh.)|bangthongke|mattcat|defpoints|viewport|^bv|^(0|1|2|3)$/;
 
 function entityBox(e: CadEntity): [number, number, number, number] | null {
   const pts: Vec2[] = e.kind === 'polyline' ? e.points : e.kind === 'polygon' ? e.rings.flat() : e.kind === 'table' ? [e.origin] : [e.position];

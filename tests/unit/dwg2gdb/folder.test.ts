@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, wri
 import { join, relative, sep } from 'node:path';
 import JSZip from 'jszip';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { parseDwg } from '@/lib/cad';
+import { parseDwg, parseDxf } from '@/lib/cad';
 import {
   analyzeDrawings,
   buildFeatures,
@@ -36,7 +36,8 @@ import { createRequire } from 'node:module';
 import { toDxf } from '@/lib/export/dxf';
 import { WASM_DIR } from '../fixtures';
 
-const ROOT = 'dwg_to_gdb/LAY Y KIEN SXD';
+// FOLDER_ROOT: another folder — e.g. the cleaned drawings (.dxf) of the same commune: the same chain, to see what the .qgz makes of them.
+const ROOT = process.env.FOLDER_ROOT ?? 'dwg_to_gdb/LAY Y KIEN SXD';
 const WORK = 'node_modules/.cache/dwg2gdb';
 
 const walk = (d: string): string[] =>
@@ -68,7 +69,7 @@ describe.skipIf(!existsSync(ROOT))('Bóc tách DWG → TT16 — xã Long Hiệp'
         return b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer;
       },
     }));
-    folder = await loadFolder(files, (_f, data) => parseDwg(data, { wasmBaseUrl: WASM_DIR }));
+    folder = await loadFolder(files, (f, data) => (/\.dxf$/i.test(f.name) ? parseDxf(data, { wasmBaseUrl: WASM_DIR }) : parseDwg(data, { wasmBaseUrl: WASM_DIR })));
     a = analyzeDrawings(folder.drawings);
     const mapping = initialMapping(a, null);
     mappingUsed = mapping;

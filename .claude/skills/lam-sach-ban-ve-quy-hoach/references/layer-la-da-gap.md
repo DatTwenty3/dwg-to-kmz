@@ -71,3 +71,16 @@ Layer ranh đặt tên sai hoặc hai layer cùng kiểu nét ranh: tính **số
 ### Bản đồ hiện trạng khảo sát khổng lồ
 - Hàng triệu nét ký hiệu cây (`KYHIEU`, `PLAN-NOTE`) → bỏ, công cụ chạy vẫn mất ~2 phút; ảnh `*_so-sanh.png` tự lược nét ngắn (giữ mọi hatch và chữ).
 - Phần lớn đối tượng giữ lại là nền (`NEN_*`: bờ đất, nhà bán kiên cố/nhà tạm là `KTCQ_*`) — đừng lo con số lớn.
+
+## Chữ, ký hiệu mất ở bản sạch (Long Hiệp, 10/2026 — người dùng so ảnh gốc/sạch và thấy thiếu)
+| Thấy trong ảnh | Nguyên nhân | Đã sửa thế nào (`cleanCad.ts`) | Cách kiểm |
+|---|---|---|---|
+| Mất tên **"CAO TỐC TRÀ VINH - HỒNG NGỰ"** | chữ nằm ngoài ranh; công cụ chỉ giữ ngoại lệ cho biển số tuyến | chữ có dạng tên đường (`Đường…`, `Cao tốc`, `Quốc lộ`, `Tỉnh lộ`, `Hương lộ`, `ĐT.`, `QL.`) nằm **dọc** một tuyến đường đã giữ (song song ≤ 30°, cách ≤ 4 × cao chữ + nửa bề rộng nét, tối thiểu 25 m) và trong khung ranh nới 10 % → `HTKT_GT_Tenduong`. Nhãn đứng một mình ("HƯỚNG ĐI XÃ NHỊ TRƯỜNG") vẫn bỏ — theo quyết định của chủ dự án | cổng đếm `chữ tên đường` |
+| Mất nhãn **"QL60" / "QL54"** cao 60 m trên layer `0` | layer `0` là rác; nhãn lại là tên quốc lộ | `HIGHWAY_LABEL` (`QL|ĐT|ĐH|HL|TL` + 1–3 số) cao ≥ 20 m coi như biển số tuyến → `HTKT_GT_Kyhieutuyen` (Lưu Nghiệp Anh) | cổng đếm tên đường |
+| **Trạm biến áp** (QH cấp điện) chỉ còn tam giác nhỏ, mất khung vuông + nét cong | layer `dien tram` (120 nét) bị bỏ "nét viền ký hiệu — dữ liệu lấy từ hatch" | giữ nét viền ở `KYHIEU_Congtrinh_Trambienap` / `_Hoga` (chỉ để bản vẽ giống gốc; **không thành dữ liệu GIS**, hatch vẫn là nguồn của `CongTrinhCapDien_P`) | so ảnh phóng to ở một trạm |
+| **Bưu điện** (QH TTLL) chỉ còn chữ, mất ô vuông ký hiệu | ký hiệu vẽ trên layer **`AUDIT_D_…`** (AutoCAD đặt khi chạy lệnh AUDIT sửa lỗi) — layer đó bị coi là rác | trên bản đồ hạ tầng (`ROLE_PREFIX`), nét + vùng của `AUDIT_*` → `KYHIEU_Congtrinh_<CD|CN|TN|TTLL>`; **thêm 1 POINT** ở tâm mỗi ký hiệu (gộp các mảnh cách nhau ≤ 10 m) → `HTKT_<…>_Congtrinh`, web app nhận là `CongTrinh…_P` | cổng + ảnh |
+| **Khung hình thoi quanh biển số** (914C, 915C) mất — người dùng chỉ ra "thiếu cái viền ở ngoài" | khung là nét khép kín 4 đỉnh, rộng 5 m, **266 m ngang** (hình vuông 188 m xoay 45°), layer **`KYHIEU`** (rác theo quy tắc); lần sửa đầu đặt ngưỡng 150 m nên vẫn mất | nét khép kín ≤ 8 đỉnh, cạnh 20–400 m, **biển số nằm giữa khung** (lệch ≤ 30 % bề rộng) → `KYHIEU_Congtrinh_Bienso`. Đừng đoán ngưỡng: **đo khung thật** (đỉnh, kích thước, layer) trước khi đặt | so ảnh phóng to ở **mỗi loại** biển số (911, 914B, 915C), không chỉ một cái |
+| `.dxf` của QH_09 **AutoCAD không mở** ("Error in APPID Table / line 546") | kiểu nét cáp thông tin có chữ `^` — DXF coi `^` là mã điều khiển (`^J`) | `toDxf` ghi `^` thành `^ ` (dấu cách); bộ đọc DXF đổi lại | `verify-dxf-autocad.ps1` cho **cả 9 tệp**, không chỉ vài tệp |
+
+### Hỏi "chuyển ký hiệu thành block để web app nhận 1 điểm được không?"
+Hiện bộ đọc **luôn nổ block** thành nét + hatch; điểm chỉ sinh từ POINT, từ tâm vùng khép kín trên layer đã nhận ra, hoặc từ chữ. INSERT **không** thành điểm. Chọn cách A (đã làm): giữ ký hiệu nguyên nét/hatch cho đẹp + thêm POINT ở tâm; web app đọc POINT sẵn. Cách B (block thật, INSERT → điểm) cần sửa bộ đọc/IR và test — chỉ làm khi người dùng cần sửa từng ký hiệu như một đối tượng trong AutoCAD.

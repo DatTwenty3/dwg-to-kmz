@@ -117,7 +117,7 @@ function scanStructure(lines: string[]): Structure {
         else if (el && code === 50) el.rotation = parseFloat(value) || 0;
         else if (el && code === 44) el.offset = [parseFloat(value) || 0, el.offset?.[1] ?? 0];
         else if (el && code === 45) el.offset = [el.offset?.[0] ?? 0, parseFloat(value) || 0];
-        else if (el && code === 9) el.text = value;
+        else if (el && code === 9) el.text = value.replace(/\^ /g, '^'); // "^ " is how a DXF string holds a literal caret
       } else if (record === 'STYLE' && style) {
         if (code === 2) style.name = value;
         else if (code === 3) style.font = value;

@@ -285,7 +285,7 @@ function drainage(c: string, kind: GeomKind, p: string, defaultMua: boolean): Pi
 
 function telecom(c: string, kind: GeomKind): Pick {
   if (!/ttll|thongtin|vienthong|capquang|cap(tt|thongtin)|bts|buudien|tongdai|tramthu|cotang|cot(tt|anten)|internet/.test(c)) return null;
-  if (/bts|buudien|tongdai|tram|cot/.test(c)) return kind === 'L' || kind === 'T' ? null : { theme: 'ttll', cls: kind === 'A' ? 'CongTrinhThongTin_A' : 'CongTrinhThongTin_P', phanLoai: /bts|cot/.test(c) ? 'Trạm BTS' : /buudien/.test(c) ? 'Bưu điện' : 'Công trình thông tin' };
+  if (/bts|buudien|tongdai|tram|cot|congtrinh/.test(c)) return kind === 'L' || kind === 'T' ? null : { theme: 'ttll', cls: kind === 'A' ? 'CongTrinhThongTin_A' : 'CongTrinhThongTin_P', phanLoai: /bts|cot/.test(c) ? 'Trạm BTS' : /buudien/.test(c) ? 'Bưu điện' : 'Công trình thông tin' };
   return kind === 'L' ? { theme: 'ttll', cls: 'MangLuoiCapThongTin_L', phanLoai: 'Tuyến cáp thông tin' } : null;
 }
 

@@ -14,6 +14,13 @@ describe('parseRoadText', () => {
     expect(parseRoadText('QL.91')).toMatchObject({ name: 'Quốc lộ 91', rank: 'quocLo' });
     expect(parseRoadText('TUYẾN SỐ 5')).toMatchObject({ name: 'Tuyến số 5', rank: null });
   });
+  it('an expressway keeps its whole name and is written "Đường cao tốc" in both domains', () => {
+    expect(parseRoadText('CAO TỐC TRÀ VINH - HỒNG NGỰ')).toMatchObject({ name: 'Cao Tốc Trà Vinh - Hồng Ngự', rank: 'caoToc' });
+    expect(parseRoadText('ĐƯỜNG CAO TỐC BẾN LỨC')).toMatchObject({ rank: 'caoToc' });
+    expect(layerRank('htktgtcaotoc')).toBe('caoToc');
+    expect(roadFields('QuyHoach', { name: 'Cao Tốc X', rank: 'caoToc' })).toMatchObject({ loaiDuong: '1', capDuong: '1' });
+    expect(roadFields('HienTrang', { name: 'Cao Tốc X', rank: 'caoToc' })).toMatchObject({ loaiDuong: '1', capDuong: '1' });
+  });
   it('a name that tells no rank stays a name; the note in brackets is the surface', () => {
     expect(parseRoadText('ĐƯỜNG BA TRẠCH')).toMatchObject({ name: 'Đường Ba Trạch', rank: null });
     expect(parseRoadText('ĐƯỜNG D5 (QH VÙNG HUYỆN)')).toMatchObject({ name: 'Đường D5', rank: null, surface: null });

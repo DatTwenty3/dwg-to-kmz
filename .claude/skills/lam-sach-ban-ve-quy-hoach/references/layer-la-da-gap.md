@@ -84,3 +84,10 @@ Layer ranh đặt tên sai hoặc hai layer cùng kiểu nét ranh: tính **số
 
 ### Hỏi "chuyển ký hiệu thành block để web app nhận 1 điểm được không?"
 Hiện bộ đọc **luôn nổ block** thành nét + hatch; điểm chỉ sinh từ POINT, từ tâm vùng khép kín trên layer đã nhận ra, hoặc từ chữ. INSERT **không** thành điểm. Chọn cách A (đã làm): giữ ký hiệu nguyên nét/hatch cho đẹp + thêm POINT ở tâm; web app đọc POINT sẵn. Cách B (block thật, INSERT → điểm) cần sửa bộ đọc/IR và test — chỉ làm khi người dùng cần sửa từng ký hiệu như một đối tượng trong AutoCAD.
+
+### Tên có trong bản vẽ sạch nhưng **không vào gdb** (Long Hiệp, người dùng mở HoSoGIS trong QGIS)
+Cao tốc Trà Vinh – Hồng Ngự có nét + nhãn trong bản sạch, nhưng `tenDuong`/`tenDoiTuong` của tuyến để trống trong `QuyHoach.gdb` khi các đường khác (Đường 914B, N3…) đều có tên. Ba nguyên nhân chồng nhau ở web app (`roads.ts`, `features.ts` `nameRoads`):
+1. `parseRoadText` không biết "Cao tốc …" → thêm hạng `caoToc` (miền giá trị TT16 có sẵn "Đường cao tốc" mã 1 ở cả `LoaiDuongBo` và `CapDuongBo`, HienTrang lẫn QuyHoach).
+2. `nameRoads` bỏ mọi chữ nằm **ngoài ranh** (chỉ biển số tuyến được miễn) — nhãn cao tốc nằm ngoài ranh → cho phép chữ tên **cao tốc / quốc lộ / đường tỉnh** ngoài ranh đặt tên cho tuyến đi qua (chữ ghi chú/chú giải ngoài ranh vẫn bỏ vì phải song song và gần một tuyến GIS).
+3. `textAlong` chỉ cho cách tim đường ≤ 2,5 × cao chữ (125 m), nhưng tuyến cao tốc vẽ **một nét rộng 60 m** và nhãn cách tim 178 m → `RoadText.reach` riêng (5 × cao chữ) cho các chữ ngoài ranh này.
+**Bài học:** sau khi bản sạch có chữ/nét, kiểm tra tiếp **thuộc tính trong gdb** (`tenDuong`, `loaiDuong`, `capDuong`) chứ không chỉ việc chữ còn trong DXF. Cách nhanh: dựng `buildFeatures` trên thư mục sạch và in tên theo lớp `MangLuoiGiaoThongDuongBo_L` (so với thư mục gốc) — phải ra giống nhau, và tuyến cao tốc/quốc lộ/tỉnh phải có `loaiDuong`/`capDuong`.

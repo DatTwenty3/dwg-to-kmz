@@ -10,6 +10,8 @@ export interface RoadText {
   at: Vec2;
   height: number;
   rotation: number;
+  /** Own reach (m) for finding its road: a name written beside a wide line (an expressway drawn 60 m wide) stands farther from the axis. */
+  reach?: number;
 }
 
 export interface RoadName {
@@ -22,14 +24,16 @@ export interface RoadName {
 }
 
 /** Rank keys; the labels differ between the geodatabases ("Quốc lộ" in HienTrang, "Đường quốc lộ" in QuyHoach). */
-export type RoadRank = 'quocLo' | 'tinh' | 'huyen' | 'khuVuc';
+export type RoadRank = 'caoToc' | 'quocLo' | 'tinh' | 'huyen' | 'khuVuc';
 const LOAI_LABELS: Record<RoadRank, string[]> = {
+  caoToc: ['Đường cao tốc'],
   quocLo: ['Đường quốc lộ', 'Quốc lộ'],
   tinh: ['Đường tỉnh'],
   huyen: ['Đường huyện', 'Đường huyện\nĐường huyện'],
   khuVuc: ['Đường khu vực'],
 };
 const CAP_LABELS: Record<RoadRank, string[]> = {
+  caoToc: ['Đường cao tốc'],
   quocLo: ['Đường quốc lộ'],
   tinh: ['Đường tỉnh'],
   huyen: ['Đường huyện'],
@@ -66,6 +70,8 @@ export function parseRoadText(raw: string): RoadName | null {
   if (!f || NOT_A_ROAD.test(f) || /\d\s?m$|l\s?=/.test(f)) return null;
   const out = (name: string | null, rank: RoadRank | null): RoadName => ({ name, rank, surface: noteSurface });
 
+  // "CAO TỐC TRÀ VINH - HỒNG NGỰ": an expressway keeps its whole name; its rank is "Đường cao tốc" in both domains.
+  if (/^(duong )?cao toc\b.{3,}$/.test(f)) return out(titleCase(main.replace(/^đường\s+/i, '')), 'caoToc');
   let m = /^(duong )?(quoc lo|ql)\s?(\d+[a-z]?)$/.exec(f);
   if (m) return out(`Quốc lộ ${m[3].toUpperCase()}`, 'quocLo');
   m = /^(duong )?(tinh lo|duong tinh|dt|tl)\s?(\d+[a-z]?)$/.exec(f) ?? /^(duong tinh)\s?(\d+[a-z]?)$/.exec(f);
@@ -124,6 +130,7 @@ export function layerSurface(compact: string): string | null {
 
 /** Kind and rank a layer is named after ("D-QuocLo", "D-TINH", "HTKT_GT_Duongkhuvuc"). */
 export function layerRank(compact: string): RoadRank | null {
+  if (/caotoc/.test(compact)) return 'caoToc';
   if (/quoclo|^ql\d*$/.test(compact)) return 'quocLo';
   if (/duongtinh|^dtinh$|tinhlo/.test(compact)) return 'tinh';
   if (/duonghuyen|huyenlo/.test(compact)) return 'huyen';
@@ -181,7 +188,7 @@ export function textAlong(lines: number[][][], texts: readonly RoadText[], maxTu
   let best = -1;
   let bestD = Infinity;
   texts.forEach((t, i) => {
-    const reach = Math.max(2.5 * t.height, 20);
+    const reach = t.reach ?? Math.max(2.5 * t.height, 20);
     let near = Infinity;
     let angle = 0;
     for (const line of lines)

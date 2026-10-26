@@ -322,8 +322,13 @@ function nameRoads(classIter: Iterable<{ db: string; cls: string; features: GisF
         signTexts.push({ ...base, ...sign });
         return;
       }
-      if (!d.inside[i]) return;
       const r = parseRoadText(e.text);
+      // The name of a highway (expressway, national or provincial road) is written beside the road where it leaves the area:
+      // outside the boundary it still names the line that goes through. Other texts outside are legends and notes.
+      if (!d.inside[i]) {
+        if (r?.name && r.rank && r.rank !== 'huyen' && r.rank !== 'khuVuc') roadTexts.push({ ...base, ...r, reach: Math.max(25, 5 * e.height) });
+        return;
+      }
       if (r) (r.name ? roadTexts : noteTexts).push({ ...base, ...r });
       const b = parseBridgeText(e.text);
       if (b) bridgeTexts.push({ ...base, ...b });

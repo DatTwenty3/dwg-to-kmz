@@ -6,6 +6,10 @@
 // Bắt buộc không mất đối tượng (≥ 99 % số của bản gốc; nhãn phanLoai đổi được in ra để xem): giao thông, cầu, điện, nước, thoát nước, TTLL, ranh, tên ĐVHC. Không bắt buộc (do quyết
 // định chuyên môn của người dùng: nền địa hình, cao độ): sử dụng đất, nhà, cao độ — chỉ in ra. Ngoài ra: không layer "chưa nhận
 // ra", số chấm ranh và chữ biển số tuyến không ít hơn bản gốc.
+//
+// Chênh lệch **có chủ ý** (bản gốc phân loại sai và người làm sạch sửa lại: bờ ao đọc thành thoát nước mưa, cống thoát nước đọc
+// thành cấp nước, nét suy biến một điểm…) ghi vào `<GATE_CLEAN>/chap-nhan-lech.json`: { "<lớp>": "lý do" }. Lớp đó in " ok" kèm lý
+// do thay vì " !!", và lý do đi theo hồ sơ bàn giao. Không ghi khi chỉ muốn cổng im lặng — mỗi dòng phải là một quyết định.
 import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -49,14 +53,17 @@ describe.skipIf(!RAW || !CLEAN || !existsSync(RAW) || !existsSync(CLEAN))('Cổn
     const [raw, clean] = [await summarize(RAW), await summarize(CLEAN)];
     const lines: string[] = [`chấm ranh: gốc ${raw.dots} · sạch ${clean.dots}`, `chữ biển số: gốc ${raw.signs} · sạch ${clean.signs}`, `layer chưa nhận ra (sạch): ${clean.unknown.length}`];
     const bad: string[] = [];
+    const acceptFile = join(CLEAN, 'chap-nhan-lech.json');
+    const accepted: Record<string, string> = existsSync(acceptFile) ? JSON.parse(readFileSync(acceptFile, 'utf8')) : {};
     for (const k of [...new Set([...raw.classes.keys(), ...clean.classes.keys()])].sort()) {
       const a = raw.classes.get(k);
       const b = clean.classes.get(k);
       const must = MUST.test(k);
       const same = (a?.n ?? 0) === (b?.n ?? 0) && JSON.stringify([...(a?.phanLoai ?? [])].sort()) === JSON.stringify([...(b?.phanLoai ?? [])].sort());
-      lines.push(`${same ? '  =' : must && (b?.n ?? 0) < (a?.n ?? 0) * 0.99 ? ' !!' : '  ~'} ${k}: gốc ${a?.n ?? 0} · sạch ${b?.n ?? 0}${same ? '' : `  gốc ${JSON.stringify([...(a?.phanLoai ?? [])])} → sạch ${JSON.stringify([...(b?.phanLoai ?? [])])}`}`);
+      const lost = must && (b?.n ?? 0) < (a?.n ?? 0) * 0.99;
+      lines.push(`${same ? '  =' : lost && accepted[k] ? ' ok' : lost ? ' !!' : '  ~'} ${k}: gốc ${a?.n ?? 0} · sạch ${b?.n ?? 0}${same ? '' : `  gốc ${JSON.stringify([...(a?.phanLoai ?? [])])} → sạch ${JSON.stringify([...(b?.phanLoai ?? [])])}`}${lost && accepted[k] ? `  — chấp nhận: ${accepted[k]}` : ''}`);
       // A loss is what matters: the clean drawing may well hold more (a layer the original left unrecognised), never less.
-      if (must && (b?.n ?? 0) < (a?.n ?? 0) * 0.99) bad.push(k);
+      if (lost && !accepted[k]) bad.push(k);
     }
     writeFileSync(`node_modules/.cache/clean-gate-${CLEAN.replace(/[^\w]+/g, '_')}.txt`, lines.join('\n'));
     console.log(lines.join('\n'));

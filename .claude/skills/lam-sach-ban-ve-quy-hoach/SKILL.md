@@ -47,7 +47,7 @@ Nguyên tắc quyết định:
 ### 3. Làm sạch và nhìn lại
 Chạy `clean`. Rồi:
 1. Đọc `BAO_CAO.md`: mỗi layer gốc → layer mới / bỏ, lý do, ⚠. Mục "Kiểm tra: đọc lại bằng web app" phải ghi **✔**. Nếu có ⚠ (loại bản đồ nhận sai, layer chưa nhận ra, không thấy ranh) → sửa `quyet-dinh.json` hoặc quy tắc rồi chạy lại.
-2. **Xem `*_xem-truoc.png` của từng bản đồ** (Read). So với `*_goc.png`: có mất vùng đất/đường quan trọng không? Có còn rác (nền xám dày, ký hiệu lạ) không? Màu vùng đất đúng bảng Phụ lục I không?
+2. **Xem `*_so-sanh.png` của từng bản đồ** (Read) — ảnh chia **hai bên**, cùng khung nhìn, **mỗi layer một màu kèm chú giải tên layer**: trái = bản vẽ + layer gốc (cả xref), phải = bản vẽ sạch + layer đã chuẩn hóa. Đây cũng là ảnh giao cho người kiểm tra: họ nhìn một layer gốc ở bên trái rồi tìm nó đã thành layer nào ở bên phải. Từ ảnh hỏi: có mất vùng đất/đường quan trọng không? Có còn rác (nền xám dày, ký hiệu lạ) không? Layer nào bên trái biến mất ở bên phải mà chủ ý (bảng "Bỏ" trong báo cáo) hay không chủ ý? Rồi xem `*_xem-truoc.png` (bản sạch theo màu thật của đối tượng, có nét đứt và chấm ranh): màu vùng đất đúng bảng Phụ lục I không? Ảnh `kiem-ke/*_goc.png` chỉ là bước kiểm kê.
 3. Lặp lại 2–3 cho tới khi sạch. Mỗi vòng ghi rõ đã đổi gì.
 
 ### 4. Kiểm tra đầu ra (bắt buộc)
@@ -56,7 +56,7 @@ Chạy `clean`. Rồi:
 - Mở bằng AutoCAD thật (lưu sang DWG) vừa là kiểm tra DXF hợp lệ vừa là cách duy nhất dựng ảnh **có kiểu nét** để so: `powershell -ExecutionPolicy Bypass -File scripts/verify-dxf-autocad.ps1 -Dxf <đường dẫn không dấu cách> -OutDwg <…>`; đọc lại DWG bằng `parseDwg` (kiểu nét có chữ 110kV…, chấm tròn ranh còn nguyên). `parseDxf` không đọc LTYPE nên đừng dựng ảnh so sánh từ DXF.
 
 ### 5. Bàn giao
-Báo ngắn gọn bằng tiếng Việt: thư mục kết quả; mỗi bản đồ giữ/bỏ bao nhiêu; **những quyết định chuyên môn bạn đã tự chốt và lý do** (đặc biệt các ⚠); những gì chưa làm được (ví dụ xref thiếu); cách dùng (mở DXF bằng AutoCAD → Save As DWG; hoặc kéo cả thư mục vào `/boc-tach`). Không commit dữ liệu người dùng.
+Mỗi bản đồ trong thư mục kết quả có **ba tệp** + báo cáo chung: `<bản đồ>_TT16.dxf` (bản sạch), `<bản đồ>_so-sanh.png` (**hai bên: layer gốc | layer đã làm sạch**, mỗi layer một màu có chú giải — ảnh cho người kiểm tra), `<bản đồ>_xem-truoc.png` (bản sạch theo màu thật); cùng `BAO_CAO.md` (từng layer gốc → mới/bỏ + lý do), `quyet-dinh.json` (ngoại lệ đã chốt), `chap-nhan-lech.json` (nếu có: lớp mà bản sạch cố ý khác bản gốc, kèm lý do — xem cổng kiểm tra). Báo ngắn gọn bằng tiếng Việt: thư mục kết quả; mỗi bản đồ giữ/bỏ bao nhiêu; **những quyết định chuyên môn bạn đã tự chốt và lý do** (đặc biệt các ⚠); những gì chưa làm được (ví dụ xref thiếu); cách dùng (mở DXF bằng AutoCAD → Save As DWG; hoặc kéo cả thư mục vào `/boc-tach`). Không commit dữ liệu người dùng.
 
 ## Chuẩn đầu ra (công cụ đã làm, đừng làm lại bằng tay)
 - **Vùng đất** → layer đúng tên Phụ lục I + màu ACI của ký hiệu (`references/tt16-layer-mau.md`); Mục 7 (xã) mượn tên layer của Mục có cùng loại đất **và cùng màu**; chưa có tên thì `DAT_<NNK|KXD>_<Tên>`. Giữ nguyên hatch mẫu.
@@ -76,7 +76,9 @@ Xem `references/ban-ve-ban.md` (xref thiếu/lồng/bind, block, text VNI/TCVN3,
 | `references/quyet-dinh.md` | viết `quyet-dinh.json` (định dạng, bẫy `drawing`/xref/ngoài ranh, bài học ranh) |
 | `references/layer-la-da-gap.md` | gặp layer tên lạ (`MO_MA`, `KS-GHICHU`, `DUONG_DIEN`, `CAODO`…) hoặc cần xử lý ranh |
 | `references/so-sanh-voi-ban-goc.md` | so bản sạch với bản gốc; người dùng nói "nét/ranh chưa giống" |
-| `references/vi-du-quyet-dinh-luu-nghiep-anh.json` | mẫu `quyet-dinh.json` trọn bộ của một hồ sơ thật (9 bản đồ) |
+| `references/vi-du-quyet-dinh-luu-nghiep-anh.json` | mẫu `quyet-dinh.json` trọn bộ của một hồ sơ thật (9 bản đồ, xã Lưu Nghiệp Anh) |
+| `references/vi-du-quyet-dinh-long-hiep.json` | mẫu thứ hai (xã Long Hiệp: hạ tầng hiện trạng khảo sát 1,4 triệu đối tượng, mộ xây, tường rào, cống thoát nước, ranh khảo sát) |
+| `references/vi-du-chap-nhan-lech-long-hiep.json` | mẫu `chap-nhan-lech.json` cho cổng kiểm tra |
 | `references/tt16-layer-mau.md` | tên layer + màu ACI Phụ lục I |
 | `references/ban-ve-ban.md` | xref, block, text cũ, thiếu ranh… |
 
@@ -97,3 +99,5 @@ GATE_RAW="dwg_to_gdb/<hồ sơ>" GATE_CLEAN="dwg_to_gdb_sach/<hồ sơ>" npx vit
 ```
 
 Phải đạt: ranh nhận lại giống gốc; **0 layer chưa nhận ra**; số chấm ranh và chữ biển số tuyến không ít hơn bản gốc; các lớp giao thông, cầu, điện, nước, thoát nước, TTLL, ranh, tên ĐVHC **không mất đối tượng** (≥ 99 %; nhiều hơn là tốt: layer gốc không nhận ra mà bản sạch nhận ra). Báo cáo từng lớp in ra console và `node_modules/.cache/clean-gate-*.txt` — đọc các dòng `~` (đổi nhãn `phanLoai`, lệch sử dụng đất/nhà/cao độ do quyết định nền địa hình) xem có hợp lý không. Lệch `!!` = cleaner đổi tên layer làm web app hiểu khác (chữ "duong" trong `HTKT_CD_Duongday`, biển số trên layer `0`, `KS_CAU-CONG` bị coi là rác…): sửa quy tắc hoặc `quyet-dinh.json`, chạy lại.
+
+**Chênh lệch có chủ ý** (bản gốc phân loại sai, bạn sửa lại: bờ ao/mương đọc thành thoát nước mưa, cống thoát nước đọc thành cấp nước, nét suy biến một điểm…) cổng cũng báo `!!` vì lớp "ít hơn bản gốc". Đừng nới ngưỡng và đừng bỏ qua: ghi từng lớp vào `<GATE_CLEAN>/chap-nhan-lech.json` dạng `{ "<lớp>": "lý do cụ thể: bao nhiêu đối tượng, vì sao bản gốc sai, chúng đi đâu" }`. Cổng in ` ok` kèm lý do thay cho `!!`; chỉ lớp có lý do mới được chấp nhận, và tệp đó đi theo hồ sơ bàn giao. Mẫu: `references/vi-du-chap-nhan-lech-long-hiep.json`.

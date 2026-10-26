@@ -36,7 +36,13 @@ const MODE = process.env.CLEAN_MODE ?? 'clean';
 const walk = (d: string): string[] => readdirSync(d).flatMap((n) => { const p = join(d, n); return statSync(p).isDirectory() ? walk(p) : [p]; });
 const fmt = (n: number) => n.toLocaleString('vi-VN');
 const safe = (s: string) => s.replace(/\.(dwg|dxf)$/i, '').replace(/[^\p{L}\p{N}._ -]+/gu, '_').trim();
-const png = async (svg: string, file: string) => { await sharp(Buffer.from(svg), { limitInputPixels: false }).png().toFile(file); };
+// A picture is written from memory with a few retries: a real-time virus scanner can hold a large new file for a moment ("unable to open for write").
+const writeFileRetry = async (file: string, data: Buffer) => {
+  for (let k = 0; ; k++) {
+    try { writeFileSync(file, data); return; } catch (e) { if (k >= 4) throw e; await new Promise((r) => setTimeout(r, 1500 * (k + 1))); }
+  }
+};
+const png = async (svg: string, file: string) => { await writeFileRetry(file, await sharp(Buffer.from(svg), { limitInputPixels: false }).png().toBuffer()); };
 
 describe.skipIf(!IN || !existsSync(IN))('Làm sạch bản vẽ theo TT16', () => {
   it(basename(IN), { timeout: 3_600_000 }, async () => {
@@ -80,14 +86,14 @@ describe.skipIf(!IN || !existsSync(IN))('Làm sạch bản vẽ theo TT16', () =
       const titles = MODE === 'clean' ? addTitleBlock(res.doc, m.role, inputs.flatMap((i) => drawingTexts(i.doc))) : [];
       md.push(`## ${m.name}`, '', `${roleById(m.role).label} · ${group.length} tệp (kể cả xref: ${group.filter((g) => g.owner).map((g) => g.name).join(', ') || 'không'}) · đọc ${fmt(res.totals.read)} đối tượng → ${MODE === 'clean' ? `**giữ ${fmt(res.totals.kept)}**, ` : `đề xuất giữ ${fmt(res.totals.kept)}, `}ngoài ranh ${fmt(res.totals.outside)}, bỏ/gộp ${fmt(res.totals.read - res.totals.kept - res.totals.outside)}.`, '');
 
+      // The originals, as drawn (xrefs included), and the area they are shown in: the planning boundary plus a margin.
+      const merged: CadDocument = { units: 'm', crs: null, layers: [], entities: inputs.flatMap((i) => i.doc.entities), bbox: [[0, 0], [0, 0]], warnings: [], lineTypes: Object.assign({}, ...inputs.map((i) => i.doc.lineTypes ?? {})) as Record<string, LineTypeDef> };
+      const ring = a.boundary?.ring ?? null;
+      const xs = (ring ?? []).map((p) => p[0]);
+      const ys = (ring ?? []).map((p) => p[1]);
+      const pad = ring ? 0.08 * Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) : 0;
+      const box = ring ? ([Math.min(...xs) - pad, Math.min(...ys) - pad, Math.max(...xs) + pad, Math.max(...ys) + pad] as [number, number, number, number]) : undefined;
       if (pictures) {
-        // The originals, as drawn, and coloured by layer: what the eye needs to tell the base from the plan.
-        const merged: CadDocument = { units: 'm', crs: null, layers: [], entities: inputs.flatMap((i) => i.doc.entities), bbox: [[0, 0], [0, 0]], warnings: [], lineTypes: Object.assign({}, ...inputs.map((i) => i.doc.lineTypes ?? {})) as Record<string, LineTypeDef> };
-        const ring = a.boundary?.ring ?? null;
-        const xs = (ring ?? []).map((p) => p[0]);
-        const ys = (ring ?? []).map((p) => p[1]);
-        const pad = ring ? 0.08 * Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) : 0;
-        const box = ring ? ([Math.min(...xs) - pad, Math.min(...ys) - pad, Math.max(...xs) + pad, Math.max(...ys) + pad] as [number, number, number, number]) : undefined;
         mkdirSync(`${OUT}/kiem-ke`, { recursive: true });
         if (MODE === 'inventory') {
           merged.bbox = box ? [[box[0], box[1]], [box[2], box[3]]] : merged.bbox;
@@ -130,6 +136,18 @@ describe.skipIf(!IN || !existsSync(IN))('Làm sạch bản vẽ theo TT16', () =
       writeFileSync(`${OUT}/${base}_TT16.dxf`, dxfText);
       written.push({ dxf: `${OUT}/${base}_TT16.dxf`, name: `${base}_TT16.dxf`, role: m.role });
       if (pictures) await png(previewSvg(res.doc, { px: 2400, colorBy: 'entity', include: (i) => !res.doc.layers.some((l) => !l.visible && l.name === res.doc.entities[i].layer) }).svg, `${OUT}/${base}_xem-truoc.png`);
+      if (pictures) {
+        // The picture for the person who checks: the same area twice, every layer in its own colour with its name in the legend —
+        // left the drawing and layers as received, right the cleaned drawing and its standard layers.
+        const PX = 2000;
+        // The legend sits in the top-left corner of each picture: widen the area to the left so it lies on blank paper, not on the map.
+        const wide = box ? ([box[0] - 0.26 * (box[2] - box[0]), box[1], box[2], box[3]] as [number, number, number, number]) : undefined;
+        const left = previewSvg(merged, { px: PX, box: wide, colorBy: 'layer', title: `GỐC — ${m.name} (layer gốc)` });
+        const right = previewSvg(res.doc, { px: PX, box: wide, colorBy: 'layer', title: `SẠCH — ${base}_TT16.dxf (layer đã chuẩn hóa)` });
+        const [pl, pr] = await Promise.all([sharp(Buffer.from(left.svg), { limitInputPixels: false }).png().toBuffer(), sharp(Buffer.from(right.svg), { limitInputPixels: false }).png().toBuffer()]);
+        const h = Math.max(left.height, right.height);
+        await writeFileRetry(`${OUT}/${base}_so-sanh.png`, await sharp({ create: { width: PX * 2 + 24, height: h, channels: 3, background: '#9ca3af' } }).composite([{ input: pl, left: 0, top: 0 }, { input: pr, left: PX + 24, top: 0 }]).png().toBuffer());
+      }
       if (titles.length) md.push(`Tiêu đề ghi vào bản vẽ (layer BV_Ten_Banve, để web app nhận ra loại bản đồ và Mục): ${titles.map((t) => `“${t}”`).join(' · ')}`, '');
       const keep = res.lines.filter((l) => l.to && l.kept).sort((x, y) => y.kept - x.kept);
       md.push('### Giữ / đổi layer', '', '| Layer gốc | → Layer mới | SL | Lý do | |', '|---|---|---:|---|---|');

@@ -41,3 +41,12 @@ Mục tiêu: người dùng mở bản sạch cạnh bản gốc phải thấy *
 
 ## Xem trong AutoCAD thật (khi nghi kiểu nét)
 `accoreconsole` không chụp màn hình. Cách thực dụng: DWG do AutoCAD lưu → `parseDwg` → in `lineTypes[<tên>]` và `lineScale/width` của đối tượng, so từng phần tử với bản gốc (độ dài nét/hở, chữ, cỡ chữ, độ dời). Đã làm cho ranh: bản gốc `[1.035 + chữ "l" cỡ 1.5, 2.465]`, bản sạch `[1.035 + "●" cỡ 2.44, 2.465]` (Arial ● bé hơn Wingdings nên cỡ tăng để cùng đường kính).
+
+## Ảnh hai bên cho người kiểm tra (`*_so-sanh.png`)
+Công cụ `cleanCad.test.ts` (bước `clean`) tự sinh cho mỗi bản đồ một ảnh chia đôi: **trái = bản vẽ gốc (cả xref) với layer gốc, phải = bản sạch với layer đã chuẩn hóa**, cùng khung nhìn (ranh + lề, nới sang trái để bảng chú giải không đè bản đồ), **mỗi layer một màu** và chú giải 28 layer lớn nhất có số đối tượng ở góc trên trái mỗi bên. Cách dùng khi kiểm:
+1. Nhìn chú giải trái: layer nào lớn nhất? (nền giải thửa, ký hiệu cây khảo sát, nhà…). Nhìn chú giải phải: những layer đó đã thành gì (`NEN_*`, `KTCQ_*`, `DAT_*`, `HTKT_*`, `BV_*`)?
+2. Một mảng màu bên trái **biến mất** bên phải → phải có lý do trong bảng "Bỏ" của `BAO_CAO.md` (ký hiệu cây, mặt cắt, vùng đất/kênh lặp ở bản đồ hạ tầng…). Không có lý do → lỗi, sửa.
+3. Một hình bên phải **không có bên trái** → chỉ được là ranh chuẩn công cụ vẽ cho bản đồ không có ranh riêng (cấp điện, nước, TTLL…).
+4. Ảnh dựng từ DXF trong bộ nhớ (có LTYPE nên thấy nét đứt, chấm ranh) — khác với ảnh dựng từ file DXF đọc lại (nét liền).
+
+Ảnh là bước nhìn **tổng thể**; vẫn phải phóng to 3–4 cửa sổ (`CMP_MODE=side`) cho nét, ranh, đường như mục trên.

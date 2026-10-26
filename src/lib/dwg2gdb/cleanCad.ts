@@ -296,7 +296,8 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
             return { layer: sym.layer, color: sym.aci !== null ? aciHex(sym.aci) : undefined, why: `vùng ${sym.label}${sym.aci !== null ? ` — màu ${sym.aci}` : ''}` };
           }
           // A wide line on a land-use layer is a road (Đôn Châu: 20 m); a thin one (3 m) is only the outline of the parcel.
-          if (e.kind === 'polyline' && (e.width ?? 0) >= 8) return { layer: roadLayer('', '', e.layer), why: 'nét rộng ≥ 8 m — là đường, không phải thửa' };
+          // A wide dotted "Hidden" line (Long Hiệp: 15 m, QHDD_DAT_XD_Chucnangkhac) is the outline of a land-use area drawn heavy: not a road either.
+          if (e.kind === 'polyline' && (e.width ?? 0) >= 8 && !/hidden/i.test(e.lineType ?? '')) return { layer: roadLayer('', '', e.layer), why: 'nét rộng ≥ 8 m — là đường, không phải thửa' };
           return { layer: 'BV_Vienthua', why: 'viền thửa/lô (vùng đã có hatch)' };
         }
         if (/^RanhGioiQuyHoach/.test(cls)) return { layer: 'BV_Rg_lapquyhoach', color: aciHex(1), dash: 'dotted', why: 'ranh lập quy hoạch (Phụ lục I)' };

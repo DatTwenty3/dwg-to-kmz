@@ -52,3 +52,5 @@ Sau mỗi lần sửa: chạy lại `clean`, xem lại ảnh và mục "Kiểm t
 - `kind` rất hữu ích: cùng một layer có thể vừa có chữ vừa có nét (`CAU BE TONG`: nét → `HTKT_GT_Cau`, chữ để mặc định).
 - Quyết định `keep` luôn kèm `"why"` cụ thể (nói hình vẽ trông thế nào, không chỉ "theo tên") và `"look": true` khi đoán từ hình vẽ chứ không từ tên/màu chuẩn.
 - Mẫu trọn bộ: `vi-du-quyet-dinh-luu-nghiep-anh.json`.
+- Layer có kiểu nét ranh (`QH_Ranh giới lập quy hoạch`) chưa chắc là ranh lập quy hoạch của bản đồ: Long Hiệp có `QH_Ranh giới huyện` cùng kiểu nét nhưng là một vòng khác (6.641 ha so với 6.516 ha). So số đỉnh/diện tích với ranh web app nhận ra trước khi `keep` về `BV_Rg_lapquyhoach`; nếu khác, đặt `BV_Rg_capcoso`.
+- Quyết định sửa phân loại sai của bản gốc (bờ ao thành nền, cống thoát nước ra khỏi cấp nước…) làm cổng kiểm tra báo "mất đối tượng": ghi lý do vào `chap-nhan-lech.json` (xem SKILL.md, mục Cổng kiểm tra).

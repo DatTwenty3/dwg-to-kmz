@@ -1,0 +1,20 @@
+{
+  "overrides": [
+    { "layer": "KS_GHICHU", "kind": "text", "action": "keep", "to": "BV_Chu_Chucnang", "why": "nhãn hiện trạng từng khoanh (RUỘNG LÚA, AO, CÂY TẠP…) và tên đường/cầu (HL25, ĐH36, ĐƯỜNG BÊ TÔNG) — là nội dung bản đồ hiện trạng và nguồn đặt tên đường, không phải rác khảo sát", "look": true },
+    { "layer": "KS_MO_XAY_TUONG_DAI", "action": "keep", "to": "NEN_Diahinh_Moma", "why": "mộ xây/tượng đài: cụm hình chữ nhật nhỏ có dấu +, rải rác ở nghĩa địa — ký hiệu đo đạc, giữ làm nền", "look": true },
+    { "layer": "TUONG_RAO_RANH", "action": "keep", "to": "NEN_Diahinh_Tuongrao", "why": "tường rào/hàng rào (kiểu nét TUONG/RANH/FENCELINE) — chi tiết đo đạc, giữ làm nền thay vì bỏ" },
+    { "layer": "SONG_HO", "kind": "polyline", "action": "keep", "to": "NEN_Diahinh_Songho", "why": "mép bờ sông/kênh chạy dọc kênh — nền đo đạc, không phải viền thửa/nền sdd" },
+    { "drawing": "xref KSHT", "layer": "MUONG_AO", "kind": "polyline", "action": "keep", "to": "NEN_Diahinh_Muongao", "why": "bờ ao/mương hiện trạng (đa giác nhỏ) — nền địa hình, không phải tuyến thoát nước mưa" },
+    { "layer": "GA_CONG_THOATNUOC", "kind": "polyline", "action": "keep", "to": "HTKT_TN_Tuyen_Nuocmua", "why": "cống thoát nước (Cống Trà Sất, cống Rạch Bần) — thoát nước, không phải cấp nước", "look": true },
+    { "layer": "GA_CONG_THOATNUOC", "kind": "text", "action": "keep", "to": "HTKT_TN_Ghichu", "why": "tên cống" },
+    { "layer": "RANHGIOI KHAO SAT", "action": "keep", "to": "NEN_Diahinh_Ranhkhaosat", "why": "ranh khảo sát (kiểu nét RANHKHAOSAT) — nền đo đạc, không phải tuyến thoát nước" },
+    { "layer": "TRU PHAT SONG", "kind": "polyline", "action": "keep", "to": "HTKT_TTLL_Congtrinh", "why": "ký hiệu trụ phát sóng (13 trụ, vẽ bằng nét)", "look": true },
+    { "layer": "TRU PHAT SONG", "kind": "text", "action": "keep", "to": "HTKT_TTLL_Ghichu", "why": "chữ \"trụ phát sóng\"" },
+    { "layer": "CAODO", "action": "keep", "to": "NEN_Diahinh_Caodo", "why": "cao độ điểm đo — nền địa hình" },
+    { "layer": "NEN_BETONG", "action": "keep", "to": "NEN_Diahinh_Nenbetong", "why": "sân/nền bê tông (hình khép kín nhỏ) — chi tiết đo đạc, không phải đường; giữ làm nền" },
+    { "layer": "KE_BETONG", "action": "keep", "to": "NEN_Diahinh_Kebetong", "why": "kè bê tông — chi tiết đo đạc, giữ làm nền" },
+    { "layer": "BV_Rg_Lapquyhoach", "kind": "polyline", "action": "keep", "to": "BV_Rg_lapquyhoach", "color": "#ff0000", "why": "ranh lập quy hoạch giữ nguyên nét vẽ gốc (rộng 5 m, kiểu nét chấm tròn)" },
+    { "layer": "QH_Ranh giới huyện", "kind": "polyline", "action": "keep", "to": "BV_Rg_capcoso", "color": "#990000", "why": "ranh giới trong bản vẽ khảo sát (971 đỉnh, 6.641 ha) — khác ranh lập quy hoạch của bản đồ (873 đỉnh, 6.516 ha) dù cùng kiểu nét; giữ nét gốc làm ranh cấp cơ sở, không lẫn với ranh lập quy hoạch", "look": true },
+    { "drawing": "QH_08", "layer": "E", "kind": "polyline", "action": "keep", "to": "HTKT_CD_Duongday22kV", "why": "kiểu nét DDXDM22kv = đường dây trung thế 22 kV xây mới (giữ kiểu nét có chữ)" }
+  ]
+}

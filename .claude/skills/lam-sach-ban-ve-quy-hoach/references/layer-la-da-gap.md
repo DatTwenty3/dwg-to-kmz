@@ -47,3 +47,27 @@ Rút từ các hồ sơ thật (xã Long Hiệp, Đôn Châu, **Lưu Nghiệp An
 3. Ranh hở < 2 % chiều dài được **khép lại** (để web app nhận là vùng `RanhGioiQuyHoach_A`); bề rộng, kiểu nét, tỷ lệ nét giữ nguyên. Nếu để hở, web app báo `BV_Rg_lapquyhoach` là layer chưa nhận ra ở một số bản đồ.
 4. Bản đồ không có ranh riêng (cấp điện, nước, TTLL… chỉ có mẫu chú giải) thì công cụ vẽ ranh chung với **cùng nét** (rộng 5, kiểu chấm tròn, tỷ lệ 50).
 5. Ảnh xem trước (`previewSvg`) vẽ chấm tròn như AutoCAD. DXF ghi LTYPE phức hợp (chữ `●` Arial thay `l` Wingdings, đã bù cỡ và độ dời); AutoCAD mở/lưu DWG giữ nguyên định nghĩa — đã đối chiếu từng phần tử.
+
+## Thêm từ hồ sơ Long Hiệp (hạ tầng hiện trạng khảo sát, 1,4 triệu đối tượng)
+Bản đồ hiện trạng hạ tầng của Long Hiệp nằm trong **xref khảo sát** (`xref KSHT XA LONG HIEP…dwg`: 1.368.496 nét ký hiệu cây + nhà + đường + điện…). Trong `quyet-dinh.json`, layer của nó ghi `"drawing": "xref KSHT"`. Mẫu trọn bộ: `vi-du-quyet-dinh-long-hiep.json`.
+
+| Layer | Quy tắc đoán | Thực chất | Cách biết | Quyết định |
+|---|---|---|---|---|
+| `KS_MO_XAY_TUONG_DAI` (568 nét) | rác khảo sát → bỏ | **mộ xây** (cụm hình chữ nhật nhỏ có dấu `+`, rải ở nghĩa địa) | phóng to quanh layer (`CMP_MODE=zoom`) | `NEN_Diahinh_Moma` (⚠) |
+| `TUONG_RAO_RANH` (1.466) | "tường rào — không có lớp" → bỏ | tường/hàng rào (ltype `TUONG`, `RANH`, `FENCELINE2`) | tên + kiểu nét | `NEN_Diahinh_Tuongrao` — nền đo đạc, đừng bỏ |
+| `GA_CONG_THOATNUOC` (31 nét + 2 chữ) | `HTKT_CN_Ongcapnuoc` (vì có "cong") | **cống thoát nước** (Cống Trà Sất, cống Rạch Bần) | chữ trong layer | nét → `HTKT_TN_Tuyen_Nuocmua` (⚠), chữ → `HTKT_TN_Ghichu` |
+| `MUONG_AO` (1.251 nét, hạ tầng) | `HTKT_TN_Tuyen_Nuocmua` | **bờ ao/mương** (đa giác nhỏ nhãn "AO") | phóng to | hạ tầng: `NEN_Diahinh_Muongao`; bản đồ sdd: để mặc định (viền thửa + `DAT_NNK_Songsuoi`) |
+| `RANHGIOI KHAO SAT` (ltype `RANHKHAOSAT`, rộng 3) | `HTKT_TN_Tuyen_Nuocmua` | ranh khảo sát | tên | `NEN_Diahinh_Ranhkhaosat` |
+| `NEN_BETONG`, `KE_BETONG` | bỏ ("sân/nền/kè bê tông, không phải đường") | chi tiết đo đạc (sân, kè) | hình khép kín nhỏ | `NEN_Diahinh_Nenbetong` / `Kebetong` — giữ làm nền thay vì bỏ |
+| `TRU PHAT SONG` (91 nét + 13 chữ) | `BV_Chu_Chucnang` (chữ), nét bị bỏ như nền sdd | ký hiệu **trụ phát sóng** | chữ "trụ phát sóng" | nét → `HTKT_TTLL_Congtrinh` (⚠), chữ → `HTKT_TTLL_Ghichu` |
+| `KS_GHICHU` (10.019 chữ; **ở bản đồ hạ tầng cũng vậy**) | rác → bỏ | nhãn từng khoanh ("RUỘNG LÚA" 4.502, "AO", "HOA MÀU", "CÂY TẠP"…) **và tên đường/cầu** ("HL25 (ĐƯỜNG NHỰA)", "ĐH36", "ĐƯỜNG BÊ TÔNG BA TRẠCH") | `CMP_MODE=scan` | giữ chữ → `BV_Chu_Chucnang` (⚠): bản đồ sdd cần nhãn, web app cần tên đường để đặt `tenDuong` |
+| `E` (QH cấp điện, ltype `DDXDM22kv`) | `HTKT_CD_Duongday` (không rõ cấp) | đường dây 22 kV xây mới | tên LTYPE | `HTKT_CD_Duongday22kV` |
+| `QHDD_DAT_XD_Chucnangkhac` (nét rộng 15 m, ltype `( Hidden )`) | đường (nét rộng ≥ 8 m trên layer đất) | **viền chấm của vùng đất vẽ đậm**, không phải đường | ltype `Hidden`, đi quanh vùng | quy tắc đã sửa: nét rộng kiểu `Hidden` trên layer đất là `BV_Vienthua` |
+| **`QH_Ranh giới huyện`** (ltype `QH_Ranh giới lập quy hoạch`, rộng 5) | `BV_Rg_capcoso` ⚠ | một ranh **khác** ranh lập quy hoạch của bản đồ (971 đỉnh 6.641 ha ≠ 873 đỉnh 6.516 ha) dù cùng kiểu nét | tính diện tích hai vòng (xem dưới) | giữ nét gốc làm `BV_Rg_capcoso`; **đừng** `keep` nó về `BV_Rg_lapquyhoach` — bản hạ tầng sẽ có ranh sai và không được tạo ranh chuẩn |
+
+### Cách xác định "đây có phải ranh lập quy hoạch không"
+Layer ranh đặt tên sai hoặc hai layer cùng kiểu nét ranh: tính **số đỉnh và diện tích** từng vòng (shoelace) rồi so với ranh web app nhận ra (`BAO_CAO.md`, "Ranh nhận ra: … ha"). Vòng trùng diện tích (± vài %) mới là ranh lập quy hoạch; vòng khác diện tích là ranh khác — giữ nét gốc, đặt đúng loại. Bản đồ nào cũng phải có đúng một ranh lập quy hoạch trong bản sạch (nếu bản đồ không có thì công cụ tự vẽ với nét chuẩn).
+
+### Bản đồ hiện trạng khảo sát khổng lồ
+- Hàng triệu nét ký hiệu cây (`KYHIEU`, `PLAN-NOTE`) → bỏ, công cụ chạy vẫn mất ~2 phút; ảnh `*_so-sanh.png` tự lược nét ngắn (giữ mọi hatch và chữ).
+- Phần lớn đối tượng giữ lại là nền (`NEN_*`: bờ đất, nhà bán kiên cố/nhà tạm là `KTCQ_*`) — đừng lo con số lớn.

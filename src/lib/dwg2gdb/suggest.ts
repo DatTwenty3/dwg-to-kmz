@@ -345,7 +345,7 @@ export function suggest(roleId: RoleId, layer: string, kind: GeomKind, facts: La
   if (/^nendiahinh/.test(c)) {
     if (kind === 'T') return (facts.numericShare ?? 0) >= 0.7 ? at({ theme: 'dh', cls: 'DiemDoCao_P', phanLoai: 'Điểm độ cao' }, 'Số cao độ của nền địa hình (bản vẽ đã chuẩn hóa)') : none('Chữ — dùng làm tên đối tượng');
     if (kind === 'P') return at({ theme: 'dh', cls: 'DiemDoCao_P', phanLoai: /caodo/.test(c) ? 'Điểm độ cao' : 'Điểm đo' }, 'Điểm đo của nền địa hình (bản vẽ đã chuẩn hóa)');
-    const label = /bodat/.test(c) ? 'Bờ đất' : /songho|kenh|rach/.test(c) ? 'Mép sông, hồ' : /moma/.test(c) ? 'Mồ mả' : /thucvat/.test(c) ? 'Ranh thực vật' : /^nendiahinhkh$/.test(c) ? 'Chi tiết địa hình' : p.replace(/^NEN /i, '');
+    const label = /bodat/.test(c) ? 'Bờ đất' : /songho|kenh|rach|muongao/.test(c) ? 'Mép sông, hồ' : /moma/.test(c) ? 'Mồ mả' : /thucvat/.test(c) ? 'Ranh thực vật' : /^nendiahinhkh$/.test(c) ? 'Chi tiết địa hình' : p.replace(/^NEN /i, '');
     return at({ theme: 'dh', cls: 'NenDiaHinh_L', phanLoai: label }, 'Nền địa hình (bản vẽ đã chuẩn hóa)');
   }
   if (/^nengiaithua/.test(c)) return none('Nền giải thửa của bản vẽ đã chuẩn hóa — không thuộc đồ án');

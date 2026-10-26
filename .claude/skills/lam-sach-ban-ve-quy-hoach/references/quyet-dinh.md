@@ -41,7 +41,7 @@ Màu ACI → hex: dùng bảng `tt16-layer-mau.md` (cột ACI) và hàm `aciHex`
 Sau mỗi lần sửa: chạy lại `clean`, xem lại ảnh và mục "Kiểm tra: đọc lại bằng web app". Một quyết định được dùng lại cho mọi bản vẽ trong thư mục nếu không ghi `drawing`.
 
 ## Bài học: ranh và nét đường phải giống bản gốc
-- **Đừng `drop` layer ranh** (`BV_Rg_Lapquyhoach`…). Công cụ sẽ tự vẽ lại một ranh đơn giản (mất độ rộng, kiểu nét chấm tròn). Dùng `{"layer": "<layer ranh>", "kind": "polyline", "action": "keep", "to": "BV_Rg_lapquyhoach", "color": "#ff0000"}` để giữ nét gốc; ranh hở < 2 % chiều dài được khép lại, bề rộng và kiểu nét giữ nguyên. Bản đồ không có ranh riêng (chỉ có mẫu trong chú giải) được vẽ ranh theo nét của ranh dài nhất.
+- **Đừng `drop` layer ranh** (`BV_Rg_Lapquyhoach`…). Công cụ sẽ tự vẽ lại một ranh đơn giản (mất độ rộng, kiểu nét chấm tròn). Dùng `{"layer": "<layer ranh>", "kind": "polyline", "action": "keep", "to": "BV_Rg_lapquyhoach", "color": "#ff0000"}` để giữ nét gốc; ranh hở < 2 % chiều dài giữ hở như bản gốc (web app vẫn đọc là vùng), bề rộng và kiểu nét giữ nguyên. Bản đồ không có ranh riêng (chỉ có mẫu trong chú giải) được vẽ ranh theo nét của ranh dài nhất.
 - Viền thửa/lô gom `BV_Vienthua` **giữ màu gốc** (không ép xám) — viền khu công nghiệp tím, viền đất ở nâu chấm… phải giống bản vẽ.
 - Khi người dùng nói "nét chưa giống gốc": đừng đoán — dựng ảnh cạnh nhau (bản gốc | DXF đã **lưu qua AutoCAD sang DWG**, vì `parseDxf` không đọc kiểu nét nên ảnh từ DXF luôn thấy nét liền) ở 2–3 cửa sổ (mép ranh, ngã tư, khu dân cư) rồi so từng lớp.
 

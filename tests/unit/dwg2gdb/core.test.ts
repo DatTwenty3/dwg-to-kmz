@@ -38,7 +38,7 @@ import {
   xrefNameRole,
   type MappingEntry,
 } from '@/lib/dwg2gdb';
-import { chainRings, isClosedLine, ringArea, ringsToPolygons } from '@/lib/dwg2gdb/geometry';
+import { chainRings, isClosedLine, nearlyClosedOutline, ringArea, ringsToPolygons } from '@/lib/dwg2gdb/geometry';
 import { parseSr } from '@/lib/gdb/check';
 
 const X0 = 590_000;
@@ -126,6 +126,7 @@ describe('suggestions', () => {
     expect(suggest('ht-sdd', 'HTKT_GT_Cau_Betong', 'L', { closedShare: 1 })).toMatchObject({ target: 'HienTrang/HienTrangGiaoThong/CongTrinhGiaoThong_L', phanLoai: 'Cầu bê tông' }); // closed outline of a bridge, not a parcel
     // the survey base kept by a cleaned drawing is the terrain database, on whatever map it is drawn
     expect(suggest('ht-sdd', 'NEN_Diahinh_Bodat', 'L')).toMatchObject({ target: 'NenDiaHinh/NenDiaHinh/NenDiaHinh_L', phanLoai: 'Bờ đất' });
+    expect(suggest('ht-sdd', 'NEN_Diahinh_Muongao', 'L')).toMatchObject({ target: 'NenDiaHinh/NenDiaHinh/NenDiaHinh_L', phanLoai: 'Mép sông, hồ' });
     expect(suggest('qh-sdd', 'NEN_Diahinh_Caodo', 'T', { numericShare: 1 })).toMatchObject({ target: 'NenDiaHinh/NenDiaHinh/DiemDoCao_P', phanLoai: 'Điểm độ cao' });
     expect(suggest('ht-sdd', 'NEN_Diahinh_Diem', 'P').target).toBe('NenDiaHinh/NenDiaHinh/DiemDoCao_P');
     expect(suggest('ht-sdd', 'NEN_Giaithua', 'L').target).toBeNull(); // the cadastral base stays in the CAD drawing only
@@ -423,6 +424,26 @@ describe('lines written to an area class (đường → vùng)', () => {
     // The planning boundary is found even when drawn in pieces.
     const b = findBoundary(doc(pieces.slice(0, 4).map((e) => ({ ...e, layer: 'BV_Rg_Lapquyhoach' }))));
     expect(Math.round(b!.area)).toBe(40000);
+  });
+});
+
+describe('the planning boundary drawn as an open line (gap < 2 %)', () => {
+  // a 400 × 400 square with 40 vertices per side, the last stretch (a 3 m gap) left out: one open polyline
+  const pts: [number, number][] = [];
+  for (let k = 0; k <= 40; k++) pts.push([k * 10, 0]);
+  for (let k = 1; k <= 40; k++) pts.push([400, k * 10]);
+  for (let k = 1; k <= 40; k++) pts.push([400 - k * 10, 400]);
+  for (let k = 1; k <= 39; k++) pts.push([0, 400 - k * 10]);
+  const ranhLine: CadEntity = { kind: 'polyline', layer: 'BV_Rg_Lapquyhoach', color: '#ff0000', points: pts, closed: false, width: 5 };
+  const target = 'QuyHoach/ViTriRanhGioi/RanhGioiQuyHoach_A';
+  it('is told apart from a plain open line, counted as closed in its row and written as the area', () => {
+    expect(nearlyClosedOutline(pts)).toBe(true);
+    expect(nearlyClosedOutline(pts.slice(0, 80))).toBe(false); // two sides of the square only
+    const d = doc([ranhLine]);
+    const row = layerRows('a', d, new Uint8Array(1).fill(1)).find((r) => r.layer === 'BV_Rg_Lapquyhoach')!;
+    expect(row.closed).toBe(1);
+    const built = buildFeatures([{ id: 'a', name: 'a.dwg', doc: d, inside: new Uint8Array(1).fill(1) }], new Map([[rowKey('a', 'BV_Rg_Lapquyhoach', 'L'), { target, phanLoai: 'Ranh giới lập quy hoạch' }]]), { boundary: null, sourceInGhiChu: false });
+    expect(built.classes.find((c) => c.target === target)?.features).toHaveLength(1);
   });
 });
 

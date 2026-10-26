@@ -4,8 +4,8 @@
 // non-numeric text inside it (labels like "TRƯỜNG TIỂU HỌC LONG HIỆP").
 import type { CadDocument, CadEntity, Vec2 } from '@/lib/cad/types';
 import { foldVietnamese } from '@/lib/geo/provinces';
-import { chainRings, cleanRing, interiorPoint, isClosedLine, labelIn, labelIndex, lineMidpoint, ringsToPolygons } from './geometry';
-import { entityRowKey } from './inventory';
+import { chainRings, cleanRing, interiorPoint, isClosedLine, labelIn, labelIndex, lineMidpoint, nearlyClosedOutline, ringsToPolygons } from './geometry';
+import { entityRowKey, PLAN_BOUNDARY_LAYER } from './inventory';
 import { colorRole, hatchSymbol, type ColorContext } from './colorClass';
 import { compactName, parseTarget, type TargetPath } from './suggest';
 import { chainIds, layerRank, layerSurface, parseBridgeText, parseRoadText, parseRouteSign, lineForSign, roadFields, textAlong, type RoadName, type RoadText } from './roads';
@@ -440,7 +440,8 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
         let polys: Vec2[][][] = [];
         if (e.kind === 'polygon') polys = ringsToPolygons(e.rings);
         else if (e.kind === 'polyline') {
-          if (!isClosedLine(e.points, e.closed)) {
+          // The planning boundary left open by a small gap is the area all the same (the closing stretch is a straight line).
+          if (!isClosedLine(e.points, e.closed) && !(PLAN_BOUNDARY_LAYER.test(compactName(e.layer)) && nearlyClosedOutline(e.points))) {
             // Pieces of an outline: chained into rings once the drawing is read.
             const k = `${m.target}${e.layer}${base.phanLoai ?? ''}`;
             const g = pieces.get(k);

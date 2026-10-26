@@ -72,7 +72,16 @@ export function parseRoadText(raw: string): RoadName | null {
 
   // "CAO TỐC TRÀ VINH - HỒNG NGỰ": an expressway keeps its whole name; its rank is "Đường cao tốc" in both domains.
   if (/^(duong )?cao toc\b.{3,}$/.test(f)) return out(titleCase(main.replace(/^đường\s+/i, '')), 'caoToc');
-  let m = /^(duong )?(quoc lo|ql)\s?(\d+[a-z]?)$/.exec(f);
+  // "ĐƯỜNG ĐT914B.NHỰA", "ĐT 915.Nhựa": a route number followed by the surface (after a dot or a space).
+  let m = /^(duong )?(ql|dt|tl|dh|hl)\s?(\d+[a-z]?)[.,\s-]+(nhua|be tong|btxm|cap phoi|dat|da)$/.exec(f);
+  if (m) {
+    const inner = parseRoadText(`${m[1] ? 'đường ' : ''}${m[2]} ${m[3]}`);
+    if (inner) return { ...inner, surface: noteSurface ?? surfaceOf(m[4]) };
+  }
+  // "HL28": a hương lộ — the name only (its rank in the road system is not written).
+  m = /^(duong )?hl\s?(\d+[a-z]?)$/.exec(f);
+  if (m) return out(`Đường HL${m[2].toUpperCase()}`, null);
+  m = /^(duong )?(quoc lo|ql)\s?(\d+[a-z]?)$/.exec(f);
   if (m) return out(`Quốc lộ ${m[3].toUpperCase()}`, 'quocLo');
   m = /^(duong )?(tinh lo|duong tinh|dt|tl)\s?(\d+[a-z]?)$/.exec(f) ?? /^(duong tinh)\s?(\d+[a-z]?)$/.exec(f);
   if (m) return out(`Đường tỉnh ${m[m.length - 1].toUpperCase()}`, 'tinh');

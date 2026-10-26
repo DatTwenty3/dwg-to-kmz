@@ -44,7 +44,7 @@ Rút từ các hồ sơ thật (xã Long Hiệp, Đôn Châu, **Lưu Nghiệp An
 ## Ranh (đã sai một lần — đọc kỹ)
 1. Bản gốc: **một polyline hở ~1.000 điểm**, rộng 5 m, kiểu nét `QH_Ranh giới lập quy hoạch` (đường liền + chấm tròn đỏ lớn — ký tự `l` của Wingdings), tỷ lệ nét 50, thường hở vài chục–trăm mét do người vẽ. Cạnh đó thường có một đoạn 2 điểm là **mẫu trong chú giải** (nằm ngoài ranh).
 2. **Đừng `drop` layer ranh.** Làm vậy công cụ vẽ lại một ranh đơn giản (mảnh, không chấm) và người dùng thấy "mất ký hiệu ranh". Dùng `keep` → `BV_Rg_lapquyhoach` để giữ nguyên nét.
-3. Ranh hở < 2 % chiều dài được **khép lại** (để web app nhận là vùng `RanhGioiQuyHoach_A`); bề rộng, kiểu nét, tỷ lệ nét giữ nguyên. Nếu để hở, web app báo `BV_Rg_lapquyhoach` là layer chưa nhận ra ở một số bản đồ.
+3. Ranh hở < 2 % chiều dài **giữ hở như bản gốc** (chấm tròn, bề rộng, kiểu nét, khoảng hở — đếm chấm trong `.qgz` phải đúng bằng bản gốc: Lưu Nghiệp Anh 229). Web app tự đọc ranh hở là vùng `RanhGioiQuyHoach_A` (`nearlyClosedOutline` trong `geometry.ts`, dùng ở `findBoundary`, hàng bảng ghép và `buildFeatures`); trước đây bản sạch phải khép ranh vì web app báo layer chưa nhận ra, nay không cần nữa.
 4. Bản đồ không có ranh riêng (cấp điện, nước, TTLL… chỉ có mẫu chú giải) thì công cụ vẽ ranh chung với **cùng nét** (rộng 5, kiểu chấm tròn, tỷ lệ 50).
 5. Ảnh xem trước (`previewSvg`) vẽ chấm tròn như AutoCAD. DXF ghi LTYPE phức hợp (chữ `●` Arial thay `l` Wingdings, đã bù cỡ và độ dời); AutoCAD mở/lưu DWG giữ nguyên định nghĩa — đã đối chiếu từng phần tử.
 

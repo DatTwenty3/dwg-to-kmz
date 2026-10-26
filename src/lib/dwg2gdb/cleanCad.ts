@@ -482,16 +482,8 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
       lines.set(key, l);
     }
   }
-  // A boundary drawn as an open line whose ends nearly meet (gap < 2 % of its length — a drafting slip) is closed, so it
-  // reads as the planning area (Phụ lục I: RanhGioiQuyHoach_A). Width and line type stay exactly as drawn.
-  entities.forEach((e, i) => {
-    if (e.layer !== 'BV_Rg_lapquyhoach' || e.kind !== 'polyline' || e.closed || e.points.length < 10) return;
-    let len = 0;
-    for (let k = 1; k < e.points.length; k++) len += Math.hypot(e.points[k][0] - e.points[k - 1][0], e.points[k][1] - e.points[k - 1][1]);
-    const f = e.points[0];
-    const l = e.points[e.points.length - 1];
-    if (Math.hypot(f[0] - l[0], f[1] - l[1]) < 0.02 * len) entities[i] = { ...e, closed: true };
-  });
+  // A boundary drawn as an open line whose ends nearly meet (gap < 2 % of its length) stays open, exactly as drawn: width, line
+  // type and the gap are the office's. The web app reads it as the planning area all the same (nearlyClosedOutline).
   if (boundary && ![...layers.keys()].includes('BV_Rg_lapquyhoach')) {
     layers.set('BV_Rg_lapquyhoach', { name: 'BV_Rg_lapquyhoach', color: aciHex(1), visible: true, style: { dash: 'dotted' } });
     const ranh = 'QH_Ranh giới lập quy hoạch';

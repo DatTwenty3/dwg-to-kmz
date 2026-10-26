@@ -3,7 +3,7 @@
 // row per layer × geometry kind with its counts — the rows of the mapping table.
 import type { CadDocument, CadEntity, Vec2 } from '@/lib/cad/types';
 import { colorKey, describeColorKey, keyColor, type ColorContext, type ColorInfo } from './colorClass';
-import { bboxOf, chainRings, interiorPoint, isClosedLine, labelIn, labelIndex, ringArea } from './geometry';
+import { bboxOf, chainRings, interiorPoint, isClosedLine, labelIn, labelIndex, nearlyClosedOutline, ringArea } from './geometry';
 import { compactName, isAnnotationLayer, landUseOf, sameLandUse, type GeomKind } from './suggest';
 
 /** Layer names of the planning boundary ("BV_Rg_Lapquyhoach", "Ranh giới lập quy hoạch", "RANH QH"…). */
@@ -289,7 +289,7 @@ export function layerRows(drawing: string, doc: CadDocument, flags: Uint8Array, 
       if (use && !sameLandUse(use, r.colorMatch.landUse)) r.labelConflicts = (r.labelConflicts ?? 0) + 1;
     }
     if (e.kind === 'polyline') {
-      if (isClosedLine(e.points, e.closed)) r.closed++;
+      if (isClosedLine(e.points, e.closed) || (PLAN_BOUNDARY_LAYER.test(compactName(e.layer)) && nearlyClosedOutline(e.points))) r.closed++;
       else {
         const list = open.get(key);
         if (list) list.push(e.points);

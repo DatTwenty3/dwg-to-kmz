@@ -7,6 +7,10 @@ import { templateAttributes } from '@/lib/dwg2gdb/plan';
 describe('parseRoadText', () => {
   it('reads the kind and rank from the name', () => {
     expect(parseRoadText('ĐƯỜNG HUYỆN 36')).toMatchObject({ name: 'Đường huyện 36', rank: 'huyen' });
+    // a route number followed by its surface ("ĐT914B.Nhựa"), and a hương lộ
+    expect(parseRoadText('ĐƯỜNG ĐT914B.NHỰA')).toMatchObject({ name: 'Đường tỉnh 914B', rank: 'tinh', surface: 'Nhựa' });
+    expect(parseRoadText('ĐƯỜNG ĐT 915.Nhựa')).toMatchObject({ name: 'Đường tỉnh 915', rank: 'tinh' });
+    expect(parseRoadText('ĐƯỜNG HL28.NHỰA')).toMatchObject({ name: 'Đường HL28', rank: null, surface: 'Nhựa' });
     expect(parseRoadText('ĐƯỜNG DH 18')).toMatchObject({ name: 'Đường huyện 18', rank: 'huyen' });
     expect(parseRoadText('ĐƯỜNG DH36')).toMatchObject({ name: 'Đường huyện 36', rank: 'huyen' });
     expect(parseRoadText('ĐT.911')).toMatchObject({ name: 'Đường tỉnh 911', rank: 'tinh' });

@@ -212,6 +212,17 @@ const near = (a: Vec2, b: Vec2, tol = SNAP) => Math.abs(a[0] - b[0]) <= tol && M
 export const isClosedLine = (pts: Vec2[], closed: boolean) => pts.length >= 3 && (closed || (pts.length >= 4 && near(pts[0], pts[pts.length - 1])));
 
 /**
+ * A long outline whose ends stop short of each other by a drafting slip (gap < 2 % of its length): how the planning
+ * boundary is often drawn (one open polyline, the closing stretch left out). Read as an area like findBoundary does.
+ */
+export function nearlyClosedOutline(pts: Vec2[]): boolean {
+  if (pts.length < 10) return false;
+  let len = 0;
+  for (let k = 1; k < pts.length; k++) len += Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]);
+  return Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]) < 0.02 * len;
+}
+
+/**
  * Rings made of open lines whose ends meet (outlines drawn in several pieces: a boundary of LINE segments, a lot
  * split at each corner). Each line is used at most once; at a junction the first free piece is taken. Returns the
  * rings (without the repeated closing vertex), how many lines went into them and which ones (indexes in `lines`).

@@ -194,7 +194,8 @@ function alongRoad(e: Extract<CadEntity, { kind: 'text' }>, roads: readonly Road
 
 /** The small diamond / frame drawn round a route number (914C): a closed line of a few vertices with a sign inside. */
 function frameOfSign(e: CadEntity, signs: readonly Vec2[]): boolean {
-  if (e.kind !== 'polyline' || !e.closed || e.points.length > 8 || !signs.length) return false;
+  // A diamond has 4 vertices; a circle (round the "QL54" label of Lưu Nghiệp Anh, 252 m) was already cut to 65 by the reader.
+  if (e.kind !== 'polyline' || !e.closed || e.points.length > 70 || !signs.length) return false;
   const b = entityBox(e);
   if (!b) return false;
   const w = b[2] - b[0];

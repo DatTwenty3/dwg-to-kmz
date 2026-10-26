@@ -128,6 +128,13 @@ describe('symbols, road names and sign frames (Long Hiệp)', () => {
     const r = cleanDocument([input(doc([frame, text('914C', 100, 108, 0)]), [1, 1])], new Map(), ring);
     expect(r.doc.entities.map((e) => e.layer).filter((l) => l !== 'BV_Rg_lapquyhoach').sort()).toEqual(['HTKT_GT_Kyhieutuyen', 'KYHIEU_Congtrinh_Bienso']);
   });
+  it('a circle round a highway label (65 vertices, 252 m, layer KY HIEU) is kept too', () => {
+    const circle: CadEntity = { kind: 'polyline', layer: 'KY HIEU', color: '#ffffff', width: 4.9, closed: true, points: Array.from({ length: 65 }, (_, k) => [500 + 126 * Math.cos((2 * Math.PI * (k % 64)) / 64), 500 + 126 * Math.sin((2 * Math.PI * (k % 64)) / 64)] as [number, number]) };
+    const label = { ...text('QL54', 480, 480, 0, '0'), height: 60 } as CadEntity;
+    const r = cleanDocument([input(doc([circle, label]), [1, 1])], new Map(), ring);
+    expect(r.doc.entities.filter((e) => e.layer === 'KYHIEU_Congtrinh_Bienso')).toHaveLength(1);
+    expect(r.doc.entities.filter((e) => e.layer === 'HTKT_GT_Kyhieutuyen')).toHaveLength(1);
+  });
   it('a diamond of 266 m on the layer KYHIEU (Long Hiệp) is kept too, a parcel that merely contains a sign off-centre is not', () => {
     const diamond = (cx: number, cy: number, r: number): CadEntity => ({ kind: 'polyline', layer: 'KYHIEU', color: '#ffffff', points: [[cx - r, cy], [cx, cy + r], [cx + r, cy], [cx, cy - r]], closed: true });
     const big = cleanDocument([input(doc([diamond(500, 500, 133), text('915C', 500, 480, 0, 'TEXT')]), [1, 1])], new Map(), ring);

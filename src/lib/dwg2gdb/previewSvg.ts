@@ -115,7 +115,13 @@ export function previewSvg(doc: CadDocument, o: PreviewOptions = {}): { svg: str
       if (e.kind !== 'text') continue;
       const x = X(e.position[0]);
       const y = Y(e.position[1]);
-      out.push(`<text x="${x}" y="${y}" font-size="${Math.max(7, e.height * sc).toFixed(1)}" font-family="Arial" fill="${byLayer ? pick(e) : '#111'}" transform="rotate(${-e.rotation} ${x} ${y})">${esc(e.text)}</text>`);
+      // The text is drawn the way its CAD justification says: the point is its centre / right end, its middle / top / bottom
+      // (a label "QL54" centred in its ring must look centred, not start at the ring's centre). TEXT height is the capital
+      // height: Arial's capitals are 0.716 of the font size.
+      const size = Math.max(7, (e.height * sc) / 0.716);
+      const dy = e.vAlign === 'middle' ? 0.358 * size : e.vAlign === 'top' ? 0.716 * size : e.vAlign === 'bottom' ? -0.21 * size : 0;
+      const anchor = e.hAlign === 'center' ? 'middle' : e.hAlign === 'right' ? 'end' : 'start';
+      out.push(`<text x="${x}" y="${y}" dy="${dy.toFixed(1)}" text-anchor="${anchor}" font-size="${size.toFixed(1)}" font-family="Arial" fill="${byLayer ? pick(e) : '#111'}" transform="rotate(${-e.rotation} ${x} ${y})">${esc(e.text)}</text>`);
     }
   for (const i of keep) {
     const e = doc.entities[i];

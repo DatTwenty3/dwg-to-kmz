@@ -86,3 +86,17 @@ describe('rectangleOf', () => {
     expect(rectangleOf([[0, 0], [10, 0], [10, 5]])).toBeNull();
   });
 });
+
+describe('strip boxes of one height', () => {
+  it('flags a strip with the short side of a box (same direction, same layer) even when no text lies near it', () => {
+    const parcel = hatch([[0, 0], [900, 0], [900, 600], [0, 600]]);
+    const entities = [
+      parcel,
+      hatch(rect(100, 100, 150, 32)),
+      text('KHU THƯƠNG MẠI DỊCH VỤ KẾT HỢP', 175, 132, 8, { vAlign: 'top' }),
+      hatch(rect(400, 400, 186, 32)), // far from any text, 32 m high like the box above
+      hatch(rect(400, 300, 186, 90)), // not a strip: a real parcel
+    ];
+    expect([...findLabelBoxes({ entities }, all(entities.length)).keys()].sort()).toEqual([1, 3]);
+  });
+});

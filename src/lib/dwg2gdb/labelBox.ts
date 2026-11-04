@@ -110,6 +110,19 @@ function sizeKey(ring: Vec2[]): string {
   return w >= h ? `${Math.round(w)}x${Math.round(h)}@${turn}` : `${Math.round(h)}x${Math.round(w)}@${(turn + 90) % 90}`;
 }
 
+/**
+ * A strip as tall as a few lines of text (short side ≤ 40 m, long side ≥ 2,5 × it) is named by its short side and direction:
+ * the boxes of one drawing are drawn with the same height whatever the length of the name they hold.
+ */
+function stripKey(ring: Vec2[]): string | null {
+  const w = Math.hypot(ring[1][0] - ring[0][0], ring[1][1] - ring[0][1]);
+  const h = Math.hypot(ring[2][0] - ring[1][0], ring[2][1] - ring[1][1]);
+  const [short, long] = [Math.min(w, h), Math.max(w, h)];
+  if (short > 40 || long < 2.5 * short) return null;
+  const turn = Math.round((((Math.atan2(ring[1][1] - ring[0][1], ring[1][0] - ring[0][0]) * 180) / Math.PI) % 90 + 90) % 90);
+  return `${Math.round(short)}@${w >= h ? turn : (turn + 90) % 90}`;
+}
+
 interface Rect {
   i: number;
   ring: Vec2[];
@@ -231,12 +244,18 @@ export function findLabelBoxes(doc: Pick<CadDocument, 'entities'>, inside: Array
       const flagged = group.filter((r) => out.has(r.i));
       if (!flagged.length || flagged.length === group.length) break;
       const bySize = new Map<string, string>();
-      for (const r of flagged) bySize.set(sizeKey(r.ring), out.get(r.i)!);
+      const byStrip = new Map<string, string>();
+      for (const r of flagged) {
+        bySize.set(sizeKey(r.ring), out.get(r.i)!);
+        const s = stripKey(r.ring);
+        if (s) byStrip.set(s, out.get(r.i)!);
+      }
       for (const r of group) {
         if (out.has(r.i)) continue;
         const same = bySize.get(sizeKey(r.ring));
-        const q = same === undefined ? flagged.find((f) => r.area <= 1.5 * f.area && closeTo(r.ring, f.ring, STACK_GAP)) : undefined;
-        const text = same ?? (q ? out.get(q.i) : undefined);
+        const strip = same === undefined ? byStrip.get(stripKey(r.ring) ?? '') : undefined;
+        const q = same === undefined && strip === undefined ? flagged.find((f) => r.area <= 1.5 * f.area && closeTo(r.ring, f.ring, STACK_GAP)) : undefined;
+        const text = same ?? strip ?? (q ? out.get(q.i) : undefined);
         if (text !== undefined) {
           out.set(r.i, text);
           grew = true;

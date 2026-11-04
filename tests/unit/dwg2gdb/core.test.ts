@@ -446,6 +446,30 @@ describe('the same outline read from two maps', () => {
   });
 });
 
+describe('rectangle drawn round a label (nghi khung nhãn tên)', () => {
+  const hatch = (ring: Vec2[]): CadEntity => ({ kind: 'polygon', layer: 'QHDD_DAT_XD_Dato', color: '#ffcc00', fillOpacity: 0.5, rings: [ring] });
+  const text: CadEntity = { kind: 'text', layer: 'TEXT', color: '#000000', text: 'TRƯỜNG TH ĐÔN XUÂN A', position: [205, 152], height: 8, rotation: 0, hAlign: 'center', vAlign: 'middle' };
+  const entities = [hatch([[0, 0], [400, 0], [400, 300], [0, 300]]), hatch([[150, 140], [260, 140], [260, 164], [150, 164]]), text];
+  const rows = layerRows('a', doc(entities), new Uint8Array(entities.length).fill(1));
+  const row = rows.find((r) => r.layer === 'QHDD_DAT_XD_Dato' && r.kind === 'A')!;
+  it('is counted in the row of its layer, with the index and the label it frames', () => {
+    expect(row.count).toBe(2);
+    expect(row.labelBoxes).toBe(1);
+    expect(row.labelBoxIndexes).toEqual([1]);
+    expect(row.labelBoxSamples).toEqual(['TRƯỜNG TH ĐÔN XUÂN A']);
+  });
+  it('marks a land-use row for review with the reason (the mapping itself is unchanged)', () => {
+    const m = initialMapping({ drawings: [{ id: 'a', role: 'qh-sdd' }], rows } as never, null).get(row.key)!;
+    expect(m.target).toMatch(/ChucNangSuDungDat_A$/);
+    expect(m.review).toBe(true);
+    expect(m.reason).toContain('khoanh nhãn tên');
+  });
+  it('does not mark a row without such boxes', () => {
+    const plain = layerRows('a', doc([entities[0]]), new Uint8Array(1).fill(1)).find((r) => r.kind === 'A')!;
+    expect(plain.labelBoxes).toBeUndefined();
+  });
+});
+
 describe('the planning boundary drawn as an open line (gap < 2 %)', () => {
   // a 400 × 400 square with 40 vertices per side, the last stretch (a 3 m gap) left out: one open polyline
   const pts: [number, number][] = [];

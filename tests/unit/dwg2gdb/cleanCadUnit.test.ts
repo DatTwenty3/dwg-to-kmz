@@ -45,6 +45,37 @@ describe('cleanDocument', () => {
   });
 });
 
+describe('rectangle drawn round a label', () => {
+  const target = 'QuyHoach/QuyHoachSuDungDat/ChucNangSuDungDat_A';
+  const hatch = (ring: [number, number][]): CadEntity => ({ kind: 'polygon', layer: 'QHDD_DAT_XD_Dato', color: '#ffcc00', fillOpacity: 0.5, rings: [ring] });
+  const parcel = hatch([[0, 0], [400, 0], [400, 300], [0, 300]]);
+  const box = hatch([[150, 140], [260, 140], [260, 164], [150, 164]]);
+  const label: CadEntity = { kind: 'text', layer: 'TEXT', color: '#000000', text: 'TRƯỜNG TH ĐÔN XUÂN A', position: [205, 152], height: 8, rotation: 0, hAlign: 'center', vAlign: 'middle' };
+  const mapping = new Map([[rowKey('a', 'QHDD_DAT_XD_Dato', 'A', 'cffcc00'), { target, phanLoai: 'Đất ở' }], [rowKey('a', 'QHDD_DAT_XD_Dato', 'A'), { target, phanLoai: 'Đất ở' }]]);
+  const run = (entities: CadEntity[]) => cleanDocument([{ id: 'a', name: 'a.dwg', doc: { units: 'm', crs: null, layers: [], entities, bbox: [[0, 0], [400, 300]], warnings: [] }, inside: new Uint8Array(entities.length).fill(1), role: 'qh-sdd', color: { role: 'qh-sdd', section: 7, hexCounts: new Map() } as never }], mapping, null);
+
+  it('moves the box to KHUNG_Nhan_Ten with the reason, and keeps the parcel and the label', () => {
+    const r = run([parcel, box, label]);
+    expect(r.doc.entities.filter((e) => e.layer === 'KHUNG_Nhan_Ten')).toHaveLength(1);
+    expect(r.doc.entities.filter((e) => e.kind === 'polygon' && e.layer !== 'KHUNG_Nhan_Ten')).toHaveLength(1);
+    expect(r.doc.entities.some((e) => e.kind === 'text' && e.text === 'TRƯỜNG TH ĐÔN XUÂN A')).toBe(true);
+    expect(r.lines.find((l) => l.to === 'KHUNG_Nhan_Ten')).toMatchObject({ kept: 1, look: true });
+    expect(r.lines.find((l) => l.to === 'KHUNG_Nhan_Ten')!.why).toContain('khoanh nhãn tên');
+  });
+  it('leaves a house or a bridge drawn as a rectangle with its number / name inside (not a land-use row)', () => {
+    const house: CadEntity = { ...box, layer: 'NHA_BKC', color: '#aa5500' };
+    const m = new Map([...mapping, [rowKey('a', 'NHA_BKC', 'A'), { target: 'HienTrang/CongTrinh/CongTrinh_A', phanLoai: 'Nhà, công trình' }], [rowKey('a', 'NHA_BKC', 'A', 'caa5500'), { target: 'HienTrang/CongTrinh/CongTrinh_A', phanLoai: 'Nhà, công trình' }]]);
+    const entities = [parcel, house, { ...label, text: '2,68 NHÀ VĂN HÓA ẤP' }];
+    const r = cleanDocument([{ id: 'a', name: 'a.dwg', doc: { units: 'm', crs: null, layers: [], entities, bbox: [[0, 0], [400, 300]], warnings: [] }, inside: new Uint8Array(3).fill(1), role: 'qh-sdd', color: { role: 'qh-sdd', section: 7, hexCounts: new Map() } as never }], m, null);
+    expect(r.doc.entities.some((e) => e.layer === 'KHUNG_Nhan_Ten')).toBe(false);
+  });
+  it('leaves a roomy parcel with a small label alone', () => {
+    const big = hatch([[0, 0], [400, 0], [400, 300], [0, 300]]);
+    const r = run([big, { ...label, text: 'P', position: [200, 150] }]);
+    expect(r.doc.entities.some((e) => e.layer === 'KHUNG_Nhan_Ten')).toBe(false);
+  });
+});
+
 describe('title block', () => {
   it('every standard title reads back as its own kind of map', () => {
     for (const [role, title] of Object.entries(CANONICAL_TITLE)) expect(guessRole('x.dxf', [title!]).role, title).toBe(role);

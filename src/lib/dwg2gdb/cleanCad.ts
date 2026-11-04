@@ -8,6 +8,7 @@ import type { CadDocument, CadEntity, CadLayer, DashStyle, LineTypeDef, Vec2 } f
 import { normalizeHex } from '@/lib/export/color';
 import { foldVietnamese } from '@/lib/geo/provinces';
 import { aciHex } from './color';
+import { findLabelBoxesAcross, LABEL_BOX_LAYER, LABEL_BOX_REASON } from './labelBox';
 import type { DrawingInput } from './features';
 import { entityRowKey } from './inventory';
 import { parseRouteSign } from './roads';
@@ -294,6 +295,9 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
   const auditBoxes: { d: CleanDrawing; prefix: string; box: [number, number, number, number] }[] = [];
   for (const d of drawings) for (const e of d.doc.entities) if (e.kind === 'text' && isRouteSign(e, compactName(e.layer))) signs.push(e.position);
 
+  // Boxes are looked for across the drawings (a map and its xrefs): the texts of the map frame the boxes of its xref.
+  const boxesOf = new Map(findLabelBoxesAcross(drawings).map((m, k) => [drawings[k].id, m] as const));
+
   const note = (d: CleanDrawing, e: CadEntity, to: string | null, why: string, kept: boolean, look?: boolean) => {
     const k = `${d.name}\u0001${e.layer}\u0001${to ?? ''}\u0001${why}`;
     let l = lines.get(k);
@@ -321,6 +325,7 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
       if (list.length >= 30 && list[Math.floor(list.length / 2)] <= BUILDING_MEDIAN_M2) buildings.add(layer);
     }
 
+    const labelBoxes = boxesOf.get(d.id)!;
     const decide = (e: CadEntity, i: number, inside: boolean): Decision => {
       const c = compactName(e.layer);
       if (e.kind === 'table') return { drop: 'bảng — không có trong Phụ lục I' };
@@ -358,6 +363,9 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
       if (t) {
         const cls = t.cls;
         if (cls === 'ChucNangSuDungDat_A') {
+          // A rectangle drawn round a label ("khoanh nhãn tên") on a land-use layer, lying over the real parcels: not a parcel — kept apart
+          // for the reviewer. Only land-use rows: a house or a bridge drawn as a rectangle with its number / name inside is a real object.
+          if ((e.kind === 'polygon' || e.kind === 'polyline') && labelBoxes.has(i)) return { layer: LABEL_BOX_LAYER, color: aciHex(8), why: `${LABEL_BOX_REASON} — nhãn "${labelBoxes.get(i)!.slice(0, 40)}"`, look: true };
           if (e.kind === 'polygon') {
             // Colour and layer name disagree (flagged "cần xem"): a layer that is itself a Phụ lục I name keeps its meaning.
             const named = m!.review ? tt16LandUse(c) : null;

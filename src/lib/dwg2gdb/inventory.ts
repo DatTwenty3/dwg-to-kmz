@@ -4,6 +4,7 @@
 import type { CadDocument, CadEntity, Vec2 } from '@/lib/cad/types';
 import { colorKey, describeColorKey, keyColor, type ColorContext, type ColorInfo } from './colorClass';
 import { bboxOf, chainRings, interiorPoint, isClosedLine, labelIn, labelIndex, nearlyClosedOutline, ringArea } from './geometry';
+import { findLabelBoxes } from './labelBox';
 import { compactName, isAnnotationLayer, landUseOf, sameLandUse, type GeomKind } from './suggest';
 
 /** Layer names of the planning boundary ("BV_Rg_Lapquyhoach", "Ranh giới lập quy hoạch", "RANH QH"…). */
@@ -255,13 +256,20 @@ export interface LayerRow {
   colorMatch?: ColorInfo;
   /** Hatches of the group whose label text names another land use than the colour ("KHU THƯƠNG MẠI…" on số 34). */
   labelConflicts?: number;
+  /** A / L rows: objects of the row that are a rectangle drawn round a label, over the real parcels (`findLabelBoxes`) — not parcels. */
+  labelBoxes?: number;
+  /** Indexes in `doc.entities` of those objects (what the "bỏ khung nhãn" button excludes). */
+  labelBoxIndexes?: number[];
+  /** A few of the labels they frame. */
+  labelBoxSamples?: string[];
 }
 
 const NUMERIC = /^[+\-±]?\d{1,4}([.,]\d{1,3})?$/;
 
-export function layerRows(drawing: string, doc: CadDocument, flags: Uint8Array, ctx?: ColorContext): LayerRow[] {
+export function layerRows(drawing: string, doc: CadDocument, flags: Uint8Array, ctx?: ColorContext, framed?: Map<number, string>): LayerRow[] {
   const rows = new Map<string, LayerRow & { numeric: number }>();
   let labels: ReturnType<typeof labelIndex> | null = null;
+  let boxes: ReturnType<typeof findLabelBoxes> | null = framed ?? null;
   const colorOf = new Map(doc.layers.map((l) => [l.name, l.color]));
   const open = new Map<string, Vec2[][]>();
   doc.entities.forEach((e, i) => {
@@ -283,6 +291,16 @@ export function layerRows(drawing: string, doc: CadDocument, flags: Uint8Array, 
     r.total++;
     if (!flags[i]) return;
     r.count++;
+    if (e.kind === 'polygon' || e.kind === 'polyline') {
+      boxes ??= findLabelBoxes(doc, flags);
+      const framed = boxes.get(i);
+      if (framed !== undefined) {
+        r.labelBoxes = (r.labelBoxes ?? 0) + 1;
+        (r.labelBoxIndexes ??= []).push(i);
+        const s = framed.slice(0, 40);
+        if ((r.labelBoxSamples ??= []).length < 3 && !r.labelBoxSamples.includes(s)) r.labelBoxSamples.push(s);
+      }
+    }
     if (e.kind === 'polygon' && r.colorMatch && (r.colorMatch.level === 'exact' || r.colorMatch.level === 'near')) {
       const text = (labels ??= labelIndex({ doc, inside: flags })) && labelIn(labels, e.rings);
       const use = text ? landUseOf(compactName(text)) : null;

@@ -7,6 +7,7 @@
 import type { CadDocument, Vec2, XrefInsert } from '@/lib/cad/types';
 import { colorRole, colorSuggestion, type ColorContext } from './colorClass';
 import { drawingTexts, findBoundary, insideFlags, layerRows, pickBoundary, type BoundaryCandidate, type LayerRow } from './inventory';
+import { findLabelBoxesAcross, LABEL_BOX_REASON } from './labelBox';
 import { guessRole, roleById, type RoleId } from './roles';
 import { pickSection } from './section';
 import { domainCode } from '@/lib/gdb/tt16Schema';
@@ -198,7 +199,8 @@ export function colorContexts(a: Pick<Analysis, 'drawings' | 'section'>): Map<st
 /** Mapping rows of every drawing for one Mục (the rows split by colour group depend on it). */
 export function analysisRows(parsed: ParsedDrawing[], a: Pick<Analysis, 'drawings' | 'inside' | 'section'>): LayerRow[] {
   const ctx = colorContexts(a);
-  return parsed.flatMap((p) => layerRows(p.id, p.doc, a.inside.get(p.id)!, ctx.get(p.id)));
+  const boxes = findLabelBoxesAcross(parsed.map((p) => ({ doc: p.doc, inside: a.inside.get(p.id)! })));
+  return parsed.flatMap((p, k) => layerRows(p.id, p.doc, a.inside.get(p.id)!, ctx.get(p.id), boxes[k]));
 }
 
 /**
@@ -370,8 +372,18 @@ export function suggestRow(row: LayerRow, role: RoleId, rows: readonly LayerRow[
  * colourless layer rule when the colour decides nothing), else the suggestion.
  */
 export function resolveRow(row: LayerRow, role: RoleId, lookup: ReturnType<typeof templateLookup>, rows: readonly LayerRow[], db?: TargetDb | null): MappingState {
-  const s = resolveByRole(row, role, lookup, rows);
+  const s = flagLabelBoxes(row, resolveByRole(row, role, lookup, rows));
   return db && db !== roleById(role).db ? retargetState(s, db) : s;
+}
+
+/**
+ * A land-use row holding rectangles drawn round a label (`LayerRow.labelBoxes`): the row stays as it is, but is marked for review
+ * with the reason — the editor decides to keep the boxes or skip them ("Bỏ N khung nhãn" in the table). A saved rule does not hide it.
+ */
+function flagLabelBoxes(row: LayerRow, s: MappingState): MappingState {
+  if (!row.labelBoxes || !s.target || !LAND_USE_CLASS.test(s.target) || s.source === 'manual') return s;
+  const eg = row.labelBoxSamples?.length ? ` (vd. "${row.labelBoxSamples[0]}")` : '';
+  return { ...s, review: true, reason: `${s.reason}; ${row.labelBoxes} đối tượng ${LABEL_BOX_REASON}${eg}` };
 }
 
 /** The same decision written to the other geodatabase: its class there, or a request to choose one. */

@@ -1204,6 +1204,25 @@ ${cm.reason}` : ''}`}>
                                 {fmt(r.labelConflicts)} vùng có chữ khác loại đất
                               </p>
                             )}
+                            {!!r.labelBoxes && r.labelBoxIndexes && (() => {
+                              const gone = excluded.get(r.drawing);
+                              const skipped = r.labelBoxIndexes.filter((i) => gone?.has(i)).length;
+                              const refs = r.labelBoxIndexes.map((i): SourceRef => [r.drawing, i]);
+                              return (
+                                <p className="pl-5 text-[11px] leading-snug text-amber-700" title={`Hình chữ nhật có chữ nằm trong, chồng lên vùng đất khác — người vẽ khoanh để ghi nhãn, không phải thửa đất. Bấm "Bỏ qua" để không đưa vào HoSoGIS, hoặc giữ nếu đó thật sự là một vùng.${r.labelBoxSamples?.length ? ` Nhãn: ${r.labelBoxSamples.join(' · ')}` : ''}`}>
+                                  {fmt(r.labelBoxes)} nghi khung nhãn tên{r.labelBoxSamples?.[0] ? ` (vd. ${r.labelBoxSamples[0]})` : ''} ·{' '}
+                                  {skipped < r.labelBoxes ? (
+                                    <button type="button" className="font-medium underline underline-offset-2 hover:text-amber-900" onClick={() => editExcluded(refs, [])}>
+                                      Bỏ qua {fmt(r.labelBoxes - skipped)}
+                                    </button>
+                                  ) : (
+                                    <button type="button" className="font-medium underline underline-offset-2 hover:text-amber-900" onClick={() => editExcluded([], refs)}>
+                                      Đã bỏ qua — Hoàn lại
+                                    </button>
+                                  )}
+                                </p>
+                              );
+                            })()}
                             {r.kind === 'T' && r.samples.length > 0 && <p className="truncate pl-8 text-[11px] text-zinc-400">{r.samples.join(' · ')}</p>}
                           </td>
                           <td className="px-1 py-1.5 text-right tabular-nums text-zinc-600">{fmt(rowCount(r))}</td>

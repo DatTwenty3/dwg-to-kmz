@@ -30,7 +30,7 @@ export function resolveXref(xrefName: string, hostPath: string, files: FolderFil
 
 /** Role suggested by the xref's own name, without its "Xr_" prefix ("Xr_nen giao thong" → giao thông). */
 export function xrefNameRole(name: string): RoleId {
-  const bare = name.replace(/\.(dwg|dxf)$/i, '').replace(/^(xref|xr)[\s_-]*/i, '');
+  const bare = name.replace(/\.(dwg|dxf)$/i, '').replace(/^(xref|xred|xr)[\s_-]*/i, '');
   return guessRole(bare, []).role;
 }
 

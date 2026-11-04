@@ -101,6 +101,10 @@ describe('roles', () => {
     expect(guessRole('khung fix a0.dwg', [])).toMatchObject({ role: 'xref' });
     expect(xrefNameRole('Xr_nen giao GIao thong.dwg')).toBe('qh-gt');
     expect(xrefNameRole('Xr_Nen Hien Trang.dwg')).toBe('ht-sdd');
+    // "XRED_…" (xref đỏ) is an xref too, also when what follows names a map kind of its own (Đôn Châu: XRED_GIAO THONG)
+    expect(guessRole('XRED_GIAO THONG.dwg', [])).toMatchObject({ role: 'xref' });
+    expect(guessRole('xred HTHTKT.dwg', [])).toMatchObject({ role: 'xref' });
+    expect(xrefNameRole('XRED_GIAO THONG.dwg')).toBe('qh-gt');
   });
 
   it('finds the province of the dossier in the title block', () => {
@@ -126,6 +130,9 @@ describe('suggestions', () => {
     expect(suggest('ht-sdd', 'HTKT_GT_Cau_Betong', 'L', { closedShare: 1 })).toMatchObject({ target: 'HienTrang/HienTrangGiaoThong/CongTrinhGiaoThong_L', phanLoai: 'Cầu bê tông' }); // closed outline of a bridge, not a parcel
     // the survey base kept by a cleaned drawing is the terrain database, on whatever map it is drawn
     expect(suggest('ht-sdd', 'NEN_Diahinh_Bodat', 'L')).toMatchObject({ target: 'NenDiaHinh/NenDiaHinh/NenDiaHinh_L', phanLoai: 'Bờ đất' });
+    // a manhole drawn only as closed outlines is a point; with a hatch of its own layer the hatch is the data
+    expect(suggest('ht-htkt', 'HTKT_TN_Hoga_Nuocmua', 'L', { closedShare: 1 }).target).toBe('HienTrang/HienTrangChuanBiKyThuat/CongTrinhCBKT_P');
+    expect(suggest('ht-htkt', 'HTKT_TN_Hoga_Nuocmua', 'L', { closedShare: 1, layerHasPolygons: true }).target).toBeNull();
     expect(suggest('ht-sdd', 'NEN_Diahinh_Muongao', 'L')).toMatchObject({ target: 'NenDiaHinh/NenDiaHinh/NenDiaHinh_L', phanLoai: 'Mép sông, hồ' });
     expect(suggest('qh-sdd', 'NEN_Diahinh_Caodo', 'T', { numericShare: 1 })).toMatchObject({ target: 'NenDiaHinh/NenDiaHinh/DiemDoCao_P', phanLoai: 'Điểm độ cao' });
     expect(suggest('ht-sdd', 'NEN_Diahinh_Diem', 'P').target).toBe('NenDiaHinh/NenDiaHinh/DiemDoCao_P');
@@ -424,6 +431,18 @@ describe('lines written to an area class (đường → vùng)', () => {
     // The planning boundary is found even when drawn in pieces.
     const b = findBoundary(doc(pieces.slice(0, 4).map((e) => ({ ...e, layer: 'BV_Rg_Lapquyhoach' }))));
     expect(Math.round(b!.area)).toBe(40000);
+  });
+});
+
+describe('the same outline read from two maps', () => {
+  it('is one feature even when one copy has an extra (collinear) vertex', () => {
+    const target = 'QuyHoach/ViTriRanhGioi/RanhGioiQuyHoach_A';
+    const a: CadEntity = { kind: 'polygon', layer: 'R', color: '#ff0000', fillOpacity: 0.5, rings: [[[0, 0], [100, 0], [100, 100], [0, 100]]] };
+    const b: CadEntity = { kind: 'polygon', layer: 'R', color: '#ff0000', fillOpacity: 0.5, rings: [[[0, 0], [50, 0], [100, 0], [100, 100], [0, 100]]] };
+    const m = new Map([[rowKey('a', 'R', 'A'), { target, phanLoai: 'Ranh giới lập quy hoạch' }], [rowKey('b', 'R', 'A'), { target, phanLoai: 'Ranh giới lập quy hoạch' }]]);
+    const one = (id: string, e: CadEntity) => ({ id, name: `${id}.dwg`, doc: doc([e]), inside: new Uint8Array(1).fill(1) });
+    const built = buildFeatures([one('a', a), one('b', b)], m, { boundary: null, sourceInGhiChu: false });
+    expect(built.classes.find((c) => c.target === target)?.features).toHaveLength(1);
   });
 });
 

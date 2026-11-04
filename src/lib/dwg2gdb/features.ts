@@ -4,7 +4,7 @@
 // non-numeric text inside it (labels like "TRƯỜNG TIỂU HỌC LONG HIỆP").
 import type { CadDocument, CadEntity, Vec2 } from '@/lib/cad/types';
 import { foldVietnamese } from '@/lib/geo/provinces';
-import { chainRings, cleanRing, interiorPoint, isClosedLine, labelIn, labelIndex, lineMidpoint, nearlyClosedOutline, ringsToPolygons } from './geometry';
+import { chainRings, cleanRing, interiorPoint, isClosedLine, labelIn, labelIndex, lineMidpoint, nearlyClosedOutline, ringArea, ringsToPolygons } from './geometry';
 import { entityRowKey, PLAN_BOUNDARY_LAYER } from './inventory';
 import { colorRole, hatchSymbol, type ColorContext } from './colorClass';
 import { compactName, parseTarget, type TargetPath } from './suggest';
@@ -108,7 +108,10 @@ function dupKey(g: GeoJsonGeometry): string {
     y1 = Math.max(y1, y);
   }
   const q = (v: number) => Math.round(v * 10);
-  return `${g.type}|${flat.length}|${q(x0)}|${q(y0)}|${q(x1)}|${q(y1)}`;
+  // An area is told by its size, not its vertex count: the same outline read from two maps differs by a closing or a collinear
+  // vertex (Đôn Châu: the planning boundary, 517 vs 518 vertices, drawn on every map).
+  const size = g.type === 'MultiPolygon' ? `A${Math.round(g.coordinates.reduce((t, poly) => t + poly.reduce((u, ring) => u + ringArea(ring as Vec2[]), 0), 0))}` : flat.length;
+  return `${g.type}|${size}|${q(x0)}|${q(y0)}|${q(x1)}|${q(y1)}`;
 }
 
 interface Tally {

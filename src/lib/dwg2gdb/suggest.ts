@@ -265,6 +265,12 @@ function water(c: string, kind: GeomKind, p: string): Pick {
   return kind === 'L' ? { theme: 'nuoc', cls: 'MangLuoiCapNuoc_L', phanLoai: 'Đường ống cấp nước' } : null;
 }
 
+/**
+ * A manhole drawn only as small closed outlines (no hatch of the same layer, no point): the outline is all there is of the
+ * symbol, so each closed outline is a point (Đôn Châu: GA_CONG(THOATNUOC), 24 squares). With a hatch the hatch is the data.
+ */
+const outlineOnlySymbol = (c: string, facts: LayerFacts) => /hoga|giengthu|gietthu|ganuoc/.test(c) && !facts.layerHasPolygons && (facts.closedShare ?? 0) >= 0.5;
+
 function drainage(c: string, kind: GeomKind, p: string, defaultMua: boolean): Pick {
   const thai = /nuocthai|tnt|^nt\b|xulynuocthai|htxl|tramxl|nhamayxl/.test(c);
   const mua = /nuocmua|tnm|mua$/.test(c);
@@ -337,7 +343,7 @@ export function suggest(roleId: RoleId, layer: string, kind: GeomKind, facts: La
   const dm = terrainOrMarker(c, kind, facts, roleId);
   if (dm) return at(dm, dm.cls.startsWith('Moc') ? 'Mốc giới quy hoạch' : 'Nền địa hình');
   // The outline of a symbol that also has its point / hatch (a manhole, a transformer station): the point is the data.
-  if (kind === 'L' && /hoga|giengthu|gietthu|dientram|tramdien|^tba|bienap/.test(c)) return none('Nét viền ký hiệu (hố ga, trạm điện…) — đối tượng lấy từ điểm / hatch');
+  if (kind === 'L' && /hoga|giengthu|gietthu|dientram|tramdien|^tba|bienap/.test(c) && !outlineOnlySymbol(c, facts)) return none('Nét viền ký hiệu (hố ga, trạm điện…) — đối tượng lấy từ điểm / hatch');
   if (/^(nen)?giaithua$/.test(c)) return none('Nền giải thửa (địa chính) — không thuộc đồ án');
   // Layers of a cleaned drawing (cleanCad.ts): the outline of the parcels and the footprints of buildings.
   // The survey base of a cleaned drawing (NEN_Diahinh_*: ground edges, water edges, graves, spot points and heights) is the
@@ -362,7 +368,7 @@ export function suggest(roleId: RoleId, layer: string, kind: GeomKind, facts: La
     const net =
       network === 'cd' ? power(c, kind)
       : network === 'cn' ? water(c, kind, p)
-      : network === 'tn' ? drainage(c.replace(/^htkttn/, ''), kind, p, true)
+      : network === 'tn' ? drainage(c.replace(/^htkttn/, ''), kind === 'L' && outlineOnlySymbol(c, facts) ? 'P' : kind, p, true)
       : network === 'ttll' ? telecom(c, kind)
       : roads(c, kind, p); // a road / bridge is no land use, and no outline of a parcel, whatever shape it is drawn in
     if (net) return at(net, `Layer ${layer} của bản vẽ đã chuẩn hóa — ${network === 'cd' ? 'cấp điện' : network === 'cn' ? 'cấp nước' : network === 'tn' ? 'thoát nước' : network === 'ttll' ? 'thông tin liên lạc' : 'giao thông'}`);

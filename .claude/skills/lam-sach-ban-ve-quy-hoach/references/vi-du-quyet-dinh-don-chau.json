@@ -1,0 +1,21 @@
+{
+  "overrides": [
+    { "layer": "KS_MO XAY_TUONG DAI", "action": "keep", "to": "NEN_Diahinh_Moma", "why": "ký hiệu mộ xây (vòm bán nguyệt có gạch chân, rải rác ở nghĩa địa/vườn; 5.128 nét) — nền đo đạc, không phải rác khảo sát; phóng to QH02 để xem", "look": true },
+    { "layer": "MUONG_AO", "action": "keep", "to": "NEN_Diahinh_Muongao", "why": "bờ ao/mương (đa giác lớn, nhãn \"AO\" 2.721 chữ ở KS_GHICHU) — nền địa hình ở mọi bản đồ; không phải tuyến thoát nước mưa (hạ tầng) và không phải vùng đất", "look": true },
+    { "layer": "TUONG_RAO_RANH", "action": "keep", "to": "NEN_Diahinh_Tuongrao", "why": "tường/hàng rào quanh nhà (nét đứt ngắn, kiểu RAOKEM/FENCELINE2/TUONG) — nền đo đạc" },
+    { "layer": "SONG_HO", "kind": "polyline", "action": "keep", "to": "NEN_Diahinh_Songho", "why": "mép bờ kênh/sông (hai nét song song dọc kênh) — nền đo đạc, không phải viền thửa" },
+    { "layer": "CAODO", "kind": "text", "action": "keep", "to": "NEN_Diahinh_Caodo", "why": "cao độ điểm đo (số thập phân \"2,11\") — nền địa hình" },
+    { "layer": "DUONG_DIEN", "kind": "polyline", "action": "keep", "to": "HTKT_CD_Duongday", "why": "ký hiệu cột điện + mũi tên hướng đường dây (\"<<-o->>\" dọc đường; 5.429 nét) — chưa rõ cấp điện áp; không phải đường bộ", "look": true },
+    { "layer": "block-kihieu", "kind": "polyline", "action": "keep", "to": "HTKT_CD_Duongday", "why": "cùng ký hiệu cột điện + mũi tên hướng như DUONG_DIEN (vòng tròn có mũi tên hai bên; 816 nét)", "look": true },
+    { "layer": "GA_CONG(THOATNUOC)", "kind": "polyline", "action": "keep", "to": "HTKT_TN_Hoga_Nuocmua", "why": "hố ga / cống thoát nước (24 ô vuông nhỏ có gạch chéo trên tuyến) — không phải ống cấp nước", "look": true },
+    { "layer": "KS_GHICHU", "kind": "text", "action": "keep", "to": "BV_Chu_Chucnang", "why": "nhãn loại đất/cây từng khoanh (AO, RUỘNG LÚA, CÂY TẠP, ĐẤT TRỐNG…) và tên đường/cầu (ĐƯỜNG 914, CẦU BÊ TÔNG) — là phân loại hiện trạng duy nhất của bản đồ khảo sát, và nguồn tên đường cho gdb", "look": true },
+    { "layer": "GHICHU", "kind": "text", "action": "drop", "why": "mã khảo sát (dal2, nhua3, 3dg, caubt…: loại mặt + bề rộng đường) — không phải chữ chú thích bản đồ" },
+    { "layer": "KH", "kind": "polygon", "action": "keep", "to": "NEN_Diahinh_Kh", "why": "588 mảnh hatch rất nhỏ (trung vị 0,09 m², tổng 0,03 ha) — mảnh ký hiệu khảo sát, không phải thửa đất; giữ làm nền", "look": true },
+    { "layer": "0_XREF_DUYENHAI + TRACU", "action": "drop", "why": "6 nét lạc ~80 m còn sót của layer xref DGN (Duyên Hải – Trà Cú), không thành tuyến; phóng to QH04 để xem" },
+    { "layer": "NGHIA_TRANG", "kind": "polyline", "action": "keep", "to": "DAT_CTHTKT_Nghiatrang", "color": "#848484", "why": "đường viền khép kín của khu nghĩa trang (kiểu nét RANH, một nét) — là vùng đất nghĩa trang duy nhất của bản đồ khảo sát; bản gốc đọc ra \"Đất nghĩa trang\"", "look": true },
+    { "drawing": "xred HTHTKT", "layer": "DUONG NHUA", "kind": "polygon", "action": "drop", "why": "1.359 hatch của layer \"DUONG NHUA\" (trung vị 0,34 ha, tổng 691 ha) là THỬA ĐẤT lúa (ở QH02 tô xanh lá = Đất trồng lúa, đã vào gdb theo màu), không phải mặt đường; ở bản đồ hạ tầng bị tô xám theo màu nền nên chỉ còn tên layer — bản gốc đọc ra 1.354 \"mặt đường\"", "look": true },
+    { "layer": "Line_6", "action": "drop", "why": "một nét lạc, không có hình tuyến thật" },
+    { "layer": "MBA QH", "action": "keep", "to": "HTKT_CD_Trambienap", "why": "ký hiệu trạm biến áp 22/0,4 kV xây mới (hình vuông có tam giác, chú giải của bản đồ cấp điện: \"TRẠM BIẾN ÁP 22/0.4kV XÂY DỰNG MỚI\")", "look": true },
+    { "layer": "ranh -ddc-mới", "action": "drop", "why": "một nét 35 m màu xanh, không thuộc tuyến điện nào trong chú giải", "look": true }
+  ]
+}

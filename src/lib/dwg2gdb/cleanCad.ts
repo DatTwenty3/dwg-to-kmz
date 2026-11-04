@@ -214,6 +214,17 @@ function voltage(raw: string): string {
 }
 
 /**
+ * Voltage a power line says in its line type: the text in the gaps ("22KV", "110KV" — Đôn Châu: layers "EK22-11", "EC22HH" name no
+ * voltage) or the line type's name ("110HH", "DDXDM22kv"). '' when it says none. Appended to the layer name where a voltage is read.
+ */
+function lineTypeVoltage(doc: CadDocument, e: CadEntity): string {
+  if (e.kind !== 'polyline' || !e.lineType) return '';
+  const texts = (doc.lineTypes?.[e.lineType]?.elements ?? []).map((x) => x.text ?? '').join(' ');
+  const kv = voltage(texts) || voltage(e.lineType);
+  return kv ? ` ${kv}kV` : '';
+}
+
+/**
  * Layer of an infrastructure object, one convention for all themes: <HTKT_CD|CN|TN|TTLL>_<Duongday22kV | Ongcapnuoc |
  * Tuyen_Nuocmua | Hoga_Nuocthai | Tuyencap | Trambienap | Congtrinh>. Phụ lục I gives no layer names to infrastructure.
  */
@@ -360,6 +371,14 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
           // A wide line on a land-use layer is a road (Đôn Châu: 20 m); a thin one (3 m) is only the outline of the parcel.
           // A wide dotted "Hidden" line (Long Hiệp: 15 m, QHDD_DAT_XD_Chucnangkhac) is the outline of a land-use area drawn heavy: not a road either.
           if (e.kind === 'polyline' && (e.width ?? 0) >= 8 && !/hidden/i.test(e.lineType ?? '')) return { layer: roadLayer('', '', e.layer), why: 'nét rộng ≥ 8 m — là đường, không phải thửa' };
+          // A layer of land use drawn only as outlines (no hatch of the same layer in this drawing — Đôn Châu: QHDD_DAT_KXD_Congnghiep,
+          // 22 lines = the industrial parks, 190 ha): the outline is the only geometry of that land, not the edge of a hatched parcel.
+          // It keeps a land-use layer so the web app reads the closed outlines as areas — under its own name "QHDD_<Phụ lục I layer>":
+          // on the hatches' layer it would only be taken for their parcel edge (the web app tells an outline-only layer by its name).
+          if (e.kind === 'polyline' && !areas.has(e.layer)) {
+            const sym = landUseSymbol(m!.phanLoai, section);
+            return { layer: `QHDD_${sym.layer}`, color: sym.aci !== null ? aciHex(sym.aci) : undefined, why: `đường viền là hình học duy nhất của vùng ${sym.label} (layer không có hatch)`, look: true };
+          }
           return { layer: 'BV_Vienthua', why: 'viền thửa/lô (vùng đã có hatch)' };
         }
         if (/^RanhGioiQuyHoach/.test(cls)) return { layer: 'BV_Rg_lapquyhoach', color: aciHex(1), dash: 'dotted', why: 'ranh lập quy hoạch (Phụ lục I)' };
@@ -371,10 +390,10 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
           // The line type of the object (dashes, dots, "110kV" in the gaps) goes with it: the entity keeps lineType / lineScale.
           return { layer: roadLayer(cls, m!.phanLoai, e.layer), why: 'đường giao thông' };
         }
-        return { layer: infraLayer(prefix ?? pascalAscii(t.dataset), cls, m!.phanLoai, e.layer), why: `hạ tầng: ${t.cls}` };
+        return { layer: infraLayer(prefix ?? pascalAscii(t.dataset), cls, m!.phanLoai, `${e.layer}${lineTypeVoltage(d.doc, e)}`), why: `hạ tầng: ${t.cls}` };
       }
 
-      const kv = e.kind === 'polyline' && /dien|^ee?-?\d/.test(c) ? voltage(e.layer) : '';
+      const kv = e.kind === 'polyline' && /dien|^ee?-?\d/.test(c) ? voltage(e.layer) || voltage(lineTypeVoltage(d.doc, e)) : '';
       if (kv) return { layer: `HTKT_CD_Duongday${kv}kV`, why: `đường dây điện ${kv} kV` };
       if (SURVEY_LAYER.test(c) && (m?.unknown || !t) && options.keepBase && !/anno|dims?$|^audit/.test(c))
         return { layer: `NEN_Diahinh_${pascalAscii(e.layer).slice(0, 30) || 'Khac'}`, why: 'nền đo đạc địa hình (bờ đất, điểm, thực vật…) — giữ làm nền (hiện sẵn, nằm dưới cùng)' };
@@ -390,7 +409,7 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
       if (m?.unknown) {
         if (ROADISH_LAYER.test(c)) return { layer: roadLayer('', '', e.layer), why: 'ký hiệu / nét trên layer đường', look: true };
         if (e.kind === 'polygon' && buildings.has(e.layer)) return { layer: 'KTCQ_Nha_Congtrinh', why: `mặt bằng nhà, công trình (nhiều vùng nhỏ, diện tích trung vị ≤ ${BUILDING_MEDIAN_M2} m²)`, look: true };
-        if (rolePrefix) return { layer: infraLayer(rolePrefix, e.kind === 'polyline' ? 'X_L' : 'X_P', '', e.layer), why: `hạ tầng theo loại bản đồ (${roleById(d.role).label})`, look: true };
+        if (rolePrefix) return { layer: infraLayer(rolePrefix, e.kind === 'polyline' ? 'X_L' : 'X_P', '', `${e.layer}${lineTypeVoltage(d.doc, e)}`), why: `hạ tầng theo loại bản đồ (${roleById(d.role).label})`, look: true };
         return { layer: `XEM_${pascalAscii(e.layer).slice(0, 40)}`, why: 'chưa nhận ra — giữ để xem', look: true };
       }
       return { drop: (m?.reason ?? 'không thuộc dữ liệu quy hoạch').slice(0, 90) };

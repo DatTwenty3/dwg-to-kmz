@@ -127,7 +127,7 @@ export function guessRole(fileName: string, texts: string[]): RoleGuess {
     return m ? Number(m[1]) : null;
   })();
   // Xref / frame files are named so by habit; their content has no title.
-  if (/^(xr|xref)\b|^x ?r /.test(fname) || /^khung\b|khung ten|khung fix/.test(fname)) return { role: 'xref', title, year };
+  if (/^(xr|xref|xred)\b|^x ?r /.test(fname) || /^khung\b|khung ten|khung fix/.test(fname)) return { role: 'xref', title, year };
   for (const src of [title ? foldVietnamese(title) : null, fname]) {
     if (!src) continue;
     for (const [re, role] of RULES) if (re.test(src)) return { role, title, year };

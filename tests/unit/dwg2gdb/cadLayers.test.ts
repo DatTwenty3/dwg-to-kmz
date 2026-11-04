@@ -1,7 +1,7 @@
 // "Bản vẽ CAD" of the QGIS project: the summary drawing as GeoPackage layers + their symbology.
 import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
-import { buildQgs, cadLayerData, inkOnWhite, labelQuadrant, planCadGpkg } from '@/lib/dwg2gdb';
+import { buildQgs, cadLayerData, cadSourceDocument, inkOnWhite, labelQuadrant, planCadGpkg } from '@/lib/dwg2gdb';
 import type { ClassData } from '@/lib/dwg2gdb/features';
 import type { CadDocument, CadEntity } from '@/lib/cad/types';
 
@@ -15,6 +15,15 @@ const poly = (layer: string, over: Partial<Extract<CadEntity, { kind: 'polyline'
   ...over,
 });
 const square: [number, number][] = [[0, 0], [10, 0], [10, 10], [0, 10]];
+
+describe('cadSourceDocument', () => {
+  it('keeps the lines of the infrastructure layers of a cleaned drawing on a map that is not land use, drops the land base', () => {
+    const land: CadEntity = { kind: 'polygon', layer: 'QHDD_DAT_XD_Dato', color: '#7f7f3f', fillOpacity: 0.5, rings: [square] };
+    const d = doc([poly('HTKT_CD_Duongday22kV'), poly('HTKT_TN_Tuyen_Nuocmua', { points: [[0, 5], [10, 5]] }), poly('QHDD_DAT_XD_Dato', { points: [[0, 9], [10, 9]] }), land]);
+    const r = cadSourceDocument([{ id: 'a', name: 'QH07.dxf', doc: d, inside: Uint8Array.from([1, 1, 1, 1]), role: 'qh-dien' }], new Map(), null);
+    expect(r.entities.map((e) => e.layer).sort()).toEqual(['QH_HTKT_CD_Duongday22kV', 'QH_HTKT_TN_Tuyen_Nuocmua']);
+  });
+});
 
 describe('cadLayerData', () => {
   it('lines keep their colour and width in metres; a closed polyline gets its first point again', () => {

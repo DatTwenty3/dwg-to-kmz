@@ -30,6 +30,19 @@ describe('cleanDocument', () => {
     expect(r.totals).toMatchObject({ read: 3, kept: 1, outside: 1 });
     expect(r.lines.find((l) => l.from.endsWith('Nen giai thua'))).toMatchObject({ to: null, dropped: 1 });
   });
+
+  it('the outline of a land-use layer that has no hatch keeps the land-use layer; with a hatch it is only the parcel edge', () => {
+    const target = 'QuyHoach/QuyHoachSuDungDat/ChucNangSuDungDat_A';
+    const ring = (layer: string, x: number): CadEntity => ({ kind: 'polyline', layer, color: '#6600cc', points: [[x, 0], [x + 50, 0], [x + 50, 50], [x, 50]], closed: true });
+    const m = new Map([
+      [rowKey('a', 'QHDD_DAT_KXD_Congnghiep', 'L'), { target, phanLoai: 'Đất công nghiệp, tiểu thủ công nghiệp' }],
+      [rowKey('a', 'HT_DAT_NN_Tronglua', 'L'), { target, phanLoai: 'Đất trồng lúa' }],
+      [rowKey('a', 'HT_DAT_NN_Tronglua', 'A', 'c00ff00'), { target, phanLoai: 'Đất trồng lúa' }],
+    ]);
+    const d = doc([ring('QHDD_DAT_KXD_Congnghiep', 0), ring('HT_DAT_NN_Tronglua', 100), sq(100)]);
+    const r = cleanDocument([{ id: 'a', name: 'a.dwg', doc: d, inside: Uint8Array.from([1, 1, 1]), role: 'qh-sdd', color: { role: 'qh-sdd', section: 7, hexCounts: new Map() } as never }], m, null);
+    expect(r.doc.entities.map((e) => e.layer).sort()).toEqual(['BV_Vienthua', 'DAT_NNK_Tronglua', 'QHDD_DAT_KXD_Congnghiep']);
+  });
 });
 
 describe('title block', () => {
@@ -68,6 +81,22 @@ describe('decisions (overrides)', () => {
     const r = cleanDocument([input(d)], new Map(), null);
     expect(r.doc.entities[0]).toMatchObject({ layer: 'HTKT_CD_Duongday22kV', lineType: 'TH-D.22' });
     expect(r.doc.lineTypes?.['TH-D.22']).toBeDefined();
+  });
+
+  it('a power line whose layer names no voltage takes it from the text in its line type (Đôn Châu: EK22-11, E110-11)', () => {
+    const mk = (layer: string, lt: string, y: number): CadEntity => ({ ...(line(layer) as Extract<CadEntity, { kind: 'polyline' }>), points: [[0, y], [100, y]], lineType: lt, lineScale: 1 });
+    const d: CadDocument = {
+      ...doc([mk('EK22-11', 'DUYEN4.1', 10), mk('E110-11', 'DUYEN3-1', 20), mk('EC22HH', 'EC22C', 30)]),
+      lineTypes: {
+        'DUYEN4.1': { elements: [{ length: 7 }, { length: -1, text: '22KV', textScale: 2 }] },
+        'DUYEN3-1': { elements: [{ length: 9 }, { length: -1, text: '110KV', textScale: 2 }] },
+        'EC22C': { elements: [{ length: 15 }, { length: -1, text: '22KV', textScale: 2 }] },
+      },
+    };
+    // the rows the web app could not place (nothing in their names says "điện" + a voltage) are read by the kind of map
+    const unknown = new Map(['EK22-11', 'E110-11', 'EC22HH'].map((l) => [rowKey('a', l, 'L'), { target: '', phanLoai: '', unknown: true }] as const));
+    const r = cleanDocument([{ ...input(d), role: 'qh-dien' as const }], unknown as never, null);
+    expect(r.doc.entities.map((e) => e.layer)).toEqual(['HTKT_CD_Duongday22kV', 'HTKT_CD_Duongday110kV', 'HTKT_CD_Duongday22kV']);
   });
 
   it('a route number written big on layer "0" is a sign and stays; small numbers and other texts on layer "0" are junk', () => {

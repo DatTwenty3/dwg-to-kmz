@@ -30,6 +30,13 @@ const SDD_ROLES = new Set<RoleId>(['ht-sdd', 'qh-sdd']);
 /** Layers that are the sheet (frame, legend, title, scale, notes), never the map: left out of the margin around the area. */
 const SHEET_LAYER = /khung|chugiai|chuthich|logo|hoagio|tyle|thuoc|banve|tieude|dientich|ghichu|kyhieu(?!tuyen|congtrinh.)|bangthongke|mattcat|defpoints|viewport|^bv|^(0|1|2|3)$/;
 
+/**
+ * A layer of land use (the base repeated on the other maps). Not the infrastructure layers of a cleaned drawing
+ * (HTKT_CD_Duongday22kV, HTKT_TN_Tuyen_Nuocmua…): the words of the land-use dictionary ("htkt" = hạ tầng kỹ thuật) match their
+ * names, and their lines are the content of those maps — left out they vanish from the project's CAD group.
+ */
+const isLandLayer = (layer: string) => !/^htkt/.test(compactName(layer)) && !!layerLandUse(compactName(layer));
+
 function entityBox(e: CadEntity): [number, number, number, number] | null {
   const pts: Vec2[] = e.kind === 'polyline' ? e.points : e.kind === 'polygon' ? e.rings.flat() : e.kind === 'table' ? [e.origin] : [e.position];
   if (!pts.length) return null;
@@ -85,7 +92,7 @@ export function cadSource(drawings: (DrawingInput & { role: RoleId; db?: DbName 
     d.doc.entities.forEach((e, i) => {
       if (e.kind === 'table' || d.removed?.has(i)) return;
       if (!d.inside[i]) {
-        if (!around || SHEET_LAYER.test(compactName(e.layer)) || (e.kind === 'polygon' && layerLandUse(compactName(e.layer)))) return;
+        if (!around || SHEET_LAYER.test(compactName(e.layer)) || (e.kind === 'polygon' && isLandLayer(e.layer))) return;
         const box = entityBox(e);
         if (!box || box[0] < around[0] || box[1] < around[1] || box[2] > around[2] || box[3] > around[3]) return;
       }
@@ -94,7 +101,7 @@ export function cadSource(drawings: (DrawingInput & { role: RoleId; db?: DbName 
       const t = m?.target ? parseTarget(m.target) : null;
       // Land use is drawn by the geodatabase layer — but a polyline with a width is a road or a band, never a parcel.
       if (t?.cls === 'ChucNangSuDungDat_A' && !(e.kind === 'polyline' && (e.width ?? 0) > 0)) return;
-      if (background && (e.kind === 'polygon' || e.kind === 'polyline') && layerLandUse(compactName(e.layer))) return;
+      if (background && (e.kind === 'polygon' || e.kind === 'polyline') && isLandLayer(e.layer)) return;
       const k = objectKey(e.layer, e);
       const ref: SourceRef = [`${CAD_EDIT_PREFIX}${d.id}`, i];
       const first = seen.get(k);

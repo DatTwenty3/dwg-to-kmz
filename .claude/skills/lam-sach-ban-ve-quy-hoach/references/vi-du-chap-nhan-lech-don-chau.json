@@ -1,0 +1,7 @@
+{
+ "HienTrang/HienTrangChuanBiKyThuat/MangLuoiThoatNuocMua_L": "layer MUONG_AO của nền khảo sát (xref xred HTHTKT): 3.634 đa giác lớn nhãn \"AO\" (2.721 chữ AO ở KS_GHICHU) là bờ ao/mương, bản gốc đọc nhầm thành tuyến thoát nước mưa; bản sạch chuyển vào NenDiaHinh.gdb (NenDiaHinh_L, 'Mép sông, hồ'), không phải mạng thoát nước.",
+ "HienTrang/HienTrangCapNuoc/MangLuoiCapNuoc_L": "24 ô vuông nhỏ có gạch chéo của layer GA_CONG(THOATNUOC) (hố ga/cống thoát nước) bản gốc đọc nhầm là ống cấp nước (35 = 24 + 11 ống CAP NUOC); bản sạch đưa về HTKT_TN_Hoga_Nuocmua → CongTrinhCBKT_P (17 điểm sau gộp), còn 11 ống cấp nước thật.",
+ "HienTrang/ViTriRanhGioi/RanhGioiHanhChinh_L": "layer QH_Ranh giới huyện vẽ bằng kiểu nét \"Ranh giới lập quy hoạch\" là chính ranh lập quy hoạch 5.909 ha (2 bản 34 km ở hai bản vẽ), bản gốc đọc nhầm thành \"ranh giới huyện\" (68.506 m = 2 × chu vi ranh, và sau 2025 không còn cấp huyện); bản sạch có RanhGioiQuyHoach_A và một đoạn ranh xã 87 m (BV_Rg_capxa).",
+ "QuyHoach/ViTriRanhGioi/RanhGioiHanhChinh_L": "như HienTrang: QH_Ranh giới huyện là ranh lập quy hoạch (kiểu nét), không phải ranh huyện; còn lại đoạn ranh xã BV_Rg_capxa 87 m.",
+ "HienTrang/HienTrangGiaoThong/MangLuoiGiaoThongDuongBo_A": "1.359 hatch của layer \"DUONG NHUA\" trong nền khảo sát (xref xred HTHTKT; trung vị 0,34 ha, tổng 691 ha) là thửa đất lúa — ở QH02 chúng tô xanh lá (Đất trồng lúa, đã có trong HienTrang ChucNangSuDungDat_A); ở QH03 bị tô xám nên bản gốc đọc theo tên layer thành 1.354 \"mặt đường\". Bản sạch bỏ chúng ở bản đồ hạ tầng."
+}

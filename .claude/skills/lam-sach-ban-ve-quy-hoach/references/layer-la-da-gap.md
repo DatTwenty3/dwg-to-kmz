@@ -94,3 +94,23 @@ Cao tốc Trà Vinh – Hồng Ngự có nét + nhãn trong bản sạch, nhưng
 
 ### Vành quanh biển số/nhãn: **hình thoi VÀ hình tròn** (Lưu Nghiệp Anh "QL54", 10/2026)
 Lần sửa trước chỉ nhận khung ≤ 8 đỉnh nên vòng tròn quanh nhãn quốc lộ lại mất: hình tròn đã được bộ đọc rã thành **65 đỉnh** (252 m, layer `KY HIEU`, tâm lệch chữ 20 m). Quy tắc nay: nét khép kín **≤ 70 đỉnh**, cạnh 20–400 m, **chữ/biển số nằm gần giữa** (lệch ≤ 30 % bề rộng) → `KYHIEU_Congtrinh_Bienso`. Đây là lần thứ ba cùng một loại lỗi (ngưỡng đặt theo **một** mẫu rồi mất mẫu khác) — khi người dùng báo "thiếu viền/vành", **liệt kê mọi khung quanh MỌI biển số/nhãn** của cả hồ sơ (số đỉnh, kích thước, layer, độ lệch tâm) rồi mới đặt ngưỡng; sau khi sửa so ảnh ở **từng loại** (thoi 911/914B/915C, tròn QL54/QL60).
+
+## Thêm từ hồ sơ Đôn Châu (11/2026; mẫu `vi-du-quyet-dinh-don-chau.json`, `vi-du-chap-nhan-lech-don-chau.json`)
+Hồ sơ cùng văn phòng với Long Hiệp / Lưu Nghiệp Anh nên nhiều layer khảo sát lặp lại — nhưng vẫn **phóng to xem** (`CMP_MODE=zoom`): vài layer ở đây khác.
+| Layer | Quy tắc đoán | Thực chất | Cách biết | Quyết định |
+|---|---|---|---|---|
+| `KS_MO XAY_TUONG DAI` (5.128 nét) | rác khảo sát → bỏ | **mộ xây** (vòm bán nguyệt có gạch chân) | zoom quanh nghĩa địa/vườn | `NEN_Diahinh_Moma` (⚠) |
+| `MUONG_AO` (3.636) | viền thửa (sdd) / thoát nước mưa (hạ tầng) | bờ ao/mương (đa giác lớn, 2.721 chữ "AO" ở KS_GHICHU) | zoom + quét chữ | `NEN_Diahinh_Muongao` mọi bản đồ — **quyết định không ghi tên bản vẽ** (layer nằm trong xref `xred HTHTKT`, `"drawing": "QH03"` không khớp) |
+| `DUONG_DIEN` (5.429) + `block-kihieu` (816) | viền thửa / đường dây | cột điện + mũi tên hướng ("<<-o->>" dọc đường) | zoom dọc đường | `HTKT_CD_Duongday` (⚠, chưa rõ kV; chắc chắn không phải đường bộ) |
+| `GA_CONG(THOATNUOC)` (24) | ống cấp nước (có "cong") | hố ga: ô vuông nhỏ có gạch chéo | zoom | `HTKT_TN_Hoga_Nuocmua` (web app nay đọc ô vuông đứng một mình là điểm) |
+| `GHICHU` (486 chữ) | chữ chú thích | mã khảo sát: `dal2`, `nhua3`, `3dg`, `caubt` (loại mặt + bề rộng) | `CMP_MODE=scan` | bỏ |
+| `KS_GHICHU` (8.479 chữ) | rác | nhãn từng khoanh (AO, RUỘNG LÚA, CÂY TẠP, ĐẤT TRỐNG…) + tên đường/cầu | scan | `BV_Chu_Chucnang` (⚠) |
+| `KH` (588 hatch) | lúa | mảnh hatch 0,09 m² (tổng 0,03 ha) | thống kê diện tích hatch | `NEN_Diahinh_Kh` (⚠) — nhưng `HT_DAT_NN_Tronglua` (1.318 hatch, 1.286 ha) là thửa thật, đừng gộp |
+| `DUONG NHUA` (1.360 **hatch**, rộng 13,5, kiểu Hidden) | đường nhựa | **thửa lúa** gắn nhầm layer (trung vị 0,34 ha; ở QH02 tô xanh lá) | thống kê diện tích hatch | QH02: để màu quyết (lúa); bản đồ hạ tầng (tô xám theo màu nền): bỏ |
+| `EK22-11`, `EC22HH`, `E110-11` | `HTKT_CD_Duongday` ⚠ | đường dây 22 kV mới / 22 kV hiện hữu / 110 kV mới | **chữ trong kiểu nét** ("22KV", "110KV") + chú giải bản vẽ | không cần quyết định (cleaner đọc LTYPE) |
+| `MBA QH` | đường dây + công trình | ký hiệu trạm biến áp 22/0,4 kV xây mới | chú giải | `HTKT_CD_Trambienap` |
+| `0_XREF_DUYENHAI + TRACU` (6 nét) | `XEM_` / đường dây | ~80 m nét lạc của layer xref DGN | zoom | bỏ |
+| `QHDD_DAT_KXD_Congnghiep`, `QHDH_DAT_NNK_Honuoc`, `QHDH_DAT_KXD_Dancunongthon` | viền thửa | **chỉ có đường viền** (không hatch) nhưng là vùng đất thật (khu công nghiệp 190 ha, hồ 66 ha) | so số vùng đất của bản đồ gốc với bản sạch | tự động: cleaner giữ layer đất tên `QHDD_…` |
+| `QH_Ranh giới huyện` (rộng 5–15, kiểu nét ranh lập quy hoạch) | ranh huyện | **ranh lập quy hoạch** 5.909 ha | kiểu nét + diện tích | tự động (theo kiểu nét) |
+| `BV_Rg_capxa` (3 đỉnh 87 m, rộng 20) | ranh xã | đoạn ranh xã ngắn sát ranh | zoom | giữ (ranh xã) |
+Xref: `XRED_*` = xref; `NEN EXREF` / `RANH AP XREF` (tên không kiểu xref) được QH04/QH05 nạp; `NEN EXREF GT - MÀU SỐ 8` thiếu tệp (chỉ là nền đường màu 8) — báo, không hỏi.

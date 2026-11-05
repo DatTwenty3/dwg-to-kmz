@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
-import { Be_Vietnam_Pro, Montserrat, Roboto } from "next/font/google";
+import { Be_Vietnam_Pro, Montserrat } from "next/font/google";
+import localFont from "next/font/local";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
@@ -17,11 +18,15 @@ const brand = Montserrat({
   weight: ["500", "700"],
 });
 
-// Map label font for deck.gl's text atlas (resolved at runtime in App.tsx via --font-roboto).
-const roboto = Roboto({
+// Map label font for deck.gl's text atlas (resolved at runtime in App.tsx via --font-roboto). Self-hosted: Roboto
+// (OFL) subset to Latin + Vietnamese, one variable-weight file (assets/fonts/OFL-Roboto.txt). The Google copy made the
+// production build fail on Vercel ("next/font/google queries have exactly one entry") when Google served Roboto's CSS
+// with the new width axis, and a build must not depend on what Google answers that day.
+const roboto = localFont({
+  src: "../../assets/fonts/Roboto-vi-wght.woff2",
   variable: "--font-roboto",
-  subsets: ["latin", "vietnamese"],
-  weight: ["400", "500", "700"],
+  weight: "100 900",
+  display: "swap",
 });
 
 export const metadata: Metadata = {

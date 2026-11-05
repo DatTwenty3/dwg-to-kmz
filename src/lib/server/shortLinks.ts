@@ -109,3 +109,29 @@ export async function underRateLimit(client: string, max = 20): Promise<boolean>
   if (n === 1) await redis(['EXPIRE', key, 120]);
   return n <= max;
 }
+
+const attempts = new Map<string, { n: number; until: number }>();
+/**
+ * Password attempts per client (the unlock page): at most `max` per 10 minutes. In Redis when it is configured
+ * (shared by all instances), else in this instance's memory — a best-effort brake against guessing.
+ */
+export async function underAttemptLimit(client: string, max = 10): Promise<boolean> {
+  const windowS = 600;
+  if (shortLinksEnabled()) {
+    try {
+      const key = `rl:unlock:${client}:${Math.floor(Date.now() / (windowS * 1000))}`;
+      const n = Number(await redis(['INCR', key]));
+      if (n === 1) await redis(['EXPIRE', key, windowS * 2]);
+      return n <= max;
+    } catch {
+      /* Redis down: fall back to memory */
+    }
+  }
+  const now = Date.now();
+  const cur = attempts.get(client);
+  const rec = cur && cur.until > now ? cur : { n: 0, until: now + windowS * 1000 };
+  rec.n++;
+  attempts.set(client, rec);
+  if (attempts.size > 5000) for (const [k, v] of attempts) if (v.until <= now) attempts.delete(k);
+  return rec.n <= max;
+}

@@ -216,6 +216,14 @@ export interface CadDocument {
 - Lưu ý khi viết regex bằng script Python: `` trong chuỗi thường thành ký tự backspace (0x08) âm thầm — dùng Edit/Write hoặc `(?!\d)`/`(?:^| )` thay ``, rồi quét ký tự điều khiển.
 - Chưa làm: ghi `.dwg`, ký hiệu SVG Phụ lục I trong DXF, hình (SHX shape), POINT theo PDMODE; nút "Làm sạch bản vẽ" trong web app.
 
+## Khóa mật khẩu hai công cụ Kiểm tra CSDL / Bóc tách DWG (11/2026)
+
+- Chủ dự án muốn **một mật khẩu chung, nhập một lần là máy đó được nhớ; máy chưa nhập thì lần nào dùng cũng phải nhập**. `src/proxy.ts` (Next 16: `middleware` đã đổi tên `proxy`, chạy Node.js) chặn `/kiem-tra`, `/boc-tach` và các file nặng hai công cụ nạp (`/gdal/*`, `/sqljs/*`, `/tt16-svg/*` — trả 401): không có cookie hợp lệ thì chuyển tới `/khoa?next=<đường dẫn>`. Trang chủ, `/ban-do` (Bản đồ) và link chia sẻ **không** bị khóa.
+- `src/lib/server/accessGate.ts` (thuần, Web Crypto): cookie `ledat_acc` = `<hết hạn ms>.<HMAC-SHA256>` ký bằng `ACCESS_PASSWORD` + `ACCESS_SECRET` → **đổi mật khẩu (hoặc secret) là mọi máy phải nhập lại**. `POST /api/unlock {password, remember}` kiểm mật khẩu (so sánh không lộ độ lệch, chậm 0,6 s khi sai, **tối đa 10 lần / 10 phút / IP** — Redis nếu có, không thì bộ nhớ), đặt cookie `HttpOnly; SameSite=Lax; Secure` (production): "Ghi nhớ máy này" (mặc định bật) = 180 ngày, bỏ chọn = cookie phiên + token sống 1 ngày. `DELETE /api/unlock` = quên máy này. `safeNext` chỉ cho đường dẫn nội bộ (không `//host`, không scheme).
+- **Biến môi trường (Vercel → Settings → Environment Variables, Production)**: `ACCESS_PASSWORD` (bắt buộc để bật khóa; **không đặt = khóa TẮT**, dev và deploy chưa cấu hình chạy như cũ), `ACCESS_SECRET` (tùy chọn). Đặt xong phải **deploy lại** để có hiệu lực. Chạy thử cục bộ: `.env.local` (đã `.gitignore`) với `ACCESS_PASSWORD=…`.
+- Trang `/khoa` nạp xong dùng `window.location.replace(next)` (tải lại hẳn, không `router.replace`): router giữ kết quả chuyển hướng lúc prefetch link công cụ (khi chưa có cookie) và sẽ đưa người dùng quay lại `/khoa`. Hệ quả: **file kéo thả ở trang chủ trước khi mở khóa bị mất** (một lần mỗi máy; sau đó cookie cho qua). Kiểm trên trình duyệt thật: `localhost` (không dùng `127.0.0.1` — Next dev chặn HMR/hydration ở origin đó nên form không hoạt động).
+- **Giới hạn**: khóa chặn người thường, không chặn người rành kỹ thuật — mã JS của hai trang (`/_next/static/chunks/…`) vẫn tải được nếu biết tên file, và worker chạy phía trình duyệt. Mã nguồn vẫn phải công khai theo GPL-3.0. Bản đồ CAD (`/ban-do`) xem được gdb dạng zip nhưng không kiểm tra/chuẩn hóa. Test: `tests/unit/server/accessGate.test.ts`.
+
 ## Fixture thật: `dwg/10-QHPK Ninh Kieu - SDĐ (1).dwg`
 
 Bản đồ quy hoạch sử dụng đất phân khu Ninh Kiều, Cần Thơ, 4.4 MB, DWG **R2007** (`AC1021`), `INSUNITS=6` (mét). Các agent dùng file này làm chuẩn nghiệm thu:

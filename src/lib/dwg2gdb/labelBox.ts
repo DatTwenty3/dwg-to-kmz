@@ -102,6 +102,21 @@ function closeTo(a: Vec2[], b: Vec2[], tol: number): boolean {
   return probes(a).some((p) => near(p, b)) || probes(b).some((p) => near(p, a));
 }
 
+/** Bounding box of a ring grown by `pad`. */
+function extentOf(ring: Vec2[], pad: number): [number, number, number, number] {
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const [x, y] of ring) {
+    if (x < x0) x0 = x;
+    if (x > x1) x1 = x;
+    if (y < y0) y0 = y;
+    if (y > y1) y1 = y;
+  }
+  return [x0 - pad, y0 - pad, x1 + pad, y1 + pad];
+}
+
 /** Same size (sides to 1 m) and same direction (to 1°): the template box copied to several places. */
 function sizeKey(ring: Vec2[]): string {
   const w = Math.hypot(ring[1][0] - ring[0][0], ring[1][1] - ring[0][1]);
@@ -245,16 +260,40 @@ export function findLabelBoxes(doc: Pick<CadDocument, 'entities'>, inside: Array
       if (!flagged.length || flagged.length === group.length) break;
       const bySize = new Map<string, string>();
       const byStrip = new Map<string, string>();
+      // Flagged boxes by the grid cells their (nearby) extent covers: a neighbour test looks only at the cells around a rectangle,
+      // not at every flagged box of the layer (a survey base holds tens of thousands of rectangles).
+      const near = new Map<string, Rect[]>();
+      const order = new Map<Rect, number>(flagged.map((f, n) => [f, n]));
       for (const r of flagged) {
         bySize.set(sizeKey(r.ring), out.get(r.i)!);
         const s = stripKey(r.ring);
         if (s) byStrip.set(s, out.get(r.i)!);
+        const [x0, y0, x1, y1] = extentOf(r.ring, STACK_GAP);
+        for (let gx = Math.floor(x0 / CELL); gx <= Math.floor(x1 / CELL); gx++)
+          for (let gy = Math.floor(y0 / CELL); gy <= Math.floor(y1 / CELL); gy++) {
+            const k = `${gx}|${gy}`;
+            const list = near.get(k);
+            if (list) list.push(r);
+            else near.set(k, [r]);
+          }
       }
       for (const r of group) {
         if (out.has(r.i)) continue;
         const same = bySize.get(sizeKey(r.ring));
         const strip = same === undefined ? byStrip.get(stripKey(r.ring) ?? '') : undefined;
-        const q = same === undefined && strip === undefined ? flagged.find((f) => r.area <= 1.5 * f.area && closeTo(r.ring, f.ring, STACK_GAP)) : undefined;
+        let q: Rect | undefined;
+        if (same === undefined && strip === undefined) {
+          const [x0, y0, x1, y1] = extentOf(r.ring, STACK_GAP);
+          const seen = new Set<Rect>();
+          // The first flagged box (in the order of the layer) that is close, as a plain scan would find.
+          for (let gx = Math.floor(x0 / CELL); gx <= Math.floor(x1 / CELL); gx++)
+            for (let gy = Math.floor(y0 / CELL); gy <= Math.floor(y1 / CELL); gy++)
+              for (const f of near.get(`${gx}|${gy}`) ?? []) {
+                if (seen.has(f)) continue;
+                seen.add(f);
+                if ((q === undefined || order.get(f)! < order.get(q)!) && r.area <= 1.5 * f.area && closeTo(r.ring, f.ring, STACK_GAP)) q = f;
+              }
+        }
         const text = same ?? strip ?? (q ? out.get(q.i) : undefined);
         if (text !== undefined) {
           out.set(r.i, text);

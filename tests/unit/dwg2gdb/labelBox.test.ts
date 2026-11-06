@@ -100,3 +100,27 @@ describe('strip boxes of one height', () => {
     expect([...findLabelBoxes({ entities }, all(entities.length)).keys()].sort()).toEqual([1, 3]);
   });
 });
+
+describe('findLabelBoxes on a survey base', () => {
+  // A base of tens of thousands of rectangles (houses) with a couple of thousand labelled boxes on the same layer: the "copies / stacked
+  // boxes" pass must look only at the neighbours of a rectangle (it took minutes when it compared every rectangle with every box).
+  it('stays fast with many rectangles and many boxes on one layer', () => {
+    const entities: CadEntity[] = [];
+    for (let k = 0; k < 2000; k++) {
+      const x = (k % 50) * 400;
+      const y = Math.floor(k / 50) * 400;
+      entities.push(hatch(rect(x, y, 110, 24)), text('CHỢ XÃ ĐÔN XUÂN A', x + 55, y + 12));
+    }
+    for (let k = 0; k < 30000; k++) entities.push(hatch(rect((k % 200) * 90 + 50000, Math.floor(k / 200) * 90, 20 + (k % 7), 15 + (k % 5))));
+    const t0 = Date.now();
+    const found = findLabelBoxes({ entities }, all(entities.length));
+    expect(Date.now() - t0).toBeLessThan(8000);
+    expect(found.size).toBeGreaterThanOrEqual(2000);
+  });
+
+  it('a stacked box touching a labelled box is still found through the grid', () => {
+    const entities = [hatch(rect(0, 0, 110, 24)), text('CHỢ XÃ ĐÔN XUÂN A', 55, 12), hatch(rect(110, 0, 40, 24)), hatch(rect(900, 900, 60, 70))];
+    expect([...findLabelBoxes({ entities }, all(entities.length)).keys()].sort()).toEqual([0, 2]);
+  });
+});
+

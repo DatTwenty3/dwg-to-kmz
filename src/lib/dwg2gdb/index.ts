@@ -48,6 +48,15 @@ export interface ParsedDrawing {
   owner?: { id: string; name: string; role: RoleId };
 }
 
+/**
+ * Role of a drawing that stands on its own. One named like an xref ("XRED_GIAO THONG.dwg" dropped alone) has no host,
+ * so it is read by what the name says after the xref prefix ("GIAO THONG" → giao thông).
+ */
+function mainRole(name: string, texts: string[]): ReturnType<typeof guessRole> {
+  const g = guessRole(name, texts);
+  return g.role === 'xref' ? { ...g, role: xrefNameRole(name) } : g;
+}
+
 export interface FolderInput extends FolderFile {
   read: () => Promise<ArrayBuffer>;
 }
@@ -58,6 +67,8 @@ export interface LoadedFolder {
   unused: FolderFile[];
   /** Xrefs not found in the folder: "QH07….dwg → Xr_nen giao thong". */
   missingXrefs: string[];
+  /** Files that could not be read ("QH05.dwg: lỗi…") — skipped, the rest of the folder is still used. */
+  failed: string[];
 }
 
 /**
@@ -71,13 +82,24 @@ export async function loadFolder(
 ): Promise<LoadedFolder> {
   const cad = files.filter((f) => /\.(dwg|dxf)$/i.test(f.name));
   const isXrefName = (f: FolderFile) => guessRole(f.name, []).role === 'xref';
-  const named = cad.filter((f) => !isXrefName(f));
+  // A folder (or a single file) with nothing but xref-named files — "XRED_GIAO THONG.dwg" on its own — has no main
+  // drawing for them to hang on: they are the drawings.
+  const onlyXrefs = cad.length > 0 && cad.every(isXrefName);
+  const named = onlyXrefs ? cad : cad.filter((f) => !isXrefName(f));
   const docs = new Map<string, CadDocument>();
+  const failed: string[] = [];
+  const unreadable = new Set<string>();
   let done = 0;
   let total = named.length;
   const read = async (f: FolderInput) => {
     onProgress?.(done, total, f.name);
-    docs.set(f.id, await parse(f, await f.read()));
+    try {
+      docs.set(f.id, await parse(f, await f.read()));
+    } catch (e) {
+      // One bad file must not take the whole folder down.
+      unreadable.add(f.id);
+      failed.push(`${f.name}: ${e instanceof Error ? e.message : String(e)}`);
+    }
     done++;
   };
   for (const f of named) await read(f);
@@ -89,12 +111,12 @@ export async function loadFolder(
   for (const f of named)
     for (const x of docs.get(f.id)?.xrefs ?? []) {
       const t = resolveXref(x.name, f.path, cad);
-      if (!t || t.id === f.id || !namedIds.has(t.id)) continue;
+      if (!t || t.id === f.id || !namedIds.has(t.id) || !docs.has(t.id)) continue;
       // Two drawings loading each other: neither is demoted.
       if ((docs.get(t.id)?.xrefs ?? []).some((y) => resolveXref(y.name, t.path, cad)?.id === f.id)) continue;
       if (!roleById(guessRole(t.name, drawingTexts(docs.get(t.id)!)).role).db) asXref.add(t.id);
     }
-  const mains = named.filter((f) => !asXref.has(f.id));
+  const mains = named.filter((f) => !asXref.has(f.id) && !unreadable.has(f.id));
   const mainIds = new Set(mains.map((f) => f.id));
 
   // Xrefs, breadth first. reach = xref file → main drawings loading it; the first INSERT gives its placement.
@@ -118,9 +140,11 @@ export async function loadFolder(
       via.forEach((m) => set.add(m));
       reach.set(target.id, set);
       if (!placement.has(target.id)) placement.set(target.id, x);
+      if (unreadable.has(target.id)) continue;
       if (!docs.has(target.id)) {
         total++;
         await read(byId.get(target.id)!);
+        if (unreadable.has(target.id)) continue;
       } else if (set.size === before) continue;
       queue.push({ from: byId.get(target.id)!, via: [...set] });
     }
@@ -130,7 +154,7 @@ export async function loadFolder(
   const main: ParsedDrawing[] = mains.map((f) => ({ id: f.id, name: f.name, path: f.path, doc: docs.get(f.id)! }));
   const info = new Map<string, MainDrawing>();
   for (const m of main) {
-    const g = guessRole(m.name, drawingTexts(m.doc));
+    const g = mainRole(m.name, drawingTexts(m.doc));
     info.set(m.id, { id: m.id, role: g.role, year: g.year });
   }
   const owners = xrefOwners(
@@ -154,8 +178,9 @@ export async function loadFolder(
   }
   return {
     drawings: [...main, ...xrefDrawings],
-    unused: cad.filter((f) => isXrefName(f) && !docs.has(f.id) && resolveXref(f.name, f.path, cad)?.id === f.id).map(({ id, name, path }) => ({ id, name, path })),
+    unused: cad.filter((f) => isXrefName(f) && !docs.has(f.id) && !unreadable.has(f.id) && resolveXref(f.name, f.path, cad)?.id === f.id).map(({ id, name, path }) => ({ id, name, path })),
     missingXrefs: missing,
+    failed,
   };
 }
 
@@ -212,7 +237,7 @@ export function analyzeDrawings(parsed: ParsedDrawing[], section?: number | null
   const inside = new Map<string, Uint8Array>();
   // A "định hướng phát triển không gian" map holding the land-use layers of the plan, in a dossier without a land-use map
   // of its own (QH04 of a commune with only that map), is the land-use map: its hatches are read as land use, not dropped.
-  const guessed = new Map(parsed.filter((p) => !p.owner).map((p) => [p.id, guessRole(p.name, drawingTexts(p.doc))]));
+  const guessed = new Map(parsed.filter((p) => !p.owner).map((p) => [p.id, mainRole(p.name, drawingTexts(p.doc))]));
   const upgraded = new Set<string>();
   if (![...guessed.values()].some((g) => g.role === 'qh-sdd')) {
     for (const [id, g] of guessed) {

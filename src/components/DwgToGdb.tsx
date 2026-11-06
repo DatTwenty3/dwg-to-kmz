@@ -993,6 +993,11 @@ export default function DwgToGdb() {
                 bấm để ghép layer
               </span>
             </div>
+            {data.failed.length > 0 && (
+              <p className="border-b border-red-100 bg-red-50 px-3 py-1.5 text-[11.5px] text-red-800" title={data.failed.join('\n')}>
+                Không đọc được {fmt(data.failed.length)} file (đã bỏ qua): {data.failed.map((m) => m.split(':')[0]).join(', ')}
+              </p>
+            )}
             {missingXrefs.length > 0 && (
               <p className="border-b border-amber-100 bg-amber-50 px-3 py-1.5 text-[11.5px] text-amber-800" title={missingXrefs.join('\n')}>
                 Thiếu {fmt(missingXrefs.length)} file xref của bản vẽ đang dùng

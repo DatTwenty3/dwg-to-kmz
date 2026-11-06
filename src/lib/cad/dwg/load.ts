@@ -29,6 +29,12 @@ export function releaseLibreDwg(): void {
   instances.clear();
 }
 
+/** A trap of the WebAssembly module itself (not a LibreDWG error code): the instance is no longer trustworthy. */
+export function isWasmTrap(e: unknown): boolean {
+  if (typeof WebAssembly !== 'undefined' && e instanceof WebAssembly.RuntimeError) return true;
+  return /null function|signature mismatch|out of bounds|unreachable|memory access|Aborted|stack overflow/i.test(String((e as Error)?.message ?? e));
+}
+
 export interface DwgReadResult {
   db: DwgDatabase;
   /** LibreDWG error bitmask (0 = clean). */

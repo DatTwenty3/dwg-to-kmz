@@ -111,6 +111,7 @@ export type DwgTt16Response =
       boundaryArea: number;
       unused: FolderFile[];
       missingXrefs: string[];
+      failed: string[];
       /** VN-2000 KTTs that place the planning area inside the province using them (named province first). */
       guesses: Vn2000Guess[];
       /** Current province named in the title blocks ("TỈNH VĨNH LONG"), if any. */
@@ -162,7 +163,8 @@ async function load(files: { path: string; file: File }[]) {
   );
   // The drawings are read: free the DWG reader's memory for the GDAL step (see releaseLibreDwg).
   releaseLibreDwg();
-  if (!folder.drawings.length) throw new Error('Không có bản vẽ DWG/DXF nào trong thư mục.');
+  if (!folder.drawings.length)
+    throw new Error(folder.failed.length ? `Không đọc được bản vẽ nào. ${folder.failed.join(' · ')}` : 'Không có bản vẽ DWG/DXF nào trong thư mục.');
   post({ type: 'progress', stage: 'Phân tích layer và ranh quy hoạch', done: 0, total: 1 });
   parsed = folder.drawings;
   analysis = analyzeDrawings(parsed);
@@ -193,6 +195,7 @@ async function load(files: { path: string; file: File }[]) {
     boundaryArea: b?.area ?? 0,
     unused: folder.unused,
     missingXrefs: folder.missingXrefs,
+    failed: folder.failed,
     guesses,
     provinceId: province?.id ?? null,
     projectName: projectNameFromTexts(mainTexts),

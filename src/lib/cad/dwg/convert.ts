@@ -161,6 +161,8 @@ class DwgConverter {
   }
 
   edge(e: DwgBoundaryPathEdge): SrcEdge | null {
+    // libredwg leaves holes in the edge list of some hatches (a boundary path whose edges it could not read).
+    if (!e || typeof e !== 'object') return null;
     switch (e.type) {
       case 1: {
         const l = e as DwgLineEdge;
@@ -208,6 +210,7 @@ class DwgConverter {
   }
 
   loop(p: DwgBoundaryPath): SrcLoop | null {
+    if (!p || typeof p !== 'object') return null;
     if ('vertices' in p && Array.isArray(p.vertices)) {
       return {
         kind: 'poly',
@@ -217,7 +220,7 @@ class DwgConverter {
     }
     if ('edges' in p && Array.isArray(p.edges)) {
       const edges = p.edges.map((e) => this.edge(e)).filter((e): e is SrcEdge => e !== null);
-      return { kind: 'edges', edges };
+      return edges.length ? { kind: 'edges', edges } : null;
     }
     return null;
   }
@@ -553,12 +556,23 @@ export function dwgToSource(db: DwgDatabase, meta: DwgConvertMeta): SrcDocument 
   const blockByHandle = new Map<string, string>();
   for (const br of records) if (br.handle) blockByHandle.set(br.handle, br.name);
 
+  // One entity the converter cannot read must not lose the whole drawing: skip it and say so.
+  const failed = new Map<string, number>();
+  const safeConvert = (e: DwgEntity, out: SrcEntity[], inBlock: boolean) => {
+    try {
+      conv.entity(e, out, blockByHandle, inBlock);
+    } catch {
+      const t = String((e as { type?: unknown } | undefined)?.type ?? '?');
+      failed.set(t, (failed.get(t) ?? 0) + 1);
+    }
+  };
+
   // Blocks (everything except model/paper space)
   const blocks = new Map<string, SrcBlock>();
   for (const br of records) {
     if (!br.name || isModelSpace(br.name) || isPaperSpace(br.name)) continue;
     const ents: SrcEntity[] = [];
-    for (const e of br.entities ?? []) conv.entity(e, ents, blockByHandle, true);
+    for (const e of br.entities ?? []) safeConvert(e, ents, true);
     blocks.set(br.name, { name: br.name, base: v2(br.basePoint), entities: ents });
   }
 
@@ -578,7 +592,12 @@ export function dwgToSource(db: DwgDatabase, meta: DwgConvertMeta): SrcDocument 
     warnings.push(`Đã bỏ qua ${paperCount} đối tượng ở Paper Space (layout/khung in) — chỉ hiển thị Model Space.`);
   }
   const entities: SrcEntity[] = [];
-  for (const e of msEntities) conv.entity(e, entities, blockByHandle, false);
+  for (const e of msEntities) safeConvert(e, entities, false);
+  const emptyHatches = entities.filter((e) => e.type === 'hatch' && e.loops.length === 0).length;
+  if (emptyHatches) warnings.push(`${emptyHatches} hatch có đường biên mà thư viện đọc DWG không giải mã được — đã bỏ qua.`);
+  if (failed.size) {
+    warnings.push(`Không chuyển đổi được ${[...failed].reduce((n, [, c]) => n + c, 0)} đối tượng (${[...failed].map(([t, c]) => `${t} ×${c}`).join(', ')}) — đã bỏ qua, phần còn lại vẫn đọc bình thường.`);
+  }
 
   // Layers
   const layers: SrcLayer[] = (db.tables?.LAYER?.entries ?? []).map((l) => {

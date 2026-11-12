@@ -124,3 +124,13 @@ describe('findLabelBoxes on a survey base', () => {
   });
 });
 
+describe('real MTEXT block size', () => {
+  it('a box sized for the real block (text.box) is found where the character estimate would not fit it', () => {
+    // 4 characters at height 20 estimate to ~48 × 25; the real block is 300 × 60 — the 320 × 70 box is sized for it
+    // (nothing lies under the box, so only the "sized for the text" rule can flag it)
+    const withBox = [hatch(rect(100, 100, 320, 70)), text('AB C', 110, 160, 20, { hAlign: 'left', vAlign: 'top', box: { w: 300, h: 60 } })];
+    expect([...findLabelBoxes({ entities: withBox }, all(2)).keys()]).toEqual([0]);
+    const withoutBox = [hatch(rect(100, 100, 320, 70)), text('AB C', 110, 160, 20, { hAlign: 'left', vAlign: 'top' })];
+    expect(findLabelBoxes({ entities: withoutBox }, all(2)).size).toBe(0);
+  });
+});

@@ -127,3 +127,8 @@ Người vẽ hay **khoanh một hình chữ nhật (hatch màu hoặc đường
 - Thêm quy tắc **ô dải cùng bề cao** (cạnh ngắn ≤ 40 m, dài ≥ 2,5 × ngắn, cùng hướng/layer, cạnh ngắn bằng một khung đã nhận ±1 m) — hộp nhãn 3 dòng của một bản vẽ cùng cao 32 m; bắt thêm 2 ô không có chữ nào trong 280 m.
 - **Kiểm bằng dữ liệu, không bằng ảnh `visualHoSoGIS`**: ảnh vẽ hatch CAD (xám/olive) dưới GIS nên ô nhãn vẫn hiện dù không còn trong gdb. Dùng `scripts/gdb-rects.py <QuyHoach.gdb>` (PyQGIS): chỉ còn 6 vùng chữ nhật (nhà văn hóa nhỏ, trường mở rộng 81 × 61 m, trạm bơm, một ô Đất ở 73 × 63 m lẻ). Một ô vuông lẻ không gắn được chữ nào thì **báo người dùng**, không đoán.
 - QH02 hiện trạng có ~60 hình chữ nhật trên `DAT_NNK_Tronglua` có chữ "RUỘNG LÚA"/"ĐẤT RUỘNG"/"ĐẤT TRỐNG" nằm **đúng trong** khung: đó là **thửa ruộng thật** (khung to hơn chữ nhiều lần, không nằm trên vùng khác) — luật không bắt, đúng.
+
+### Nguồn gốc khung nhãn + thứ đã thử và hoàn tác (11/2026)
+- Khung nhãn là **đường biên của một hatch** (AutoCAD đặt khung quanh chữ khi tô hatch; MTEXT nhãn bật nền chữ), không phải hatch riêng — trong IR mọi khung của một hatch có chung `handle`.
+- **Không bỏ đường biên theo cờ text box (bit 16)**: cờ này cũng gắn trên thửa thật (QH02 Đôn Châu: 466 đường biên `DUONG NHUA` cỡ 122 × 250 m); thử bỏ ở bộ đọc làm mất ~174 thửa lúa + 1.600 vùng ở An Phú Tân, đã hoàn tác. Kiểm bằng `scripts/gdb-landuse.py` (số vùng + diện tích theo phân loại) **trước/sau** mỗi thay đổi bộ đọc — vùng tụt hàng trăm là dấu hiệu bỏ nhầm thửa thật.
+- Khung MTEXT thật (`TextEntity.box`) dùng khi có; web app **tự bỏ** khung mặc định, người dùng "Hoàn lại" từng hàng.

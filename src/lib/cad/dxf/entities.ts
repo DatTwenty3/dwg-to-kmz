@@ -509,6 +509,9 @@ export function convertRawList(list: RawEntity[], ctx: ConvertContext, isModelSp
         const dir: Vec2 = has(f, 11) ? pt(f, 11) : [0, 0];
         const rotation = Math.hypot(dir[0], dir[1]) > 1e-12 ? Math.atan2(dir[1], dir[0]) : n(f, 50) * DEG;
         const al = mtextAlign(n(f, 71, 1));
+        // 42 / 43 = horizontal width / vertical height of the text itself (not the wrapping width of group 41).
+        const bw = n(f, 42);
+        const bh = n(f, 43);
         out.push({
           ...common,
           type: 'text',
@@ -520,6 +523,7 @@ export function convertRawList(list: RawEntity[], ctx: ConvertContext, isModelSp
           rotation,
           hAlign: al.hAlign,
           vAlign: al.vAlign,
+          ...(bw > 0 && bh > 0 ? { box: { w: bw, h: bh } } : {}),
         });
         break;
       }

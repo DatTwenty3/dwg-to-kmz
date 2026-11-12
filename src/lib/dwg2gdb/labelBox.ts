@@ -54,8 +54,9 @@ export function rectangleOf(ring: Vec2[] | undefined): Vec2[] | null {
 /** Estimated extent of a text (the anchor depends on the alignment): centre, size and angle in radians. */
 function textExtent(t: Text): Extent {
   const lines = t.text.split(/\r?\n/);
-  const w = Math.max(...lines.map((l) => l.trim().length)) * t.height * CHAR_WIDTH;
-  const h = lines.length * t.height * LINE_HEIGHT;
+  // An MTEXT carries the real size of its block (DWG extentsWidth/extentsHeight, DXF groups 42/43): use it, estimate otherwise.
+  const w = t.box?.w ?? Math.max(...lines.map((l) => l.trim().length)) * t.height * CHAR_WIDTH;
+  const h = t.box?.h ?? lines.length * t.height * LINE_HEIGHT;
   const ox = t.hAlign === 'left' ? w / 2 : t.hAlign === 'right' ? -w / 2 : 0;
   const oy = t.vAlign === 'top' ? -h / 2 : t.vAlign === 'middle' ? 0 : h / 2;
   const a = (t.rotation * Math.PI) / 180;

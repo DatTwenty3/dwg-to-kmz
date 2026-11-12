@@ -444,8 +444,12 @@ class DwgConverter {
           styleName: string;
           direction?: P2;
           rotation?: number;
+          extentsWidth?: number;
+          extentsHeight?: number;
         };
         if (!m.text) return;
+        const bw = num(m.extentsWidth);
+        const bh = num(m.extentsHeight);
         const dir = m.direction ? v2(m.direction) : ([0, 0] as Vec2);
         const rotation = Math.hypot(dir[0], dir[1]) > 1e-12 ? Math.atan2(dir[1], dir[0]) : num(m.rotation);
         const al = mtextAlign(num(m.attachmentPoint, 1));
@@ -460,6 +464,7 @@ class DwgConverter {
           rotation,
           hAlign: al.hAlign,
           vAlign: al.vAlign,
+          ...(bw > 0 && bh > 0 ? { box: { w: bw, h: bh } } : {}),
         });
         return;
       }

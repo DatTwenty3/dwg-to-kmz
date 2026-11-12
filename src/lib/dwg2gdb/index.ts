@@ -434,6 +434,24 @@ function resolveByRole(row: LayerRow, role: RoleId, lookup: ReturnType<typeof te
   return s;
 }
 
+/**
+ * Rectangles drawn round a label (`LayerRow.labelBoxIndexes`) of the rows written to a land-use class: left out of the output by
+ * default — the user can take them back one row at a time ("Hoàn lại" in the table). Drawing id → entity indexes, the shape of
+ * the page's `excluded`. A row the user mapped by hand is not touched.
+ */
+export function defaultExcludedBoxes(rows: readonly LayerRow[], mapping: ReadonlyMap<string, MappingState>): Map<string, Set<number>> {
+  const out = new Map<string, Set<number>>();
+  for (const r of rows) {
+    if (!r.labelBoxIndexes?.length) continue;
+    const m = mapping.get(r.key);
+    if (!m?.target || !LAND_USE_CLASS.test(m.target) || m.source === 'manual') continue;
+    let set = out.get(r.drawing);
+    if (!set) out.set(r.drawing, (set = new Set()));
+    for (const i of r.labelBoxIndexes) set.add(i);
+  }
+  return out;
+}
+
 /** Mapping of every row: template first, else the built-in suggestion. */
 export function initialMapping(a: Pick<Analysis, 'drawings' | 'rows'>, template: MappingTemplate | null): Map<string, MappingState> {
   const lookup = templateLookup(template);

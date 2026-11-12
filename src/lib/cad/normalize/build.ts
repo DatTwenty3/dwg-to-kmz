@@ -55,6 +55,7 @@ type PEntity = PBase &
         rotation: number;
         hAlign: HAlign;
         vAlign: VAlign;
+        box?: { w: number; h: number };
       }
     | {
         kind: 'table';
@@ -157,7 +158,9 @@ function transformProto(p: PEntity, m: Mat2D, insLayer?: string, insColor?: Colo
           hAlign = flipH(hAlign);
         }
       }
-      return { ...p, layer, color, position: apply(m, p.position), height, rotation, hAlign, vAlign };
+      const ku = Math.hypot(u[0], u[1]);
+      const box = p.box ? { w: p.box.w * ku, h: p.box.h * Math.hypot(v[0], v[1]) } : undefined;
+      return { ...p, layer, color, position: apply(m, p.position), height, rotation, hAlign, vAlign, ...(box ? { box } : {}) };
     }
     case 'table': {
       const u = applyLinear(m, [Math.cos(p.rotation), Math.sin(p.rotation)]);
@@ -343,6 +346,7 @@ function textProto(e: SrcText, base: PBase): PEntity {
     rotation: e.rotation || 0,
     hAlign: e.hAlign,
     vAlign: e.vAlign,
+    ...(e.box ? { box: e.box } : {}),
   };
 }
 
@@ -465,6 +469,7 @@ export function buildDocument(src: SrcDocument, opts: BuildOptions = {}): CadDoc
             rotation: radToDeg(p.rotation),
             hAlign: p.hAlign,
             vAlign: p.vAlign,
+            ...(p.box ? { box: p.box } : {}),
           };
           entities.push(t);
           pending.push({ raw: p.raw, style: p.style, isMText: p.isMText, apply: (s) => (t.text = s) });

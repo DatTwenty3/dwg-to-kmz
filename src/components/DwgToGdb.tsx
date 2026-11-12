@@ -13,6 +13,7 @@ import {
   conversionNote,
   emptyTemplate,
   initialMapping,
+  defaultExcludedBoxes,
   keyColor,
   kindFits,
   landUseOf,
@@ -293,7 +294,11 @@ export default function DwgToGdb() {
       setDrawings(m.drawings);
       const t = loadTemplate();
       setTemplate(t);
-      setMapping(initialMapping(m, t));
+      const initial = initialMapping(m, t);
+      setMapping(initial);
+      // Rectangles round labels are left out by default (the table says how many and takes them back).
+      setExcluded(defaultExcludedBoxes(m.rows, initial));
+      setExcludedHistory([]);
       const first = m.drawings.find((d) => d.included && !d.owner) ?? m.drawings[0];
       setSel(first?.id ?? null);
       setRowSel(null);
@@ -1214,15 +1219,15 @@ ${cm.reason}` : ''}`}>
                               const skipped = r.labelBoxIndexes.filter((i) => gone?.has(i)).length;
                               const refs = r.labelBoxIndexes.map((i): SourceRef => [r.drawing, i]);
                               return (
-                                <p className="pl-5 text-[11px] leading-snug text-amber-700" title={`Hình chữ nhật có chữ nằm trong, chồng lên vùng đất khác — người vẽ khoanh để ghi nhãn, không phải thửa đất. Bấm "Bỏ qua" để không đưa vào HoSoGIS, hoặc giữ nếu đó thật sự là một vùng.${r.labelBoxSamples?.length ? ` Nhãn: ${r.labelBoxSamples.join(' · ')}` : ''}`}>
-                                  {fmt(r.labelBoxes)} nghi khung nhãn tên{r.labelBoxSamples?.[0] ? ` (vd. ${r.labelBoxSamples[0]})` : ''} ·{' '}
+                                <p className="pl-5 text-[11px] leading-snug text-amber-700" title={`Hình chữ nhật có chữ nằm trong, chồng lên vùng đất khác — người vẽ khoanh để ghi nhãn, không phải thửa đất. Mặc định chúng được bỏ khỏi bản xuất; bấm "Hoàn lại" nếu đó thật sự là một vùng.${r.labelBoxSamples?.length ? ` Nhãn: ${r.labelBoxSamples.join(' · ')}` : ''}`}>
+                                  {fmt(r.labelBoxes)} khung nhãn tên{r.labelBoxSamples?.[0] ? ` (vd. ${r.labelBoxSamples[0]})` : ''}{skipped >= r.labelBoxes ? ' — đã tự bỏ khỏi bản xuất' : ''} ·{' '}
                                   {skipped < r.labelBoxes ? (
                                     <button type="button" className="font-medium underline underline-offset-2 hover:text-amber-900" onClick={() => editExcluded(refs, [])}>
                                       Bỏ qua {fmt(r.labelBoxes - skipped)}
                                     </button>
                                   ) : (
                                     <button type="button" className="font-medium underline underline-offset-2 hover:text-amber-900" onClick={() => editExcluded([], refs)}>
-                                      Đã bỏ qua — Hoàn lại
+                                      Hoàn lại
                                     </button>
                                   )}
                                 </p>

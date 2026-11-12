@@ -127,6 +127,8 @@ export interface SrcText extends SrcCommon {
   rotation: number;
   hAlign: HAlign;
   vAlign: VAlign;
+  /** MTEXT: size of the text block (widest line × all lines) when the file gives it. */
+  box?: { w: number; h: number };
 }
 
 export interface SrcInsert extends SrcCommon {

@@ -117,6 +117,11 @@ export interface TextEntity extends EntityBase {
   rotation: number;
   hAlign: HAlign;
   vAlign: VAlign;
+  /**
+   * MTEXT only: the size of the text block as the drawing stores it (`w` = the widest line, `h` = all lines), in drawing units
+   * (scaled like `height`). Missing for TEXT and for MTEXT whose file does not give it — the size is then estimated from `height`.
+   */
+  box?: { w: number; h: number };
 }
 
 export interface TableCell {

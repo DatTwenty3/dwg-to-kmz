@@ -13,6 +13,7 @@ import {
   guessRole,
   guessesInProvince,
   initialMapping,
+  defaultExcludedBoxes,
   insideFlags,
   landUseOf,
   compactName,
@@ -467,6 +468,27 @@ describe('rectangle drawn round a label (nghi khung nhãn tên)', () => {
   it('does not mark a row without such boxes', () => {
     const plain = layerRows('a', doc([entities[0]]), new Uint8Array(1).fill(1)).find((r) => r.kind === 'A')!;
     expect(plain.labelBoxes).toBeUndefined();
+  });
+});
+
+describe('rectangles round labels are left out by default', () => {
+  const hatch2 = (ring: Vec2[]): CadEntity => ({ kind: 'polygon', layer: 'QHDD_DAT_XD_Dato', color: '#ffcc00', fillOpacity: 0.5, rings: [ring] });
+  const label: CadEntity = { kind: 'text', layer: 'TEXT', color: '#000000', text: 'TRƯỜNG TH ĐÔN XUÂN A', position: [205, 152], height: 8, rotation: 0, hAlign: 'center', vAlign: 'middle' };
+  const entities = [hatch2([[0, 0], [400, 0], [400, 300], [0, 300]]), hatch2([[150, 140], [260, 140], [260, 164], [150, 164]]), label];
+  const rows = layerRows('a', doc(entities), new Uint8Array(entities.length).fill(1));
+  const row = rows.find((r) => r.layer === 'QHDD_DAT_XD_Dato' && r.kind === 'A')!;
+  const mapping = () => initialMapping({ drawings: [{ id: 'a', role: 'qh-sdd' }], rows } as never, null);
+  it('lists the box (drawing id → entity indexes) of a land-use row', () => {
+    const ex = defaultExcludedBoxes(rows, mapping());
+    expect([...(ex.get('a') ?? [])]).toEqual([1]);
+  });
+  it('leaves a row the user mapped by hand, and a row that is not land use, alone', () => {
+    const m = mapping();
+    m.set(row.key, { ...m.get(row.key)!, source: 'manual' });
+    expect(defaultExcludedBoxes(rows, m).size).toBe(0);
+    const other = mapping();
+    other.set(row.key, { ...other.get(row.key)!, target: 'QuyHoach/QuyHoachGiaoThong/MangLuoiGiaoThongDuongBo_L' });
+    expect(defaultExcludedBoxes(rows, other).size).toBe(0);
   });
 });
 

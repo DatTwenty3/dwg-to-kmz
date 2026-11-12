@@ -1,5 +1,6 @@
 {
-  "HienTrang/HienTrangCapNuoc/MangLuoiCapNuoc_L": "31 nét GA_CONG_THOATNUOC (cống Trà Sất, cống Rạch Bần…) bản gốc đọc nhầm là ống cấp nước; bản sạch đưa về thoát nước (HTKT_TN_Tuyen_Nuocmua). Còn lại 15 tuyến ống cấp nước thật.",
-  "HienTrang/HienTrangChuanBiKyThuat/MangLuoiThoatNuocMua_L": "1.251 nét MUONG_AO (bờ ao, mương: đa giác nhỏ có nhãn AO) bản gốc đọc nhầm là tuyến thoát nước mưa; bản sạch đưa về nền địa hình NEN_Diahinh_Muongao. Còn lại 31 nét cống thoát nước thật (GA_CONG_THOATNUOC).",
-  "QuyHoach/QuyHoachGiaoThong/MangLuoiGiaoThongDuongBo_L": "2 nét HTKT_GT_Duong hien trang mo rong suy biến (một điểm, dài 0) — không phải đường; 105/107 còn lại giữ nguyên."
+ "HienTrang/HienTrangCapNuoc/MangLuoiCapNuoc_L": "31 nét GA_CONG_THOATNUOC (cống Trà Sất, cống Rạch Bần…) bản gốc đọc nhầm là ống cấp nước; bản sạch đưa về thoát nước (HTKT_TN_Tuyen_Nuocmua). Còn lại 15 tuyến ống cấp nước thật.",
+ "HienTrang/HienTrangChuanBiKyThuat/MangLuoiThoatNuocMua_L": "1.251 nét MUONG_AO (bờ ao, mương: đa giác nhỏ có nhãn AO) bản gốc đọc nhầm là tuyến thoát nước mưa; bản sạch đưa về nền địa hình NEN_Diahinh_Muongao. Còn lại 31 nét cống thoát nước thật (GA_CONG_THOATNUOC).",
+ "QuyHoach/QuyHoachGiaoThong/MangLuoiGiaoThongDuongBo_L": "2 nét HTKT_GT_Duong hien trang mo rong suy biến (một điểm, dài 0) — không phải đường; 105/107 còn lại giữ nguyên.",
+ "chữ biển số": "4 số của bảng khối lượng / mẫu ký hiệu ở QH_10 và QH_11 (555, 100, 140, 216; chú giải '100 L555' và bảng khối lượng cấp nước) — cách tuyến đường đã giữ gần nhất 2,1–3,3 km. Trước đây cleaner coi mọi số 3 chữ số trong khung bao quanh ranh là biển số tuyến nên giữ chúng ngoài ranh; nay biển số ngoài ranh phải nằm sát một tuyến đường đã giữ (hồ sơ An Phú Tân: '440', '250', '100 555' lọt vào nhóm CAD của .qgz). Các biển số thật (QL54, 915C…) vẫn còn."
 }

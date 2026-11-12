@@ -185,6 +185,22 @@ describe('symbols, road names and sign frames (Long Hiệp)', () => {
     expect(points[0]).toMatchObject({ layer: 'HTKT_TTLL_Congtrinh', position: [105, 105] });
   });
 
+  it('a fire hydrant drawn as a dozen small red lines (An Phú Tân "trucchay") gives one point per symbol, the lines stay', () => {
+    const piece = (cx: number, cy: number, k: number): CadEntity => ({ kind: 'polyline', layer: 'trucchay', color: '#ff0000', points: [[cx - 4 + k, cy - 4], [cx + 4 - k, cy + 4]], closed: false });
+    const symbol = (cx: number, cy: number): CadEntity[] => Array.from({ length: 12 }, (_, k) => piece(cx, cy, k * 0.2));
+    const d = doc([...symbol(100, 100), ...symbol(300, 300)]);
+    const r = cleanDocument([{ id: 'a', name: 'QH09.dwg', doc: d, inside: new Uint8Array(24).fill(1), role: 'qh-nuoc' as never }], new Map(), ring);
+    const points = r.doc.entities.filter((e) => e.kind === 'point');
+    expect(points).toHaveLength(2);
+    expect(points[0]).toMatchObject({ layer: 'HTKT_CN_Trucuuhoa' });
+    expect(r.doc.entities.filter((e) => e.kind === 'polyline' && e.layer === 'HTKT_CN_Trucuuhoa')).toHaveLength(24);
+  });
+  it('a symbol whose pieces come in the wrong order (the bridging piece last) is still one point', () => {
+    const seg = (x0: number, x1: number): CadEntity => ({ kind: 'polyline', layer: 'trucchay', color: '#ff0000', points: [[x0, 100], [x1, 100]], closed: false });
+    const d = doc([seg(0, 4), seg(8, 12), seg(3, 9)]); // 0–4 and 8–12 are 4 m apart (> 3 m); the last piece joins them
+    const r = cleanDocument([{ id: 'a', name: 'QH09.dwg', doc: d, inside: new Uint8Array(3).fill(1), role: 'qh-nuoc' as never }], new Map(), ring);
+    expect(r.doc.entities.filter((e) => e.kind === 'point')).toHaveLength(1);
+  });
   it('the diamond round a route number is kept beside the number', () => {
     const frame: CadEntity = { kind: 'polyline', layer: '0', color: '#0000ff', points: [[100, 100], [110, 110], [100, 120], [90, 110]], closed: true };
     const r = cleanDocument([input(doc([frame, text('914C', 100, 108, 0)]), [1, 1])], new Map(), ring);
@@ -196,6 +212,26 @@ describe('symbols, road names and sign frames (Long Hiệp)', () => {
     const r = cleanDocument([input(doc([circle, label]), [1, 1])], new Map(), ring);
     expect(r.doc.entities.filter((e) => e.layer === 'KYHIEU_Congtrinh_Bienso')).toHaveLength(1);
     expect(r.doc.entities.filter((e) => e.layer === 'HTKT_GT_Kyhieutuyen')).toHaveLength(1);
+  });
+  it('outside the area: the diamond (5 points, flag off, An Phú Tân) round a route number on a road is kept; a quantity table cell ("440") far from any road is not', () => {
+    const sign: CadEntity = { ...text('915', 1060, 500, 0, 'TEXT-giao thong-Ten duong'), hAlign: 'center', vAlign: 'middle', height: 20 } as CadEntity;
+    const diamond: CadEntity = { kind: 'polyline', layer: 'TEXT-giao thong-Ten duong', color: '#ffffff', width: 3, closed: false, points: [[1020, 500], [1060, 540], [1100, 500], [1060, 460], [1020, 500]] };
+    const cell: CadEntity = { kind: 'polyline', layer: 'text', color: '#ffffff', closed: true, points: [[470, 1060], [530, 1060], [530, 1100], [470, 1100]] };
+    const qty = { ...text('440', 500, 1080, 0, 'text'), height: 12 } as CadEntity;
+    const r = cleanDocument([input(doc([road('HTKT_GT_Duongtinh', 900, 1090), diamond, sign, cell, qty]), [1, 0, 0, 0, 0])], roadMap, ring);
+    const kept = r.doc.entities.filter((e) => e.layer !== 'BV_Rg_lapquyhoach' && e.layer !== 'HTKT_GT_Duongtinh');
+    expect(kept.map((e) => e.layer).sort()).toEqual(['HTKT_GT_Kyhieutuyen', 'KYHIEU_Congtrinh_Bienso']);
+    expect(kept.some((e) => e.kind === 'text' && e.text === '440')).toBe(false);
+  });
+  it('the number of a national road ("54", two digits, big, in a diamond) is a sign too; a small number is not', () => {
+    const sign = { ...text('54', 1060, 500, 0, '0'), hAlign: 'center', vAlign: 'middle', height: 57.6 } as CadEntity;
+    const small = { ...text('54', 1060, 700, 0, '0'), height: 4 } as CadEntity;
+    const sectionNo = { ...text('3', 300, 300, 0, '0'), height: 30 } as CadEntity; // big, inside the area, no frame: a section number
+    const sectionRing: CadEntity = { kind: 'polyline', layer: '0', color: '#ffffff', closed: true, points: [[280, 300], [300, 320], [320, 300], [300, 280]] }; // …and one in a diamond is a section marker too
+    const diamond: CadEntity = { kind: 'polyline', layer: '0', color: '#ffffff', width: 3, closed: false, points: [[1020, 500], [1060, 540], [1100, 500], [1060, 460], [1020, 500]] };
+    const r = cleanDocument([input(doc([road('HTKT_GT_Duongtinh', 900, 1090), diamond, sign, small, sectionNo, sectionRing]), [1, 0, 0, 0, 1, 1])], roadMap, ring);
+    const kept = r.doc.entities.filter((e) => e.layer !== 'BV_Rg_lapquyhoach' && e.layer !== 'HTKT_GT_Duongtinh');
+    expect(kept.map((e) => e.layer).sort()).toEqual(['HTKT_GT_Kyhieutuyen', 'KYHIEU_Congtrinh_Bienso']);
   });
   it('a diamond of 266 m on the layer KYHIEU (Long Hiệp) is kept too, a parcel that merely contains a sign off-centre is not', () => {
     const diamond = (cx: number, cy: number, r: number): CadEntity => ({ kind: 'polyline', layer: 'KYHIEU', color: '#ffffff', points: [[cx - r, cy], [cx, cy + r], [cx + r, cy], [cx, cy - r]], closed: true });

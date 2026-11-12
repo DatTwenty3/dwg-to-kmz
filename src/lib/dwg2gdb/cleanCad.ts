@@ -152,12 +152,49 @@ const SIGN_MIN_HEIGHT = 20;
  */
 /** "QL60", "ĐT.911", "HL25" written big on the map (Lưu Nghiệp Anh: layer 0, 60 m high): the label of a highway, a sign like a route number. */
 const HIGHWAY_LABEL = /^(ql|dt|dh|hl|tl)\.? ?\d{1,3}[a-z]?$/;
-const isRouteSign = (e: CadEntity, c: string): boolean =>
-  e.kind === 'text' && !/giaithua/.test(c) && ((!!parseRouteSign(e.text, null) && (ROADISH_LAYER.test(c) || /text/.test(c) || e.height >= SIGN_MIN_HEIGHT)) || (e.height >= SIGN_MIN_HEIGHT && HIGHWAY_LABEL.test(norm(e.text))));
+/**
+ * The sign of a national road is a bare one- or two-digit number ("54", An Phú Tân: 57 m high on layer 0): a sign only when a frame
+ * (diamond / circle) stands round it — the section numbers of a road map and the numbers of a table are as big and have none.
+ */
+const NATIONAL_NUMBER = /^\d{1,2}$/;
+const isRouteSign = (e: CadEntity, c: string, framed?: ReadonlySet<CadEntity>): boolean =>
+  e.kind === 'text' &&
+  !/giaithua/.test(c) &&
+  ((!!parseRouteSign(e.text, null) && (ROADISH_LAYER.test(c) || /text/.test(c) || e.height >= SIGN_MIN_HEIGHT)) ||
+    (e.height >= SIGN_MIN_HEIGHT && (HIGHWAY_LABEL.test(norm(e.text)) || (NATIONAL_NUMBER.test(e.text.trim()) && !!framed?.has(e)))));
 const ADMIN_NAME = /^(xa|x\.|phuong|p\.|thi tran|ap|khom|thon|ban|to dan pho|khu pho)\s/;
 const ROAD_NAME = /^(duong|tuyen so|dt\.|ql\.|cao toc|quoc lo|tinh lo|huong lo)\s?/;
 /** The outline of a symbol that also has its own hatch (manhole, transformer station): the hatch is the data, the outline is the picture. */
 const SYMBOL_OUTLINE = /hoga|giengthu|gietthu|dientram|tramdien|^tba|bienap/;
+
+/**
+ * Boxes lying within `gap` of each other are one group, however they chain (A touches B, B touches C: one group). A single pass that
+ * joins each box to the first group it meets splits a symbol whose pieces arrive in the wrong order — An Phú Tân's 224 hydrants
+ * came out as 435 points.
+ */
+function groupBoxes<T extends { box: [number, number, number, number] }>(items: readonly T[], gap: number): T[] {
+  const groups: T[] = [];
+  const touch = (a: [number, number, number, number], b: [number, number, number, number]) => a[0] <= b[2] + gap && a[2] >= b[0] - gap && a[1] <= b[3] + gap && a[3] >= b[1] - gap;
+  const join = (a: [number, number, number, number], b: [number, number, number, number]): [number, number, number, number] => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])];
+  for (const it of items) {
+    const g = groups.find((q) => touch(q.box, it.box));
+    if (g) g.box = join(g.box, it.box);
+    else groups.push({ ...it });
+  }
+  // Groups that grew towards each other: merge until none touch.
+  for (let again = groups.length <= 5000; again; ) {
+    again = false;
+    for (let i = 0; i < groups.length && !again; i++)
+      for (let j = i + 1; j < groups.length; j++)
+        if (touch(groups[i].box, groups[j].box)) {
+          groups[i].box = join(groups[i].box, groups[j].box);
+          groups.splice(j, 1);
+          again = true;
+          break;
+        }
+  }
+  return groups;
+}
 
 interface RoadLine {
   pts: readonly Vec2[];
@@ -193,10 +230,36 @@ function alongRoad(e: Extract<CadEntity, { kind: 'text' }>, roads: readonly Road
   return false;
 }
 
+/** A sign stands on or beside the end of a kept road (within 3 × its height, 80 m at least, plus half the road's width). */
+function onRoad(pos: Vec2, height: number, roads: readonly RoadLine[]): boolean {
+  const base = Math.max(80, 3 * height);
+  for (const r of roads) {
+    const reach = base + r.hw;
+    const b = r.box;
+    if (pos[0] < b[0] - reach || pos[0] > b[2] + reach || pos[1] < b[1] - reach || pos[1] > b[3] + reach) continue;
+    for (let k = 1; k < r.pts.length; k++) {
+      const [ax, ay] = r.pts[k - 1];
+      const [bx, by] = r.pts[k];
+      const dx = bx - ax;
+      const dy = by - ay;
+      const l2 = dx * dx + dy * dy;
+      const t = l2 === 0 ? 0 : Math.max(0, Math.min(1, ((pos[0] - ax) * dx + (pos[1] - ay) * dy) / l2));
+      if (Math.hypot(pos[0] - (ax + t * dx), pos[1] - (ay + t * dy)) <= reach) return true;
+    }
+  }
+  return false;
+}
+
 /** The small diamond / frame drawn round a route number (914C): a closed line of a few vertices with a sign inside. */
 function frameOfSign(e: CadEntity, signs: readonly Vec2[]): boolean {
   // A diamond has 4 vertices; a circle (round the "QL54" label of Lưu Nghiệp Anh, 252 m) was already cut to 65 by the reader.
-  if (e.kind !== 'polyline' || !e.closed || e.points.length > 70 || !signs.length) return false;
+  // Closed = flagged, or drawn as an open line whose last vertex returns to the first (An Phú Tân: 5 points, flag off).
+  if (e.kind !== 'polyline' || e.points.length > 70 || !signs.length) return false;
+  const first = e.points[0];
+  const last = e.points[e.points.length - 1];
+  if (!e.closed && !(e.points.length >= 4 && Math.hypot(first[0] - last[0], first[1] - last[1]) < 0.5)) return false;
+  // A box with horizontal and vertical sides is a table cell or a legend frame (the "440" of a quantity table), not a sign frame.
+  if (e.points.every((q, k) => k === 0 || Math.abs(q[0] - e.points[k - 1][0]) < 1e-3 || Math.abs(q[1] - e.points[k - 1][1]) < 1e-3)) return false;
   const b = entityBox(e);
   if (!b) return false;
   const w = b[2] - b[0];
@@ -293,7 +356,22 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
   const roads: RoadLine[] = [];
   const signs: Vec2[] = [];
   const auditBoxes: { d: CleanDrawing; prefix: string; box: [number, number, number, number] }[] = [];
-  for (const d of drawings) for (const e of d.doc.entities) if (e.kind === 'text' && isRouteSign(e, compactName(e.layer))) signs.push(e.position);
+  // The pieces of the fire-hydrant symbols (An Phú Tân, QH09: 2.689 red lines = 227 symbols of 12 pieces): one point for each symbol.
+  const hydrantBoxes: { d: CleanDrawing; box: [number, number, number, number] }[] = [];
+  // Big one- or two-digit numbers with a diamond / circle round them (the sign of a national road).
+  const framedNumbers = new Set<CadEntity>();
+  for (const d of drawings) {
+    const numbers = d.doc.entities.filter((e): e is Extract<CadEntity, { kind: 'text' }> => e.kind === 'text' && e.height >= SIGN_MIN_HEIGHT && NATIONAL_NUMBER.test(e.text.trim()));
+    if (!numbers.length) continue;
+    for (const f of d.doc.entities) {
+      if (f.kind !== 'polyline' || f.points.length > 70 || f.points.length < 4) continue;
+      const fb = entityBox(f);
+      if (!fb || Math.max(fb[2] - fb[0], fb[3] - fb[1]) > 400 || Math.min(fb[2] - fb[0], fb[3] - fb[1]) < 20) continue;
+      for (const n of numbers) if (!framedNumbers.has(n) && n.position[0] >= fb[0] && n.position[0] <= fb[2] && n.position[1] >= fb[1] && n.position[1] <= fb[3] && frameOfSign(f, [n.position])) framedNumbers.add(n);
+    }
+  }
+  // A bare number counts as a sign only OUTSIDE the area (at the end of a road leaving it): inside, a number in a circle is a section marker.
+  for (const d of drawings) d.doc.entities.forEach((e, i) => { if (e.kind === 'text' && isRouteSign(e, compactName(e.layer), d.inside[i] ? undefined : framedNumbers)) signs.push(e.position); });
 
   // Boxes are looked for across the drawings (a map and its xrefs): the texts of the map frame the boxes of its xref.
   const boxesOf = new Map(findLabelBoxesAcross(drawings).map((m, k) => [drawings[k].id, m] as const));
@@ -337,7 +415,7 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
         if (ov.to) return { layer: ov.to, color: ov.color, why: ov.why ?? 'theo quyết định', look: ov.look };
       }
       if (options.keepBase && /giaithua/.test(c)) return { layer: e.kind === 'text' ? 'NEN_Giaithua_Chu' : 'NEN_Giaithua', color: aciHex(8), why: 'nền giải thửa (địa chính) — giữ làm nền (hiện sẵn, nằm dưới cùng)' };
-      if (isRouteSign(e, c)) return { layer: 'HTKT_GT_Kyhieutuyen', why: 'biển số tuyến' };
+      if (isRouteSign(e, c, d.inside[i] ? undefined : framedNumbers)) return { layer: 'HTKT_GT_Kyhieutuyen', why: 'biển số tuyến' };
       if (frameOfSign(e, signs)) return { layer: 'KYHIEU_Congtrinh_Bienso', why: 'khung hình thoi của biển số tuyến — giữ cho giống bản gốc' };
       // AutoCAD's AUDIT command puts what it repaired on a layer "AUDIT_…": here the pictograms of the facilities (a post office) — content.
       if (/^audit/.test(c) && rolePrefix && (e.kind === 'polygon' || e.kind === 'polyline')) return { layer: `KYHIEU_Congtrinh_${rolePrefix.replace('HTKT_', '')}`, why: 'ký hiệu công trình nằm trong layer AUDIT (AutoCAD đặt khi sửa bản vẽ) — là nội dung, không phải rác; mỗi ký hiệu thêm một điểm', look: true };
@@ -438,7 +516,7 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
         }
       }
       if (!inside && e.kind === 'text') {
-        const sign = isRouteSign(e, compactName(e.layer));
+        const sign = isRouteSign(e, compactName(e.layer), framedNumbers);
         const b = entityBox(e);
         const near = !!b && !!around && b[0] >= around[0] && b[1] >= around[1] && b[2] <= around[2] && b[3] <= around[3];
         // The name of a road that leaves the area (the expressway, a provincial road): a text of letters running along a kept road.
@@ -453,7 +531,8 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
           note(d, e, out.layer, 'tên đường ngoài ranh, viết dọc một tuyến đường đã giữ', true);
           return;
         }
-        if (!(sign && near)) {
+        // A route number outside the area stands on a road (a table cell reading "440" or a legend sample does not).
+        if (!(sign && near && onRoad(e.position, e.height, roads))) {
           totals.outside++;
           return;
         }
@@ -487,6 +566,10 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
         const box = entityBox(out);
         if (box) auditBoxes.push({ d, prefix: rolePrefix, box });
       }
+      if ((out.kind === 'polyline' || out.kind === 'polygon') && /^HTKT_CN_Trucuuhoa/.test(dec.layer)) {
+        const box = entityBox(out);
+        if (box) hydrantBoxes.push({ d, box });
+      }
     };
     passes.push((textPass) => d.doc.entities.forEach((e, i) => { if ((e.kind === 'text') === textPass) handle(e, i); }));
   }
@@ -494,18 +577,27 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
   passes.forEach((run) => run(true));
   // One point for each facility symbol of the AUDIT layer (the pieces of a symbol lying within 10 m of each other are one).
   if (auditBoxes.length && auditBoxes.length <= 20_000) {
-    const groups: { d: CleanDrawing; prefix: string; box: [number, number, number, number] }[] = [];
-    for (const a of auditBoxes) {
-      const g = groups.find((q) => q.prefix === a.prefix && a.box[0] <= q.box[2] + 10 && a.box[2] >= q.box[0] - 10 && a.box[1] <= q.box[3] + 10 && a.box[3] >= q.box[1] - 10);
-      if (g) g.box = [Math.min(g.box[0], a.box[0]), Math.min(g.box[1], a.box[1]), Math.max(g.box[2], a.box[2]), Math.max(g.box[3], a.box[3])];
-      else groups.push({ ...a });
-    }
+    // (groups of one prefix only: a transformer station and a post office are not one symbol)
+    const groups = [...new Set(auditBoxes.map((a) => a.prefix))].flatMap((prefix) => groupBoxes(auditBoxes.filter((a) => a.prefix === prefix), 10));
     for (const g of groups) {
       const layer = `${g.prefix}_Congtrinh`;
       if (!layers.has(layer)) layers.set(layer, { name: layer, color: '#ff00ff', visible: true });
       entities.push({ kind: 'point', layer, color: '#ff00ff', position: [(g.box[0] + g.box[2]) / 2, (g.box[1] + g.box[3]) / 2] });
       const key = `${g.d.name}\u0001audit\u0001${layer}`;
       const l = lines.get(key) ?? { from: `${g.d.name.replace(/\.dwg$/i, '')} · AUDIT (ký hiệu)`, to: layer, kept: 0, dropped: 0, why: 'một điểm cho mỗi ký hiệu công trình', look: true };
+      l.kept++;
+      lines.set(key, l);
+    }
+  }
+  // One point for each fire-hydrant symbol (pieces within 3 m of each other are one symbol): the web app reads the point as a
+  // CongtrinhCapNuocPCCC_P "Trụ cứu hỏa"; the lines of the symbol stay as drawn (it reads them as the picture, not data).
+  if (hydrantBoxes.length && hydrantBoxes.length <= 50_000) {
+    const groups = groupBoxes(hydrantBoxes, 3);
+    const layer = 'HTKT_CN_Trucuuhoa';
+    for (const g of groups) {
+      entities.push({ kind: 'point', layer, color: '#ff0000', position: [(g.box[0] + g.box[2]) / 2, (g.box[1] + g.box[3]) / 2] });
+      const key = `${g.d.name}hydrant${layer}`;
+      const l = lines.get(key) ?? { from: `${g.d.name.replace(/\.dwg$/i, '')} · ký hiệu trụ cứu hỏa`, to: layer, kept: 0, dropped: 0, why: 'một điểm cho mỗi ký hiệu trụ cứu hỏa (các nét của ký hiệu giữ nguyên)', look: true };
       l.kept++;
       lines.set(key, l);
     }

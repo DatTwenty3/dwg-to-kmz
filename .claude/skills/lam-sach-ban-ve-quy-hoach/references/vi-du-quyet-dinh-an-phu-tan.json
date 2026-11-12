@@ -1,0 +1,280 @@
+{
+  "overrides": [
+    {
+      "layer": "Cây lâu năm",
+      "kind": "polyline",
+      "action": "drop",
+      "why": "547 đường viền khảo sát DHGIS trùng đúng biên các hatch HK-QH-NTM-nong nghiep khac (ảnh phóng to QH02: viền xanh dương nằm trên biên vùng tô) — cùng một thửa, giữ hatch, không tạo vùng trùng",
+      "look": true
+    },
+    {
+      "layer": "QHDD_DAT_KHAC_Matnuoc",
+      "kind": "polyline",
+      "action": "drop",
+      "why": "24.299 nét ngắn không màu nhấn trên mặt sông Hậu (hiệu ứng vẽ mặt nước, không tạo thửa nào); mặt nước thật là hatch HT_DAT_KHAC_Matnuoc; bản in không hiển thị",
+      "look": true
+    },
+    {
+      "layer": "DUONG_DIEN",
+      "kind": "polyline",
+      "action": "keep",
+      "to": "HTKT_CD_Duongday",
+      "why": "3.164 nét trắng ký hiệu cột điện/hướng đường dây khảo sát (như Đôn Châu) — không phải viền thửa",
+      "look": true
+    },
+    {
+      "layer": "Đường dây tải điện",
+      "kind": "polyline",
+      "action": "keep",
+      "to": "HTKT_CD_Duongday",
+      "why": "43 nét đường dây tải điện khảo sát (màu tím)",
+      "look": true
+    },
+    {
+      "layer": "ENTPLINETUYEN",
+      "kind": "polyline",
+      "action": "keep",
+      "to": "HTKT_GT_Timduong",
+      "why": "254 nét rộng 4–20 m kiểu DASHDOT2 chạy dài xuyên xã (ảnh theo-layer QH02: các tuyến đỏ chéo = đường tỉnh/huyện) — tim đường",
+      "look": true
+    },
+    {
+      "layer": "Level 4",
+      "kind": "polyline",
+      "action": "keep",
+      "to": "BV_Rg_capcoso",
+      "why": "kiểu nét RgXaxd (ranh giới xã) — ranh hành chính, không phải viền thửa",
+      "look": true
+    },
+    {
+      "layer": "Nước mặt",
+      "action": "keep",
+      "to": "NEN_Diahinh_Nuocmat",
+      "why": "nét mặt nước (ao, kênh) khảo sát — nền địa hình",
+      "look": true
+    },
+    {
+      "layer": "Cơ sở sản xuất nông lâm nghiệp",
+      "action": "keep",
+      "to": "NEN_Diahinh_Cososanxuatnonglamnghiep",
+      "why": "135 khoanh khảo sát cơ sở sản xuất nông lâm nghiệp — chi tiết nền, không có loại đất tương ứng trong chú giải",
+      "look": true
+    },
+    {
+      "layer": "Bến thuỷ nội địa",
+      "action": "keep",
+      "to": "HTKT_GT_Benthuynoidia",
+      "why": "bến thủy nội địa (5 nét)"
+    },
+    {
+      "layer": "Mặt nước sông suối",
+      "action": "keep",
+      "to": "NEN_Diahinh_Matnuocsongsuoi",
+      "why": "110 đường viền khảo sát (2 vòng > 100 ha) = bờ sông Hậu/cù lao, tổng 1.917 ha trùng hatch HT_DAT_KHAC_Matnuoc (1.370 ha) — nếu thành vùng đất sẽ tính trùng mặt nước (HienTrang 8.735 ha so với ranh 5.412 ha)",
+      "look": true
+    },
+    {
+      "layer": "Cây hàng năm",
+      "action": "drop",
+      "why": "45 đường viền khảo sát (582 ha) trùng hatch HT_DAT_NN_Trongtrotkhac (cùng loại cây hàng năm/trồng trọt khác, 888 ha) — tránh vùng chồng lấn",
+      "look": true
+    },
+    {
+      "drawing": "QH02",
+      "layer": "Các đối tượng mặt đường bộ",
+      "action": "keep",
+      "to": "NEN_Diahinh_Matduongbo",
+      "why": "265 đường viền mặt đường khảo sát, tổng 609 ha (bảng thống kê: đất giao thông 90 ha) — là vòng viền nền đo đạc (lề đường, bờ), không phải vùng đất giao thông; đường thật lấy từ ENTPLINETUYEN và HTKT_GT_*",
+      "look": true
+    },
+    {
+      "drawing": "QH02",
+      "layer": "Các đối tượng đường bộ khác",
+      "action": "keep",
+      "to": "NEN_Diahinh_Matduongbo",
+      "why": "15 đường viền đường bộ khác (41 ha) — nền đo đạc như Các đối tượng mặt đường bộ"
+    },
+    {
+      "layer": "Phủ thực vật khác",
+      "action": "keep",
+      "to": "NEN_Diahinh_Phuthucvat",
+      "why": "57 đường viền phủ thực vật khảo sát (60 ha) — nền, cleaner đoán nhầm là 'đất xây dựng chức năng khác'"
+    },
+    {
+      "layer": "5",
+      "action": "drop",
+      "why": "một nét đỏ lẻ không màu/kiểu nét đặc trưng, không thành tuyến hay vùng (layer tên '5' ở QH04/QH05/QH06/QH07)"
+    },
+    {
+      "layer": "GT - cau cong HT",
+      "action": "keep",
+      "to": "HTKT_GT_Cau",
+      "why": "10 nét hồng rộng 4,7–14 m = cầu/cống giao thông hiện trạng (ở QH06 đã nhận là cầu); QH07/QH11 bỏ ở trên",
+      "look": true
+    },
+    {
+      "layer": "kí-hiêu-công trinh-ht",
+      "action": "keep",
+      "to": "KYHIEU_Congtrinh",
+      "why": "ký hiệu công trình hiện trạng (nét + hatch nhỏ trắng) trên nền sử dụng đất; QH07/QH11 bỏ ở trên",
+      "look": true
+    },
+    {
+      "drawing": "QH03",
+      "layer": "Ranh giới phủ bề mặt",
+      "action": "keep",
+      "to": "NEN_Diahinh_Ranhphubemat",
+      "why": "1.063 nét ranh phủ bề mặt khảo sát — nền, không phải tuyến thoát nước (cleaner đoán nhầm)"
+    },
+    {
+      "drawing": "QH03",
+      "layer": "Đường bờ nước",
+      "action": "keep",
+      "to": "NEN_Diahinh_Duongbonuoc",
+      "why": "298 nét bờ nước khảo sát — nền thủy văn, không phải ống cấp nước"
+    },
+    {
+      "drawing": "QH03",
+      "layer": "Đường mép nước",
+      "action": "keep",
+      "to": "NEN_Diahinh_Duongbonuoc",
+      "why": "mép nước khảo sát — nền thủy văn"
+    },
+    {
+      "drawing": "QH03",
+      "layer": "Kênh mương",
+      "action": "keep",
+      "to": "NEN_Diahinh_Kenhmuong",
+      "why": "168 nét kênh mương khảo sát (đường xanh dương trên bản in QH-03) — nền thủy văn, không phải tuyến thoát nước mưa"
+    },
+    {
+      "drawing": "QH03",
+      "layer": "Ranh giới",
+      "action": "keep",
+      "to": "NEN_Diahinh_Ranhgioi",
+      "why": "119 nét ranh giới khảo sát — nền"
+    },
+    {
+      "drawing": "QH03",
+      "layer": "Ranh giới nước mặt quy ước",
+      "action": "keep",
+      "to": "NEN_Diahinh_Ranhnuocmat",
+      "why": "64 nét ranh mặt nước quy ước — nền"
+    },
+    {
+      "layer": "Cầu giao thông",
+      "action": "keep",
+      "to": "HTKT_GT_Cau",
+      "why": "19 cầu giao thông (nét) — ở QH02 cleaner coi là vùng đất giao thông (đường viền), ở QH03 đoán nhầm là ống cấp nước; là công trình cầu"
+    },
+    {
+      "drawing": "QH03",
+      "layer": "Cống giao thông (C)",
+      "action": "keep",
+      "to": "HTKT_GT_Conggiaothongc",
+      "why": "82 cống giao thông (cleaner đoán nhầm là ống cấp nước)"
+    },
+    {
+      "layer": "HTKT_CN_TRAM",
+      "action": "keep",
+      "to": "HTKT_CN_Tramcapnuoc",
+      "why": "ký hiệu nhà máy/trạm cấp nước (tam giác xanh, chú giải 'NHÀ MÁY CẤP NƯỚC') — cleaner coi là nền đất 'htkt'",
+      "look": true
+    },
+    {
+      "drawing": "QH10",
+      "layer": "THOAT NUOC MUA",
+      "kind": "polygon",
+      "action": "keep",
+      "to": "HTKT_TN_Hoga_Nuocmua",
+      "why": "434 hatch nhỏ trên tuyến = hố ga (chú giải 'HỐ GA' của bản đồ thoát nước mưa), không phải nhà",
+      "look": true
+    },
+    {
+      "drawing": "QH10",
+      "layer": "HT_Nuoc THAI_Ho ga",
+      "kind": "polygon",
+      "action": "keep",
+      "to": "HTKT_TN_Hoga_Nuocmua",
+      "why": "343 hatch hố ga — layer đặt tên 'THAI' nhưng nằm trong bản đồ thoát nước MƯA (chú giải QH-10: hố ga + ống thoát nước mưa)",
+      "look": true
+    },
+    {
+      "drawing": "QH11",
+      "layer": "THOAT NUOC THAI",
+      "kind": "polygon",
+      "action": "keep",
+      "to": "HTKT_TN_Hoga_Nuocthai",
+      "why": "162 hatch nhỏ trên tuyến = hố ga nước thải (chú giải QH-11), không phải nhà",
+      "look": true
+    },
+    {
+      "drawing": "QH11",
+      "layer": "D800",
+      "kind": "polyline",
+      "action": "keep",
+      "to": "HTKT_TN_Tuyen_Nuocthai",
+      "why": "136 nét dash-dot xanh kèm 1.180 chữ 'L…-D800-i=…' — ống thoát nước thải (bản đồ QH11), cleaner đoán nước mưa",
+      "look": true
+    },
+    {
+      "drawing": "QH11",
+      "layer": "Thoat phan 50",
+      "kind": "polyline",
+      "action": "keep",
+      "to": "HTKT_TN_Tuyen_Nuocthai",
+      "why": "206 nét 'thoát phân' (kiểu nét T.Ban) — ống thoát nước thải",
+      "look": true
+    },
+    {
+      "drawing": "QH11",
+      "layer": "THOAT NUOC MUA",
+      "kind": "polyline",
+      "action": "drop",
+      "why": "mạng ống nước mưa vẽ làm nền ở bản đồ nước thải (kiểu nét HIDDEN, bản in QH-11 không có); dữ liệu nước mưa lấy từ QH10",
+      "look": true
+    },
+    {
+      "drawing": "QH07",
+      "layer": "GT - cau cong HT",
+      "action": "drop",
+      "why": "cầu/cống nền giao thông lặp ở bản đồ cấp điện — đã có ở QH_06"
+    },
+    {
+      "drawing": "QH07",
+      "layer": "kí-hiêu-công trinh-ht",
+      "action": "drop",
+      "why": "ký hiệu công trình nền lặp ở bản đồ cấp điện"
+    },
+    {
+      "drawing": "QH07",
+      "layer": "Nước mặt",
+      "action": "drop",
+      "why": "mặt nước nền lặp ở bản đồ cấp điện"
+    },
+    {
+      "drawing": "QH07",
+      "layer": "5",
+      "action": "drop",
+      "why": "một nét đỏ lẻ (ranh/ký hiệu nền) không thuộc tuyến điện"
+    },
+    {
+      "drawing": "QH11",
+      "layer": "GT - cau cong HT",
+      "action": "drop",
+      "why": "cầu/cống nền giao thông lặp ở bản đồ nước thải"
+    },
+    {
+      "drawing": "QH11",
+      "layer": "kí-hiêu-công trinh-ht",
+      "action": "drop",
+      "why": "ký hiệu công trình nền lặp ở bản đồ nước thải"
+    },
+    {
+      "drawing": "QH11",
+      "layer": "Nước mặt",
+      "action": "drop",
+      "why": "mặt nước nền lặp ở bản đồ nước thải"
+    }
+  ]
+}

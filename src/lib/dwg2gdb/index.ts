@@ -8,6 +8,7 @@ import type { CadDocument, Vec2, XrefInsert } from '@/lib/cad/types';
 import { colorRole, colorSuggestion, type ColorContext } from './colorClass';
 import { drawingTexts, findBoundary, insideFlags, layerRows, pickBoundary, type BoundaryCandidate, type LayerRow } from './inventory';
 import { findLabelBoxesAcross, LABEL_BOX_REASON } from './labelBox';
+import { findSuspectBoxesAcross } from './suspectBox';
 import { guessRole, roleById, type RoleId } from './roles';
 import { pickSection } from './section';
 import { domainCode } from '@/lib/gdb/tt16Schema';
@@ -32,6 +33,7 @@ export * from './summary';
 export * from './cleanCad';
 export * from './previewSvg';
 export * from './suggest';
+export { SUSPECT_WHY_LABEL, type Suspect, type SuspectWhy } from './suspectBox';
 export * from './sweep';
 export * from './template';
 export * from './tt16Symbols';
@@ -224,8 +226,11 @@ export function colorContexts(a: Pick<Analysis, 'drawings' | 'section'>): Map<st
 /** Mapping rows of every drawing for one Mục (the rows split by colour group depend on it). */
 export function analysisRows(parsed: ParsedDrawing[], a: Pick<Analysis, 'drawings' | 'inside' | 'section'>): LayerRow[] {
   const ctx = colorContexts(a);
-  const boxes = findLabelBoxesAcross(parsed.map((p) => ({ doc: p.doc, inside: a.inside.get(p.id)! })));
-  return parsed.flatMap((p, k) => layerRows(p.id, p.doc, a.inside.get(p.id)!, ctx.get(p.id), boxes[k]));
+  const items = parsed.map((p) => ({ doc: p.doc, inside: a.inside.get(p.id)! }));
+  const boxes = findLabelBoxesAcross(items);
+  // Rectangles that look like a label box without being an exact MTEXT boundary: suggested only, gathered in the page's list.
+  const suspects = findSuspectBoxesAcross(items, boxes);
+  return parsed.flatMap((p, k) => layerRows(p.id, p.doc, a.inside.get(p.id)!, ctx.get(p.id), boxes[k], suspects[k]));
 }
 
 /**

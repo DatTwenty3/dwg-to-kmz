@@ -210,7 +210,7 @@ export function parseHatchLoops(groups: Group[]): SrcLoop[] {
         vertices.push({ x, y, bulge: b });
       }
       void closed; // hatch boundaries are always closed
-      loops.push({ kind: 'poly', vertices, closed: true });
+      loops.push({ kind: 'poly', vertices, closed: true, flag });
     } else {
       const ne = c.num(93);
       const edges: SrcEdge[] = [];
@@ -219,7 +219,7 @@ export function parseHatchLoops(groups: Group[]): SrcLoop[] {
         const e = readEdge(c);
         if (e) edges.push(e);
       }
-      loops.push({ kind: 'edges', edges });
+      loops.push({ kind: 'edges', edges, flag });
     }
     // Source boundary object references
     const ns = c.take(97);

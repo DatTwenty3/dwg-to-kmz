@@ -130,9 +130,13 @@ Người vẽ hay **khoanh một hình chữ nhật (hatch màu hoặc đường
 
 ### Nguồn gốc khung nhãn + thứ đã thử và hoàn tác (11/2026)
 - Khung nhãn là **đường biên của một hatch** (AutoCAD đặt khung quanh chữ khi tô hatch; MTEXT nhãn bật nền chữ), không phải hatch riêng — trong IR mọi khung của một hatch có chung `handle`.
-- **Không bỏ đường biên theo cờ text box (bit 16)**: cờ này cũng gắn trên thửa thật (QH02 Đôn Châu: 466 đường biên `DUONG NHUA` cỡ 122 × 250 m); thử bỏ ở bộ đọc làm mất ~174 thửa lúa + 1.600 vùng ở An Phú Tân, đã hoàn tác. Kiểm bằng `scripts/gdb-landuse.py` (số vùng + diện tích theo phân loại) **trước/sau** mỗi thay đổi bộ đọc — vùng tụt hàng trăm là dấu hiệu bỏ nhầm thửa thật.
+- **Cờ text box của đường biên hatch là bit 8** (không phải bit 16 = outermost, bit 16 gắn trên cả thửa thật). Bộ đọc bỏ vòng có bit 8 ngay khi dựng hatch (`normalize/build.ts`), nên khung nhãn do AutoCAD tạo không còn thành thửa. Đôn Châu QuyHoach 628 → 578 vùng, ô chữ nhật còn lại 59 → 9; An Phú Tân diện tích gần như không đổi. Đổi MTEXT thành TEXT không giúp (khung nằm trong hatch). Kiểm bằng `scripts/gdb-landuse.py` trước/sau mỗi thay đổi bộ đọc.
 - Khung MTEXT thật (`TextEntity.box`) dùng khi có; web app **tự bỏ** khung mặc định, người dùng "Hoàn lại" từng hàng.
 
 ### Quy tắc khung nhãn chỉ còn "đường biên MTEXT" (11/2026, theo yêu cầu chủ dự án)
 - Chỉ loại hình chữ nhật **chứa trọn khối chữ của một MTEXT** (`TextEntity.box`) với lề ≤ 1,2 × cao chữ. Đã bỏ mọi quy tắc phỏng đoán ở các mục trên (cỡ vừa chữ, ô xếp chồng, ô dải…) để không loại nhầm thửa thật.
 - Đổi lại **thu hồi thấp**: QH05 chỉ 20 / ~65 khung khớp (phần còn lại do chữ đã dời/sửa sau khi tô hoặc là TEXT thường) → Đôn Châu QuyHoach vùng đất 575 → 628, còn 59 vùng chữ nhật (`scripts/gdb-rects.py`). Người làm sạch phải **xem ảnh + dùng `quyet-dinh.json`** cho phần còn lại, hoặc báo người dùng.
+
+### Tầng "ô nghi ngờ" trong web app (11/2026)
+- Ô không khớp MTEXT chính xác **không bị bỏ tự động**: `suspectBox.ts` (quy tắc cũ: cỡ vừa chữ + sát chữ, ôm chữ trên vùng khác, bản sao, cùng cỡ, xếp chồng, dải) chỉ gợi ý; web app gom vào nút "Ô nghi ngờ N" ở đầu bảng ghép để người dùng xem trên bản đồ và tự chọn xóa.
+- Bộ làm sạch (`cleanCad.ts`) vẫn chỉ tách ô MTEXT chính xác; phần nghi ngờ ở bản sạch người làm sạch xem ảnh + `scripts/gdb-rects.py`, hoặc để người dùng xóa trong web app.

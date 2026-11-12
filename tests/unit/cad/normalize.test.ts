@@ -19,6 +19,7 @@ import {
   translate,
   type SrcDocument,
   type SrcEntity,
+  type SrcLoop,
   type TextDecoderApi,
 } from '@/lib/cad/normalize';
 
@@ -157,6 +158,35 @@ describe('hatch', () => {
     const big = polys.find((p) => p[0][1][0] === 100)!;
     expect(big).toHaveLength(2); // outer + hole
     expect(polys.filter((p) => p.length === 1)).toHaveLength(2); // island in hole + separate square
+  });
+});
+
+describe('hatch text-box loops', () => {
+  const sq = (x0: number, y0: number, s: number): SrcLoop => ({
+    kind: 'poly',
+    vertices: [
+      { x: x0, y: y0, bulge: 0 },
+      { x: x0 + s, y: y0, bulge: 0 },
+      { x: x0 + s, y: y0 + s, bulge: 0 },
+      { x: x0, y: y0 + s, bulge: 0 },
+    ],
+    closed: true,
+  });
+  const hatch = (loops: SrcLoop[]): SrcEntity => ({ type: 'hatch', layer: 'L1', color: { aci: 256 }, solid: false, pattern: 'BRASS', loops });
+
+  it('drops the loops the file flags as text box (8): no rectangle "parcel", no hole in the real one', async () => {
+    const out = await buildDocument(doc([hatch([{ ...sq(0, 0, 100), flag: 1 | 16 }, { ...sq(40, 40, 10), flag: 8 }, { ...sq(300, 300, 20), flag: 1 | 8 }])]), { textDecoder: passthrough });
+    const polys = out.entities.filter((e) => e.kind === 'polygon');
+    expect(polys).toHaveLength(1);
+    expect(polys[0].kind === 'polygon' && polys[0].rings).toHaveLength(1);
+    expect(out.warnings.join(' | ')).toMatch(/Bỏ 2 đường biên khung chữ/);
+  });
+
+  it('a hatch made only of text-box loops disappears; loops without a flag (DXF without 92, older files) are kept', async () => {
+    const out = await buildDocument(doc([hatch([{ ...sq(0, 0, 20), flag: 9 }]), hatch([sq(100, 100, 20), { ...sq(105, 105, 5), flag: 0 }])]), { textDecoder: passthrough });
+    const polys = out.entities.filter((e) => e.kind === 'polygon');
+    expect(polys).toHaveLength(1);
+    expect(polys[0].kind === 'polygon' && polys[0].rings).toHaveLength(2);
   });
 });
 

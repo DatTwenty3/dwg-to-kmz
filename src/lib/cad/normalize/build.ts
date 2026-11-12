@@ -27,6 +27,8 @@ export const SOLID_FILL_OPACITY = 0.5;
 /** Pattern hatches (CLAY, GRASS, …) are drawn as a lighter tint of their colour: in planning maps
  * they carry the land-use colours, so drawing only the boundary loses the map's meaning. */
 export const PATTERN_FILL_OPACITY = 0.35;
+/** DXF group 92 / DWG boundaryPathTypeFlag: the loop was derived from a text box. */
+const TEXT_BOX_LOOP = 8;
 /** Nested INSERT depth guard. */
 const MAX_DEPTH = 32;
 
@@ -268,7 +270,11 @@ class Builder {
         return;
       }
       case 'hatch': {
-        const rings = e.loops.map(loopToRing).filter((r) => r.length >= 3);
+        // Loops the file itself marks as "text box" (boundary path flag 8): AutoCAD puts one round the text it finds inside the
+        // area it hatches. They are not land — kept, each becomes a rectangle "parcel" (and a hole in the real one).
+        const kept = e.loops.filter((l) => ((l.flag ?? 0) & TEXT_BOX_LOOP) === 0);
+        for (let i = kept.length; i < e.loops.length; i++) out.push({ ...base, kind: 'note', key: 'text-box-loop' });
+        const rings = kept.map(loopToRing).filter((r) => r.length >= 3);
         if (rings.length === 0) return;
         if (e.solid) {
           for (const poly of nestRings(rings)) emit({ ...base, kind: 'polygon', rings: poly, fillOpacity: SOLID_FILL_OPACITY });
@@ -517,7 +523,8 @@ export function buildDocument(src: SrcDocument, opts: BuildOptions = {}): CadDoc
     warnings.push(`${builder.tableFallbacks.length} bảng (ACAD_TABLE) không đọc được ô — đã vẽ lại từ block đồ họa *T (đường kẻ + chữ).`);
   }
   for (const [key, n] of [...notes.entries()].sort((a, b) => b[1] - a[1])) {
-    if (key === 'pattern-hatch') warnings.push(`${n} hatch dạng mẫu (pattern) được tô màu nhạt theo màu của hatch, chưa vẽ đường mẫu chi tiết.`);
+    if (key === 'text-box-loop') warnings.push(`Bỏ ${n} đường biên khung chữ (text box) trong hatch — AutoCAD tạo khi tô vùng có chữ, không phải thửa đất.`);
+    else if (key === 'pattern-hatch') warnings.push(`${n} hatch dạng mẫu (pattern) được tô màu nhạt theo màu của hatch, chưa vẽ đường mẫu chi tiết.`);
     else if (key === 'missing-block') warnings.push(`Bỏ qua ${n} INSERT tham chiếu block không tồn tại.`);
     else if (key === 'table-lost') warnings.push(`Bỏ qua ${n} bảng (ACAD_TABLE) không đọc được ô và không có block đồ họa.`);
     else if (key.startsWith('unsupported:')) {

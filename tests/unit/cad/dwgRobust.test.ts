@@ -48,6 +48,7 @@ describe.skipIf(!existsSync(AN_PHU_TAN))('An Phú Tân QH02 (owner file, not com
     const b = readFileSync(AN_PHU_TAN);
     const d = await parseDwg(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer, { wasmBaseUrl: WASM_DIR });
     expect(d.entities.length).toBeGreaterThan(30000);
-    expect(d.entities.filter((e) => e.kind === 'polygon').length).toBeGreaterThan(13000);
+    // ~13.4k before the loops the file flags as text box were dropped (5.5k label rectangles, area unchanged: see CLAUDE.md)
+    expect(d.entities.filter((e) => e.kind === 'polygon').length).toBeGreaterThan(7000);
   });
 });

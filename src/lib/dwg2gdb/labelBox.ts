@@ -121,12 +121,12 @@ export const LABEL_BOX_REASON = 'đường biên khung chữ của MTEXT trong h
 /** Layer of the cleaned drawing that holds these boxes (the name starts with "khung", so the web app does not read it as data). */
 export const LABEL_BOX_LAYER = 'KHUNG_Nhan_Ten';
 
-/**
- * `findLabelBoxes` over several drawings that share one coordinate system (a map and its xrefs): the texts of one drawing frame the
- * boxes of another. One result per drawing, in order.
- */
-export function findLabelBoxesAcross(items: { doc: Pick<CadDocument, 'entities'>; inside: ArrayLike<number> }[]): Map<number, string>[] {
-  if (items.length === 1) return [findLabelBoxes(items[0].doc, items[0].inside)];
+/** Several drawings that share one coordinate system as one list of entities (and how to split a result by index back per drawing). */
+export function mergeDrawings(items: { doc: Pick<CadDocument, 'entities'>; inside: ArrayLike<number> }[]): {
+  doc: { entities: CadEntity[] };
+  inside: Uint8Array;
+  split: <T>(all: Map<number, T>) => Map<number, T>[];
+} {
   const entities: CadEntity[] = [];
   const total = items.reduce((n, it) => n + it.doc.entities.length, 0);
   const inside = new Uint8Array(total);
@@ -138,12 +138,27 @@ export function findLabelBoxesAcross(items: { doc: Pick<CadDocument, 'entities'>
       entities.push(it.doc.entities[i]);
     }
   }
-  const all = findLabelBoxes({ entities }, inside);
-  const out = items.map(() => new Map<number, string>());
-  for (const [k, text] of all) {
-    let d = starts.length - 1;
-    while (d > 0 && starts[d] > k) d--;
-    out[d].set(k - starts[d], text);
-  }
-  return out;
+  return {
+    doc: { entities },
+    inside,
+    split: <T,>(all: Map<number, T>) => {
+      const out = items.map(() => new Map<number, T>());
+      for (const [k, v] of all) {
+        let d = starts.length - 1;
+        while (d > 0 && starts[d] > k) d--;
+        out[d].set(k - starts[d], v);
+      }
+      return out;
+    },
+  };
+}
+
+/**
+ * `findLabelBoxes` over several drawings that share one coordinate system (a map and its xrefs): the texts of one drawing frame the
+ * boxes of another. One result per drawing, in order.
+ */
+export function findLabelBoxesAcross(items: { doc: Pick<CadDocument, 'entities'>; inside: ArrayLike<number> }[]): Map<number, string>[] {
+  if (items.length === 1) return [findLabelBoxes(items[0].doc, items[0].inside)];
+  const m = mergeDrawings(items);
+  return m.split(findLabelBoxes(m.doc, m.inside));
 }

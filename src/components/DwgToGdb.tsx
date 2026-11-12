@@ -59,6 +59,7 @@ import BrandLoader from './BrandLoader';
 import DwgPreviewMap from './DwgPreviewMap';
 import HomeLogo from './HomeLogo';
 import ToolStart from './ToolStart';
+import SuspectBoxes, { type SuspectItem } from './SuspectBoxes';
 import { useIsPhone } from './useIsPhone';
 import { pickedFromDrop, pickedFromInput } from './dropFiles';
 import { clearExtractorHandoff, handOffToChecker, peekExtractorHandoff } from './handoff';
@@ -277,6 +278,41 @@ export default function DwgToGdb() {
   }, []);
 
   const rows = useMemo(() => data?.rows ?? [], [data]);
+  // Rectangles that look like the box of a label without being an exact MTEXT boundary: suggested only, listed in one place
+  // where the user looks at them on the map and deletes the ones that are not parcels.
+  const [suspectsOpen, setSuspectsOpen] = useState(false);
+  const [suspectFocus, setSuspectFocus] = useState<{ key: string; drawing: string; index: number; token: number } | null>(null);
+  const suspectItems = useMemo<SuspectItem[]>(() => {
+    const out: SuspectItem[] = [];
+    for (const r of rows) {
+      if (!r.suspects?.length || !/\/ChucNangSuDungDat_A$/.test(mapping.get(r.key)?.target ?? '')) continue;
+      const d = drawings.find((x) => x.id === r.drawing);
+      if (!d?.included) continue;
+      for (const sus of r.suspects) {
+        out.push({
+          key: `${r.drawing}|${sus.i}`,
+          drawing: r.drawing,
+          drawingName: d.name.replace(/\.(dwg|dxf)$/i, ''),
+          index: sus.i,
+          layer: r.layer,
+          text: sus.text,
+          why: sus.why,
+          w: sus.w,
+          h: sus.h,
+          excluded: !!excluded.get(r.drawing)?.has(sus.i),
+        });
+      }
+    }
+    return out;
+  }, [rows, mapping, drawings, excluded]);
+  const suspectKept = suspectItems.filter((i) => !i.excluded).length;
+  /** Show a suspect on the map: its drawing, the object selected and zoomed to. */
+  const focusSuspect = (it: SuspectItem) => {
+    setEditMode(false);
+    setSel(it.drawing);
+    setRowSel(null);
+    setSuspectFocus({ key: it.key, drawing: it.drawing, index: it.index, token: Date.now() });
+  };
   const rowsByKey = useMemo(() => new Map(rows.map((r) => [r.key, r])), [rows]);
   const unit = UNITS.get(unitKey) ?? null;
   const crs = useMemo<CrsOptions | null>(() => (unit ? { proj4: buildVn2000(unit.lon0, zone), swapXY: false, unitScale: 1 } : null), [unit, zone]);
@@ -503,6 +539,11 @@ export default function DwgToGdb() {
     return { token: reassignVersion, indexes };
   }, [justMoved, editView, reassignVersion]);
   const editLayers = useMemo(() => new Set(editView?.doc.layers.map((l) => l.name) ?? []), [editView]);
+  /** A suspect clicked in the list: selected and zoomed to once the preview of its drawing is on the map. */
+  const suspectSelect = useMemo(
+    () => (suspectFocus && !editMode && preview && preview.id === suspectFocus.drawing ? { token: 1_000_000 + (suspectFocus.token % 1_000_000_000), indexes: [suspectFocus.index] } : null),
+    [suspectFocus, editMode, preview],
+  );
 
   // ----- Mapping edits -----
   const setRole = (id: string, role: RoleId) => {
@@ -1099,6 +1140,16 @@ export default function DwgToGdb() {
                   <IconSearch width={14} height={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
                   <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tìm layer" className="ui-input w-full pl-8" />
                 </label>
+                {suspectItems.length > 0 && (
+                  <button
+                    className={`ui-chip whitespace-nowrap ${suspectsOpen ? '!bg-amber-100 !text-amber-900' : '!bg-amber-50 !text-amber-800'}`}
+                    onClick={() => setSuspectsOpen((o) => !o)}
+                    aria-pressed={suspectsOpen}
+                    title="Các hình chữ nhật có vẻ là khung quanh nhãn tên nhưng chưa chắc — xem trên bản đồ và chọn xóa"
+                  >
+                    Ô nghi ngờ {fmt(suspectKept)}
+                  </button>
+                )}
               </div>
             </div>
             <div className="ui-scroll min-h-0 flex-1 overflow-y-auto">
@@ -1368,7 +1419,8 @@ ${cm.reason}` : ''}`}>
             reassigned={{ here: editMode ? reassignedHere : moved.indexes, total: reassign.size }}
             movedGroups={editMode ? undefined : moved.groups.map((g) => ({ id: g.id, label: `→ ${targetOption(g.target)?.cls ?? g.target}`, color: g.color, indexes: g.indexes }))}
             onRevertAll={setReassignAll}
-            autoSelect={autoSelect}
+            autoSelect={autoSelect ?? suspectSelect}
+            zoomTo={suspectSelect}
             undo={{ can: excludedHistory.length > 0, run: undoExcluded }}
             editMode={editMode}
             onEditMode={setEditMode}
@@ -1383,6 +1435,18 @@ ${cm.reason}` : ''}`}>
           />
         );
 
+        const suspectPanel = suspectsOpen ? (
+          <SuspectBoxes
+            items={suspectItems}
+            activeDrawing={sel}
+            focusKey={suspectFocus?.key ?? null}
+            onFocus={focusSuspect}
+            onDelete={(its) => editExcluded(its.map((i): SourceRef => [i.drawing, i.index]), [])}
+            onRestore={(its) => editExcluded([], its.map((i): SourceRef => [i.drawing, i.index]))}
+            onClose={() => setSuspectsOpen(false)}
+          />
+        ) : null;
+
         // ---------- Phones: everything stacked, the page scrolls ----------
         if (phone)
           return (
@@ -1390,6 +1454,7 @@ ${cm.reason}` : ''}`}>
               {(error || notice) && <div className="px-3 pt-2">{messageBox}</div>}
               <aside className="flex max-h-[40dvh] shrink-0 flex-col border-b border-zinc-200 bg-white">{drawingsBody}</aside>
               <section className="relative h-[50dvh] shrink-0">{map(0, 0)}</section>
+              {suspectPanel && <section className="border-t border-zinc-200 bg-white p-2">{suspectPanel}</section>}
               <section className="flex min-h-[50dvh] flex-col border-t border-zinc-200 bg-white">{mappingBody}</section>
             </>
           );
@@ -1461,6 +1526,12 @@ ${cm.reason}` : ''}`}>
                 Ghép layer
                 {totalReview > 0 && <span className="rounded-full bg-amber-50 px-1.5 text-[11px] font-semibold text-amber-800">{fmt(totalReview)} cần xem</span>}
               </button>
+            )}
+
+            {suspectPanel && (
+              <div className="absolute bottom-3 z-30 w-[26rem] max-w-[calc(100%-1.5rem)]" style={{ right: rightInset + GAP }}>
+                {suspectPanel}
+              </div>
             )}
 
             {(error || notice) && (

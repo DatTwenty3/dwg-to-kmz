@@ -216,11 +216,12 @@ class DwgConverter {
         kind: 'poly',
         vertices: p.vertices.map((v) => ({ x: num(v.x), y: num(v.y), bulge: num(v.bulge) })),
         closed: true,
+        flag: num(p.boundaryPathTypeFlag),
       };
     }
     if ('edges' in p && Array.isArray(p.edges)) {
       const edges = p.edges.map((e) => this.edge(e)).filter((e): e is SrcEdge => e !== null);
-      return edges.length ? { kind: 'edges', edges } : null;
+      return edges.length ? { kind: 'edges', edges, flag: num(p.boundaryPathTypeFlag) } : null;
     }
     return null;
   }

@@ -39,6 +39,7 @@ import {
   xrefNameRole,
   type MappingEntry,
 } from '@/lib/dwg2gdb';
+import { findSuspectBoxes } from '@/lib/dwg2gdb/suspectBox';
 import { chainRings, isClosedLine, nearlyClosedOutline, ringArea, ringsToPolygons } from '@/lib/dwg2gdb/geometry';
 import { parseSr } from '@/lib/gdb/check';
 
@@ -468,6 +469,24 @@ describe('rectangle drawn round a label (nghi khung nhãn tên)', () => {
   it('does not mark a row without such boxes', () => {
     const plain = layerRows('a', doc([entities[0]]), new Uint8Array(1).fill(1)).find((r) => r.kind === 'A')!;
     expect(plain.labelBoxes).toBeUndefined();
+  });
+});
+
+describe('suspect label boxes are put in their layer row (suggested, not left out)', () => {
+  const hatch3 = (ring: Vec2[]): CadEntity => ({ kind: 'polygon', layer: 'QHDD_DAT_XD_Dato', color: '#ffcc00', fillOpacity: 0.5, rings: [ring] });
+  const label: CadEntity = { kind: 'text', layer: 'TEXT', color: '#000000', text: 'TRƯỜNG TH ĐÔN XUÂN A', position: [205, 152], height: 8, rotation: 0, hAlign: 'center', vAlign: 'middle' };
+  const entities = [hatch3([[0, 0], [400, 0], [400, 300], [0, 300]]), hatch3([[150, 140], [260, 140], [260, 164], [150, 164]]), label];
+  const flags = new Uint8Array(entities.length).fill(1);
+  it('lists the suspect of the row with its text, rule and size, and leaves the exact boundaries out of it', () => {
+    const rows = layerRows('a', doc(entities), flags, undefined, undefined, findSuspectBoxes({ entities }, flags));
+    const row = rows.find((r) => r.layer === 'QHDD_DAT_XD_Dato' && r.kind === 'A')!;
+    expect(row.suspects).toHaveLength(1);
+    expect(row.suspects![0]).toMatchObject({ i: 1, text: 'TRƯỜNG TH ĐÔN XUÂN A', why: 'fit' });
+    expect(row.labelBoxes).toBeUndefined(); // nothing is an exact MTEXT boundary here
+  });
+  it('a row without suspects has none', () => {
+    const rows = layerRows('a', doc([entities[0]]), new Uint8Array(1).fill(1));
+    expect(rows.find((r) => r.kind === 'A')!.suspects).toBeUndefined();
   });
 });
 

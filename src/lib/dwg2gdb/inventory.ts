@@ -5,6 +5,7 @@ import type { CadDocument, CadEntity, Vec2 } from '@/lib/cad/types';
 import { colorKey, describeColorKey, keyColor, type ColorContext, type ColorInfo } from './colorClass';
 import { bboxOf, chainRings, interiorPoint, isClosedLine, labelIn, labelIndex, nearlyClosedOutline, ringArea } from './geometry';
 import { findLabelBoxes } from './labelBox';
+import type { Suspect, SuspectWhy } from './suspectBox';
 import { compactName, isAnnotationLayer, landUseOf, sameLandUse, type GeomKind } from './suggest';
 
 /** Layer names of the planning boundary ("BV_Rg_Lapquyhoach", "Ranh giới lập quy hoạch", "RANH QH"…). */
@@ -262,11 +263,13 @@ export interface LayerRow {
   labelBoxIndexes?: number[];
   /** A few of the labels they frame. */
   labelBoxSamples?: string[];
+  /** A / L rows: rectangles that look like a label box without being the exact boundary of an MTEXT — only suggested (see suspectBox.ts). */
+  suspects?: { i: number; text: string; why: SuspectWhy; w: number; h: number }[];
 }
 
 const NUMERIC = /^[+\-±]?\d{1,4}([.,]\d{1,3})?$/;
 
-export function layerRows(drawing: string, doc: CadDocument, flags: Uint8Array, ctx?: ColorContext, framed?: Map<number, string>): LayerRow[] {
+export function layerRows(drawing: string, doc: CadDocument, flags: Uint8Array, ctx?: ColorContext, framed?: Map<number, string>, suspected?: Map<number, Suspect>): LayerRow[] {
   const rows = new Map<string, LayerRow & { numeric: number }>();
   let labels: ReturnType<typeof labelIndex> | null = null;
   let boxes: ReturnType<typeof findLabelBoxes> | null = framed ?? null;
@@ -292,6 +295,8 @@ export function layerRows(drawing: string, doc: CadDocument, flags: Uint8Array, 
     if (!flags[i]) return;
     r.count++;
     if (e.kind === 'polygon' || e.kind === 'polyline') {
+      const sus = suspected?.get(i);
+      if (sus) (r.suspects ??= []).push({ i, text: sus.text, why: sus.why, w: sus.w, h: sus.h });
       boxes ??= findLabelBoxes(doc, flags);
       const framed = boxes.get(i);
       if (framed !== undefined) {

@@ -106,7 +106,8 @@ export type SrcEdge =
   | { type: 'ellipse'; center: Vec2; majorAxis: Vec2; ratio: number; start: number; end: number; ccw: boolean }
   | { type: 'spline'; degree: number; knots: number[]; controlPoints: Vec2[]; weights?: number[]; fitPoints: Vec2[] };
 
-export type SrcLoop = { kind: 'poly'; vertices: SrcVertex[]; closed: boolean } | { kind: 'edges'; edges: SrcEdge[] };
+/** `flag` = the boundary path type flags of the file (DXF group 92): 1 external, 2 polyline, 4 derived, 8 text box, 16 outermost. */
+export type SrcLoop = { kind: 'poly'; vertices: SrcVertex[]; closed: boolean; flag?: number } | { kind: 'edges'; edges: SrcEdge[]; flag?: number };
 
 export interface SrcHatch extends SrcCommon {
   type: 'hatch';

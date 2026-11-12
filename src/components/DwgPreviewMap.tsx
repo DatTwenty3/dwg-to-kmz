@@ -57,6 +57,7 @@ export default function DwgPreviewMap({
   movedGroups,
   onRevertAll,
   autoSelect = null,
+  zoomTo = null,
   undo,
   loadingText,
   editMode,
@@ -95,6 +96,8 @@ export default function DwgPreviewMap({
   onRevertAll?: () => void;
   /** Select these features (once per `token`): the objects just moved, when the view that holds them is ready. */
   autoSelect?: { token: number; indexes: number[] } | null;
+  /** Zoom to these objects (once per `token`): the suspect rectangle the user clicked in the list. */
+  zoomTo?: { token: number; indexes: number[] } | null;
   undo: { can: boolean; run: () => void };
   /** Spinner text while `loading` (default: drawing the drawing). */
   loadingText?: string;
@@ -178,13 +181,26 @@ export default function DwgPreviewMap({
   // Zoom to the drawing, then to the selected layer.
   const fit = useMemo(() => {
     if (!doc) return undefined;
+    if (zoomTo?.indexes.length) {
+      const want = new Set(zoomTo.indexes);
+      const near = doc.entities.filter((e) => {
+        const i = previewIndex(e.handle);
+        return i !== null && want.has(i);
+      });
+      if (near.length) {
+        // A margin round the objects (the box of a label is a few metres wide): never closer than a street.
+        const [[x0, y0], [x1, y1]] = robustBBox(near);
+        const pad = Math.max(0.00035, 0.6 * Math.max(x1 - x0, y1 - y0));
+        return { bounds: [[x0 - pad, y0 - pad], [x1 + pad, y1 + pad]] as [Vec2, Vec2], seq: 7919 * (zoomTo.token + 1) };
+      }
+    }
     const entities = focusLayer ? doc.entities.filter((e) => e.layer === focusLayer && (!focusColor || e.kind !== 'polygon' || e.color.toLowerCase() === focusColor)) : doc.entities;
     const bounds = entities.length ? documentBounds({ ...doc, entities, bbox: robustBBox(entities) }) : null;
     const key = `${doc.entities.length}|${doc.bbox.flat().join(',')}|${focusLayer ?? ''}|${focusColor ?? ''}`;
     let seq = 0;
     for (let i = 0; i < key.length; i++) seq = (seq * 31 + key.charCodeAt(i)) | 0;
     return bounds ? { bounds: bounds as [Vec2, Vec2], seq } : undefined;
-  }, [doc, focusLayer, focusColor]);
+  }, [doc, focusLayer, focusColor, zoomTo]);
 
   const toggle = (indexes: number[], add?: boolean) =>
     setSelected((s) => {

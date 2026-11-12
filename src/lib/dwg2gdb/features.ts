@@ -11,6 +11,7 @@ import { compactName, parseTarget, type TargetPath } from './suggest';
 import { chainIds, layerRank, layerSurface, parseBridgeText, parseRoadText, parseRouteSign, lineForSign, roadFields, textAlong, type RoadName, type RoadText } from './roads';
 import { domainCode } from '@/lib/gdb/tt16Schema';
 import { entryFor, targetOption, type MappingEntry, type ReassignEntry } from './template';
+import { mergeOverlappingAreas } from './overlap';
 import { symbolsOfSection, type Tt16Symbol } from './tt16Symbols';
 
 export type GeoJsonGeometry =
@@ -558,6 +559,19 @@ export function buildFeatures(drawings: DrawingInput[], mapping: Map<string, Map
   if (chainedToArea) notes.push(`Nối ${chainedToArea} vùng từ các đoạn đường hở khép kín với nhau (ranh vẽ nhiều đoạn)`);
   if (openToArea) notes.push(`Bỏ qua ${openToArea} đường hở ghép vào lớp vùng nhưng không khép kín được thành vùng`);
   if (duplicates) notes.push(`Bỏ ${duplicates} đối tượng trùng (cùng một đối tượng vẽ ở nhiều bản đồ)`);
+  // Two hatches of the same symbol drawn over each other are one region: united, not one of the two kept.
+  let absorbed = 0;
+  let united = 0;
+  for (const c of byTarget.values()) {
+    if (c.geom !== 'A' || c.features.length < 2) continue;
+    const m = mergeOverlappingAreas(c.features);
+    if (m.groups) {
+      c.features = m.features;
+      absorbed += m.absorbed;
+      united += m.groups;
+    }
+  }
+  if (united) notes.push(`Hợp ${absorbed + united} vùng cùng loại chồng lên nhau thành ${united} vùng`);
   const classes: ClassData[] = [...byTarget.values()]
     .filter((c) => c.features.length)
     .map((c) => ({ target: c.target, db: c.db, dataset: c.dataset, cls: c.cls, geom: c.geom, features: c.features, styles: stylesOf(c.tally) }));

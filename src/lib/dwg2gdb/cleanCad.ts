@@ -363,7 +363,7 @@ export function cleanDocument(drawings: CleanDrawing[], mapping: Map<string, Map
       if (t) {
         const cls = t.cls;
         if (cls === 'ChucNangSuDungDat_A') {
-          // A rectangle drawn round a label ("khoanh nhãn tên") on a land-use layer, lying over the real parcels: not a parcel — kept apart
+          // The boundary AutoCAD put round the text block of an MTEXT when the hatch was made (a loop of the land-use hatch): not a parcel — kept apart
           // for the reviewer. Only land-use rows: a house or a bridge drawn as a rectangle with its number / name inside is a real object.
           if ((e.kind === 'polygon' || e.kind === 'polyline') && labelBoxes.has(i)) return { layer: LABEL_BOX_LAYER, color: aciHex(8), why: `${LABEL_BOX_REASON} — nhãn "${labelBoxes.get(i)!.slice(0, 40)}"`, look: true };
           if (e.kind === 'polygon') {

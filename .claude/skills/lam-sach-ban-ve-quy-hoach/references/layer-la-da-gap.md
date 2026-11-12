@@ -132,3 +132,7 @@ Người vẽ hay **khoanh một hình chữ nhật (hatch màu hoặc đường
 - Khung nhãn là **đường biên của một hatch** (AutoCAD đặt khung quanh chữ khi tô hatch; MTEXT nhãn bật nền chữ), không phải hatch riêng — trong IR mọi khung của một hatch có chung `handle`.
 - **Không bỏ đường biên theo cờ text box (bit 16)**: cờ này cũng gắn trên thửa thật (QH02 Đôn Châu: 466 đường biên `DUONG NHUA` cỡ 122 × 250 m); thử bỏ ở bộ đọc làm mất ~174 thửa lúa + 1.600 vùng ở An Phú Tân, đã hoàn tác. Kiểm bằng `scripts/gdb-landuse.py` (số vùng + diện tích theo phân loại) **trước/sau** mỗi thay đổi bộ đọc — vùng tụt hàng trăm là dấu hiệu bỏ nhầm thửa thật.
 - Khung MTEXT thật (`TextEntity.box`) dùng khi có; web app **tự bỏ** khung mặc định, người dùng "Hoàn lại" từng hàng.
+
+### Quy tắc khung nhãn chỉ còn "đường biên MTEXT" (11/2026, theo yêu cầu chủ dự án)
+- Chỉ loại hình chữ nhật **chứa trọn khối chữ của một MTEXT** (`TextEntity.box`) với lề ≤ 1,2 × cao chữ. Đã bỏ mọi quy tắc phỏng đoán ở các mục trên (cỡ vừa chữ, ô xếp chồng, ô dải…) để không loại nhầm thửa thật.
+- Đổi lại **thu hồi thấp**: QH05 chỉ 20 / ~65 khung khớp (phần còn lại do chữ đã dời/sửa sau khi tô hoặc là TEXT thường) → Đôn Châu QuyHoach vùng đất 575 → 628, còn 59 vùng chữ nhật (`scripts/gdb-rects.py`). Người làm sạch phải **xem ảnh + dùng `quyet-dinh.json`** cho phần còn lại, hoặc báo người dùng.

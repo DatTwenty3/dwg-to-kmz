@@ -449,8 +449,8 @@ describe('the same outline read from two maps', () => {
 
 describe('rectangle drawn round a label (nghi khung nhãn tên)', () => {
   const hatch = (ring: Vec2[]): CadEntity => ({ kind: 'polygon', layer: 'QHDD_DAT_XD_Dato', color: '#ffcc00', fillOpacity: 0.5, rings: [ring] });
-  const text: CadEntity = { kind: 'text', layer: 'TEXT', color: '#000000', text: 'TRƯỜNG TH ĐÔN XUÂN A', position: [205, 152], height: 8, rotation: 0, hAlign: 'center', vAlign: 'middle' };
-  const entities = [hatch([[0, 0], [400, 0], [400, 300], [0, 300]]), hatch([[150, 140], [260, 140], [260, 164], [150, 164]]), text];
+  const text: CadEntity = { kind: 'text', layer: 'TEXT', color: '#000000', text: 'TRƯỜNG TH ĐÔN XUÂN A', position: [152, 162], height: 8, rotation: 0, hAlign: 'left', vAlign: 'top', box: { w: 105, h: 20 } };
+  const entities = [hatch([[0, 0], [400, 0], [400, 300], [0, 300]]), hatch([[149, 138], [259, 138], [259, 164], [149, 164]]), text];
   const rows = layerRows('a', doc(entities), new Uint8Array(entities.length).fill(1));
   const row = rows.find((r) => r.layer === 'QHDD_DAT_XD_Dato' && r.kind === 'A')!;
   it('is counted in the row of its layer, with the index and the label it frames', () => {
@@ -463,7 +463,7 @@ describe('rectangle drawn round a label (nghi khung nhãn tên)', () => {
     const m = initialMapping({ drawings: [{ id: 'a', role: 'qh-sdd' }], rows } as never, null).get(row.key)!;
     expect(m.target).toMatch(/ChucNangSuDungDat_A$/);
     expect(m.review).toBe(true);
-    expect(m.reason).toContain('khoanh nhãn tên');
+    expect(m.reason).toContain('MTEXT');
   });
   it('does not mark a row without such boxes', () => {
     const plain = layerRows('a', doc([entities[0]]), new Uint8Array(1).fill(1)).find((r) => r.kind === 'A')!;
@@ -473,8 +473,8 @@ describe('rectangle drawn round a label (nghi khung nhãn tên)', () => {
 
 describe('rectangles round labels are left out by default', () => {
   const hatch2 = (ring: Vec2[]): CadEntity => ({ kind: 'polygon', layer: 'QHDD_DAT_XD_Dato', color: '#ffcc00', fillOpacity: 0.5, rings: [ring] });
-  const label: CadEntity = { kind: 'text', layer: 'TEXT', color: '#000000', text: 'TRƯỜNG TH ĐÔN XUÂN A', position: [205, 152], height: 8, rotation: 0, hAlign: 'center', vAlign: 'middle' };
-  const entities = [hatch2([[0, 0], [400, 0], [400, 300], [0, 300]]), hatch2([[150, 140], [260, 140], [260, 164], [150, 164]]), label];
+  const label: CadEntity = { kind: 'text', layer: 'TEXT', color: '#000000', text: 'TRƯỜNG TH ĐÔN XUÂN A', position: [152, 162], height: 8, rotation: 0, hAlign: 'left', vAlign: 'top', box: { w: 105, h: 20 } };
+  const entities = [hatch2([[0, 0], [400, 0], [400, 300], [0, 300]]), hatch2([[149, 138], [259, 138], [259, 164], [149, 164]]), label];
   const rows = layerRows('a', doc(entities), new Uint8Array(entities.length).fill(1));
   const row = rows.find((r) => r.layer === 'QHDD_DAT_XD_Dato' && r.kind === 'A')!;
   const mapping = () => initialMapping({ drawings: [{ id: 'a', role: 'qh-sdd' }], rows } as never, null);

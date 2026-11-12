@@ -1,81 +1,73 @@
-// Hình chữ nhật người vẽ khoanh quanh một nhãn tên (không phải thửa đất).
+// The boundary of an MTEXT inside a hatch: a rectangle holding the text block of an MTEXT with a small margin. Nothing else is a label box.
 import { describe, expect, it } from 'vitest';
 import type { CadEntity, Vec2 } from '@/lib/cad/types';
-import { findLabelBoxes, rectangleOf } from '@/lib/dwg2gdb/labelBox';
+import { findLabelBoxes, findLabelBoxesAcross, rectangleOf } from '@/lib/dwg2gdb/labelBox';
 
 const rect = (x: number, y: number, w: number, h: number): Vec2[] => [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
 const hatch = (ring: Vec2[], layer = 'QHDD_DAT_XD_Dato'): CadEntity => ({ kind: 'polygon', layer, color: '#ffcc00', fillOpacity: 0.5, rings: [ring] });
 const outline = (ring: Vec2[], layer = 'QHDD_DAT_XD_Dato'): CadEntity => ({ kind: 'polyline', layer, color: '#ffcc00', points: ring, closed: true });
-const text = (t: string, x: number, y: number, height = 8, extra: Partial<Extract<CadEntity, { kind: 'text' }>> = {}): CadEntity => ({
-  kind: 'text', layer: 'TEXT', color: '#000000', text: t, position: [x, y], height, rotation: 0, hAlign: 'center', vAlign: 'middle', ...extra,
+/** An MTEXT of the given block size, anchored top-left (attachment 1) like the labels of the real drawings. */
+const mtext = (t: string, x: number, y: number, box: { w: number; h: number }, height = 8, extra: Partial<Extract<CadEntity, { kind: 'text' }>> = {}): CadEntity => ({
+  kind: 'text', layer: 'TEXT', color: '#000000', text: t, position: [x, y], height, rotation: 0, hAlign: 'left', vAlign: 'top', box, ...extra,
 });
 const all = (n: number) => new Uint8Array(n).fill(1);
+// The block of the text: x 100…170, y 100…126 (top-left anchor at (100, 126)); AutoCAD's margins: 2,5 left/right, 4,5 bottom, 2 top.
+const block = { w: 70, h: 26 };
+const boundary = rect(97.5, 95.5, 75, 32.5);
 
-describe('findLabelBoxes', () => {
-  // A 400 × 300 parcel with a small box (110 × 24) holding its name.
-  const parcel = hatch([[0, 0], [400, 0], [400, 300], [0, 300]]);
-
-  it('flags a rectangle holding a text that lies over a bigger parcel', () => {
-    const entities = [parcel, hatch(rect(150, 140, 110, 24)), text('CHỢ XÃ ĐÔN XUÂN A', 205, 152)];
-    const found = findLabelBoxes({ entities }, all(entities.length));
-    expect([...found.keys()]).toEqual([1]);
-    expect(found.get(1)).toBe('CHỢ XÃ ĐÔN XUÂN A');
+describe('findLabelBoxes (the boundary of an MTEXT)', () => {
+  it('flags the rectangle that is the text block plus a small margin', () => {
+    const entities = [hatch(boundary), mtext('TRƯỜNG TH ĐÔN XUÂN A', 100, 126, block)];
+    const found = findLabelBoxes({ entities }, all(2));
+    expect([...found.keys()]).toEqual([0]);
+    expect(found.get(0)).toBe('TRƯỜNG TH ĐÔN XUÂN A');
   });
 
-  it('also flags a closed outline of 4 corners (and one closed by repeating the first vertex)', () => {
-    const entities = [parcel, outline(rect(150, 140, 110, 24)), text('CHỢ XÃ ĐÔN XUÂN A', 205, 152)];
-    expect([...findLabelBoxes({ entities }, all(3)).keys()]).toEqual([1]);
-    const closedByPoint: CadEntity = { kind: 'polyline', layer: 'X', color: '#fff', points: [...rect(150, 140, 110, 24), [150, 140]], closed: false };
-    expect([...findLabelBoxes({ entities: [parcel, closedByPoint, text('CHỢ XÃ ĐÔN XUÂN A', 205, 152)] }, all(3)).keys()]).toEqual([1]);
+  it('also a closed outline of 4 corners, and one closed by repeating the first vertex', () => {
+    expect([...findLabelBoxes({ entities: [outline(boundary), mtext('CHỢ', 100, 126, block)] }, all(2)).keys()]).toEqual([0]);
+    const closedByPoint: CadEntity = { kind: 'polyline', layer: 'X', color: '#fff', points: [...boundary, boundary[0]], closed: false };
+    expect([...findLabelBoxes({ entities: [closedByPoint, mtext('CHỢ', 100, 126, block)] }, all(2)).keys()]).toEqual([0]);
   });
 
-  it('follows a left-aligned text and a rotated box', () => {
-    const entities = [parcel, hatch(rect(150, 140, 110, 24)), text('TRƯỜNG TH ĐÔN XUÂN', 154, 146, 8, { hAlign: 'left', vAlign: 'baseline' })];
-    expect([...findLabelBoxes({ entities }, all(3)).keys()]).toEqual([1]);
+  it('follows the anchor of the text: a centred text, and a rectangle turned with a rotated text', () => {
+    const centred = [hatch(rect(95, 95, 80, 36)), mtext('CHỢ', 135, 113, block, 8, { hAlign: 'center', vAlign: 'middle' })];
+    expect([...findLabelBoxes({ entities: centred }, all(2)).keys()]).toEqual([0]);
+    const turned = [hatch([[0, 0], [30, 0], [30, 80], [0, 80]]), mtext('CHỢ', 2.5, 5, block, 8, { rotation: 90 })];
+    expect([...findLabelBoxes({ entities: turned }, all(2)).keys()]).toEqual([0]);
   });
 
-  it('flags a box hugging its text even when nothing lies under it, but not a roomy parcel with a small label', () => {
-    expect([...findLabelBoxes({ entities: [hatch(rect(0, 0, 110, 24)), text('CHỢ XÃ ĐÔN XUÂN A', 55, 12)] }, all(2)).keys()]).toEqual([0]);
-    expect(findLabelBoxes({ entities: [hatch(rect(0, 0, 300, 120)), text('CHỢ XÃ', 150, 60)] }, all(2)).size).toBe(0);
+  it('does not flag a rectangle much bigger than the text block, or one that does not hold it', () => {
+    expect(findLabelBoxes({ entities: [hatch(rect(60, 60, 200, 120)), mtext('CHỢ', 100, 126, block)] }, all(2)).size).toBe(0);
+    expect(findLabelBoxes({ entities: [hatch(rect(300, 300, 75, 33)), mtext('CHỢ', 100, 126, block)] }, all(2)).size).toBe(0);
   });
 
-  it('does not flag a small real parcel whose name is too long for it (the text sticks out)', () => {
-    expect(findLabelBoxes({ entities: [parcel, hatch(rect(190, 140, 15, 13)), text('NHÀ VĂN HÓA ẤP CHỢ MR 0,0235', 197, 146)] }, all(3)).size).toBe(0);
+  it('does not flag a rectangle that cuts the text block (the text sticks out of it)', () => {
+    expect(findLabelBoxes({ entities: [hatch(rect(110, 100, 75, 26)), mtext('CHỢ', 100, 126, block)] }, all(2)).size).toBe(0);
   });
 
-  it('flags a copy of a box (same corners, no text of its own), and a text offset from the box centre', () => {
-    const entities = [parcel, hatch(rect(150, 140, 110, 24)), hatch(rect(150, 140, 110, 24)), text('CHỢ XÃ ĐÔN XUÂN A', 160, 152, 8, { hAlign: 'left' })];
-    expect([...findLabelBoxes({ entities }, all(4)).keys()].sort()).toEqual([1, 2]);
-  });
-
-  it('flags the rectangles stacked under a box (touching or a few metres apart, not bigger), and its same-size copies elsewhere', () => {
-    const entities = [
-      parcel,
-      hatch(rect(100, 140, 200, 30)),
-      text('KHU TÁI ĐỊNH CƯ KCN ĐỊNH AN', 200, 155, 8),
-      hatch(rect(150, 108, 100, 28)), // 2 m under the first box
-      hatch(rect(180, 76, 60, 28)), // 4 m under the second
-      hatch(rect(500, 500, 100, 28)), // same size as the second, far away (parcel outside)
-    ];
-    expect([...findLabelBoxes({ entities }, all(entities.length)).keys()].sort()).toEqual([1, 3, 4, 5]);
-  });
-
-  it('does not flag a big parcel with a small text in it (the text does not fill the box)', () => {
-    const entities = [hatch(rect(100, 100, 200, 120)), parcel, text('P', 200, 160)];
-    expect(findLabelBoxes({ entities }, all(3)).size).toBe(0);
-  });
-
-  it('does not flag a box without text, or a box that is not a rectangle', () => {
-    const skew = hatch([[150, 140], [260, 140], [280, 164], [150, 164]]);
-    expect(findLabelBoxes({ entities: [parcel, hatch(rect(150, 140, 110, 24))] }, all(2)).size).toBe(0);
-    expect(findLabelBoxes({ entities: [parcel, skew, text('CHỢ XÃ ĐÔN XUÂN A', 205, 152)] }, all(3)).size).toBe(0);
+  it('only an MTEXT counts: a text without its block size frames nothing, and nothing is guessed from the look of the drawing', () => {
+    const plain = mtext('CHỢ', 100, 126, block);
+    delete (plain as { box?: unknown }).box;
+    expect(findLabelBoxes({ entities: [hatch(boundary), plain] }, all(2)).size).toBe(0);
+    // no text at all near the same rectangle: a parcel
+    expect(findLabelBoxes({ entities: [hatch(boundary)] }, all(1)).size).toBe(0);
+    // a real parcel over a bigger one, with a name beside it, is not a box
+    const parcel = hatch([[0, 0], [900, 0], [900, 600], [0, 600]]);
+    expect(findLabelBoxes({ entities: [parcel, hatch(rect(300, 300, 120, 24)), mtext('NHÀ VĂN HÓA', 305, 360, block)] }, all(3)).size).toBe(0);
   });
 
   it('ignores objects outside the planning boundary', () => {
-    const entities = [parcel, hatch(rect(150, 140, 110, 24)), text('CHỢ XÃ ĐÔN XUÂN A', 205, 152)];
-    const inside = all(3);
-    inside[1] = 0;
-    expect(findLabelBoxes({ entities }, inside).size).toBe(0);
+    const inside = all(2);
+    inside[0] = 0;
+    expect(findLabelBoxes({ entities: [hatch(boundary), mtext('CHỢ', 100, 126, block)] }, inside).size).toBe(0);
+  });
+
+  it('finds the box of an xref by the text of the map that loads it', () => {
+    const map = { doc: { entities: [mtext('CHỢ', 100, 126, block)] }, inside: all(1) };
+    const xref = { doc: { entities: [hatch(boundary)] }, inside: all(1) };
+    const [a, b] = findLabelBoxesAcross([map, xref]);
+    expect(a.size).toBe(0);
+    expect([...b.keys()]).toEqual([0]);
   });
 });
 
@@ -87,50 +79,13 @@ describe('rectangleOf', () => {
   });
 });
 
-describe('strip boxes of one height', () => {
-  it('flags a strip with the short side of a box (same direction, same layer) even when no text lies near it', () => {
-    const parcel = hatch([[0, 0], [900, 0], [900, 600], [0, 600]]);
-    const entities = [
-      parcel,
-      hatch(rect(100, 100, 150, 32)),
-      text('KHU THƯƠNG MẠI DỊCH VỤ KẾT HỢP', 175, 132, 8, { vAlign: 'top' }),
-      hatch(rect(400, 400, 186, 32)), // far from any text, 32 m high like the box above
-      hatch(rect(400, 300, 186, 90)), // not a strip: a real parcel
-    ];
-    expect([...findLabelBoxes({ entities }, all(entities.length)).keys()].sort()).toEqual([1, 3]);
-  });
-});
-
-describe('findLabelBoxes on a survey base', () => {
-  // A base of tens of thousands of rectangles (houses) with a couple of thousand labelled boxes on the same layer: the "copies / stacked
-  // boxes" pass must look only at the neighbours of a rectangle (it took minutes when it compared every rectangle with every box).
-  it('stays fast with many rectangles and many boxes on one layer', () => {
+describe('speed', () => {
+  it('stays fast with many rectangles and texts', () => {
     const entities: CadEntity[] = [];
-    for (let k = 0; k < 2000; k++) {
-      const x = (k % 50) * 400;
-      const y = Math.floor(k / 50) * 400;
-      entities.push(hatch(rect(x, y, 110, 24)), text('CHỢ XÃ ĐÔN XUÂN A', x + 55, y + 12));
-    }
-    for (let k = 0; k < 30000; k++) entities.push(hatch(rect((k % 200) * 90 + 50000, Math.floor(k / 200) * 90, 20 + (k % 7), 15 + (k % 5))));
+    for (let i = 0; i < 40000; i++) entities.push(hatch(rect((i % 200) * 30, Math.floor(i / 200) * 30, 25, 25)));
+    for (let i = 0; i < 2000; i++) entities.push(mtext('A', (i % 50) * 120 + 2, Math.floor(i / 50) * 120 + 20, { w: 20, h: 12 }));
     const t0 = Date.now();
-    const found = findLabelBoxes({ entities }, all(entities.length));
-    expect(Date.now() - t0).toBeLessThan(8000);
-    expect(found.size).toBeGreaterThanOrEqual(2000);
-  });
-
-  it('a stacked box touching a labelled box is still found through the grid', () => {
-    const entities = [hatch(rect(0, 0, 110, 24)), text('CHỢ XÃ ĐÔN XUÂN A', 55, 12), hatch(rect(110, 0, 40, 24)), hatch(rect(900, 900, 60, 70))];
-    expect([...findLabelBoxes({ entities }, all(entities.length)).keys()].sort()).toEqual([0, 2]);
-  });
-});
-
-describe('real MTEXT block size', () => {
-  it('a box sized for the real block (text.box) is found where the character estimate would not fit it', () => {
-    // 4 characters at height 20 estimate to ~48 × 25; the real block is 300 × 60 — the 320 × 70 box is sized for it
-    // (nothing lies under the box, so only the "sized for the text" rule can flag it)
-    const withBox = [hatch(rect(100, 100, 320, 70)), text('AB C', 110, 160, 20, { hAlign: 'left', vAlign: 'top', box: { w: 300, h: 60 } })];
-    expect([...findLabelBoxes({ entities: withBox }, all(2)).keys()]).toEqual([0]);
-    const withoutBox = [hatch(rect(100, 100, 320, 70)), text('AB C', 110, 160, 20, { hAlign: 'left', vAlign: 'top' })];
-    expect(findLabelBoxes({ entities: withoutBox }, all(2)).size).toBe(0);
+    findLabelBoxes({ entities }, all(entities.length));
+    expect(Date.now() - t0).toBeLessThan(5000);
   });
 });

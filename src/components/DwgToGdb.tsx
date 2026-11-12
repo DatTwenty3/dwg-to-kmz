@@ -1219,8 +1219,8 @@ ${cm.reason}` : ''}`}>
                               const skipped = r.labelBoxIndexes.filter((i) => gone?.has(i)).length;
                               const refs = r.labelBoxIndexes.map((i): SourceRef => [r.drawing, i]);
                               return (
-                                <p className="pl-5 text-[11px] leading-snug text-amber-700" title={`Hình chữ nhật có chữ nằm trong, chồng lên vùng đất khác — người vẽ khoanh để ghi nhãn, không phải thửa đất. Mặc định chúng được bỏ khỏi bản xuất; bấm "Hoàn lại" nếu đó thật sự là một vùng.${r.labelBoxSamples?.length ? ` Nhãn: ${r.labelBoxSamples.join(' · ')}` : ''}`}>
-                                  {fmt(r.labelBoxes)} khung nhãn tên{r.labelBoxSamples?.[0] ? ` (vd. ${r.labelBoxSamples[0]})` : ''}{skipped >= r.labelBoxes ? ' — đã tự bỏ khỏi bản xuất' : ''} ·{' '}
+                                <p className="pl-5 text-[11px] leading-snug text-amber-700" title={`Đường biên khung chữ của MTEXT trong hatch (AutoCAD đặt hình chữ nhật quanh khối chữ khi tô hatch) — không phải thửa đất. Mặc định chúng được bỏ khỏi bản xuất; bấm "Hoàn lại" nếu đó thật sự là một vùng.${r.labelBoxSamples?.length ? ` Chữ: ${r.labelBoxSamples.join(' · ')}` : ''}`}>
+                                  {fmt(r.labelBoxes)} khung chữ MTEXT{r.labelBoxSamples?.[0] ? ` (vd. ${r.labelBoxSamples[0]})` : ''}{skipped >= r.labelBoxes ? ' — đã tự bỏ khỏi bản xuất' : ''} ·{' '}
                                   {skipped < r.labelBoxes ? (
                                     <button type="button" className="font-medium underline underline-offset-2 hover:text-amber-900" onClick={() => editExcluded(refs, [])}>
                                       Bỏ qua {fmt(r.labelBoxes - skipped)}

@@ -9,6 +9,7 @@ import type { NormalizePlan, NormalizeStep } from '@/lib/gdb/normalize';
 import { inkForPaper } from '@/lib/map/cadGrid';
 import { ringsToPolygons } from './geometry';
 import type { DrawingInput, SourceRef } from './features';
+import { looksLikeRouteSign, signFrameBox } from './cleanCad';
 import { entityRowKey, PLAN_BOUNDARY_LAYER } from './inventory';
 import { roleById, type DbName, type RoleId } from './roles';
 import { compactName, layerLandUse, parseTarget } from './suggest';
@@ -80,6 +81,15 @@ export function cadSource(drawings: (DrawingInput & { role: RoleId; db?: DbName 
     const m = 0.1 * Math.max(b[2] - b[0], b[3] - b[1]);
     around = [b[0] - m, b[1] - m, b[2] + m, b[3] + m];
   }
+  // The number in a route sign's diamond sits on layer "0" (a sheet layer, left out of the margin) while its frame is on a layer of the map:
+  // a big number standing in a diamond / circle is the sign, whatever its layer.
+  const signFrames: [number, number, number, number][] = [];
+  for (const d of drawings) for (const e of d.doc.entities) {
+    const fb = e.kind === 'polyline' ? signFrameBox(e) : null;
+    if (fb) signFrames.push(fb);
+  }
+  const framedSign = (e: CadEntity) =>
+    e.kind === 'text' && looksLikeRouteSign(e) && signFrames.some((b) => Math.abs(e.position[0] - (b[0] + b[2]) / 2) <= 0.3 * (b[2] - b[0]) && Math.abs(e.position[1] - (b[1] + b[3]) / 2) <= 0.3 * (b[3] - b[1]));
   const entities: CadEntity[] = [];
   const refs: SourceRef[][][] = [];
   const seen = new Map<string, number>();
@@ -92,7 +102,7 @@ export function cadSource(drawings: (DrawingInput & { role: RoleId; db?: DbName 
     d.doc.entities.forEach((e, i) => {
       if (e.kind === 'table' || d.removed?.has(i)) return;
       if (!d.inside[i]) {
-        if (!around || SHEET_LAYER.test(compactName(e.layer)) || (e.kind === 'polygon' && isLandLayer(e.layer))) return;
+        if (!around || (SHEET_LAYER.test(compactName(e.layer)) && !framedSign(e)) || (e.kind === 'polygon' && isLandLayer(e.layer))) return;
         const box = entityBox(e);
         if (!box || box[0] < around[0] || box[1] < around[1] || box[2] > around[2] || box[3] > around[3]) return;
       }

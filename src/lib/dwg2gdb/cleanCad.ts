@@ -252,23 +252,38 @@ function onRoad(pos: Vec2, height: number, roads: readonly RoadLine[]): boolean 
 
 /** The small diamond / frame drawn round a route number (914C): a closed line of a few vertices with a sign inside. */
 function frameOfSign(e: CadEntity, signs: readonly Vec2[]): boolean {
-  // A diamond has 4 vertices; a circle (round the "QL54" label of Lưu Nghiệp Anh, 252 m) was already cut to 65 by the reader.
-  // Closed = flagged, or drawn as an open line whose last vertex returns to the first (An Phú Tân: 5 points, flag off).
-  if (e.kind !== 'polyline' || e.points.length > 70 || !signs.length) return false;
-  const first = e.points[0];
-  const last = e.points[e.points.length - 1];
-  if (!e.closed && !(e.points.length >= 4 && Math.hypot(first[0] - last[0], first[1] - last[1]) < 0.5)) return false;
-  // A box with horizontal and vertical sides is a table cell or a legend frame (the "440" of a quantity table), not a sign frame.
-  if (e.points.every((q, k) => k === 0 || Math.abs(q[0] - e.points[k - 1][0]) < 1e-3 || Math.abs(q[1] - e.points[k - 1][1]) < 1e-3)) return false;
-  const b = entityBox(e);
+  if (!signs.length) return false;
+  const b = signFrameBox(e);
   if (!b) return false;
   const w = b[2] - b[0];
   const h = b[3] - b[1];
-  // Long Hiệp: the diamond is 266 m across (a 188 m square turned 45°) on layer KYHIEU, the number 60 m high at its centre.
-  if (Math.max(w, h) > 400 || Math.min(w, h) < 20) return false;
   const cx = (b[0] + b[2]) / 2;
   const cy = (b[1] + b[3]) / 2;
   return signs.some((q) => Math.abs(q[0] - cx) <= 0.3 * w && Math.abs(q[1] - cy) <= 0.3 * h);
+}
+
+/**
+ * The extent of a line that can be the frame of a route sign (a diamond, a circle), else null. A diamond has 4 vertices; a circle
+ * (round the "QL54" label of Lưu Nghiệp Anh, 252 m) was already cut to 65 by the reader. Closed = flagged, or an open line whose last
+ * vertex returns to the first (An Phú Tân: 5 points, flag off). A box with horizontal and vertical sides is a table cell or a legend
+ * frame (the "440" of a quantity table), not a sign frame. Long Hiệp: the diamond is 266 m across (a 188 m square turned 45°).
+ */
+export function signFrameBox(e: CadEntity): [number, number, number, number] | null {
+  if (e.kind !== 'polyline' || e.points.length > 70 || e.points.length < 3) return null;
+  const first = e.points[0];
+  const last = e.points[e.points.length - 1];
+  if (!e.closed && !(e.points.length >= 4 && Math.hypot(first[0] - last[0], first[1] - last[1]) < 0.5)) return null;
+  if (e.points.every((q, k) => k === 0 || Math.abs(q[0] - e.points[k - 1][0]) < 1e-3 || Math.abs(q[1] - e.points[k - 1][1]) < 1e-3)) return null;
+  const b = entityBox(e);
+  if (!b) return null;
+  const w = b[2] - b[0];
+  const h = b[3] - b[1];
+  return Math.max(w, h) > 400 || Math.min(w, h) < 20 ? null : b;
+}
+
+/** A text that reads like a route sign (914C, 54, QL60) and is as big as one — whichever layer it sits on. */
+export function looksLikeRouteSign(e: CadEntity): boolean {
+  return e.kind === 'text' && e.height >= SIGN_MIN_HEIGHT && (!!parseRouteSign(e.text, null) || HIGHWAY_LABEL.test(norm(e.text)) || NATIONAL_NUMBER.test(e.text.trim()));
 }
 
 /** "22 kV", "EE-22", "Dien cao the 110KV" → "22" / "110" ('' when the name says no voltage). */

@@ -256,6 +256,20 @@ describe('dots of the boundary line type and the signs just outside the area', (
   });
 });
 
+describe('route sign outside the area: the number on layer "0" comes with its diamond', () => {
+  const ring = sq(X0, Y0, 1000);
+  const diamond = (cx: number, cy: number): CadEntity => ({ kind: 'polyline', layer: 'TEXT-giao thong-Ten duong', color: '#ffffff', width: 3, closed: false, points: [[cx - 40, cy], [cx, cy + 40], [cx + 40, cy], [cx, cy - 40], [cx - 40, cy]] });
+  const number = (t: string, cx: number, cy: number, h = 57): CadEntity => ({ ...text(t, [cx, cy], h, '0'), hAlign: 'center', vAlign: 'middle' } as CadEntity);
+  const cell: CadEntity = { kind: 'polyline', layer: 'text', color: '#ffffff', closed: true, points: [[X0 + 1040, Y0 + 300], [X0 + 1100, Y0 + 300], [X0 + 1100, Y0 + 340], [X0 + 1040, Y0 + 340]] };
+  it('keeps "915" and "54" (layer 0) standing in a diamond; a table number in a box with straight sides is not a sign', () => {
+    const d = doc([diamond(X0 + 1060, Y0 + 500), number('915', X0 + 1060, Y0 + 500), diamond(X0 + 1060, Y0 + 700), number('54', X0 + 1060, Y0 + 700), cell, number('440', X0 + 1070, Y0 + 320, 30)]);
+    const r = cadSourceDocument([{ id: 'd1', name: 'QH.dwg', doc: d, inside: new Uint8Array(d.entities.length), role: 'qh-sdd' as const }], new Map(), ring);
+    const texts = r.entities.filter((e) => e.kind === 'text').map((e) => (e as { text: string }).text).sort();
+    expect(texts).toEqual(['54', '915']);
+    expect(r.entities.filter((e) => e.kind === 'polyline' && e.layer.endsWith('Ten duong'))).toHaveLength(2);
+  });
+});
+
 describe('Biên tập → "Bản vẽ CAD"', () => {
   const road = (layer: string): CadEntity => ({ kind: 'polyline', layer, color: '#ff0000', points: [[X0 + 10, Y0 + 10], [X0 + 90, Y0 + 10]], closed: false });
   const d = doc([road('HTKT_GT_Heduong'), road('KS_X'), text('Ghi chú', [X0 + 50, Y0 + 50])]);
